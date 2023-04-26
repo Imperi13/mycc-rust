@@ -7,7 +7,33 @@ fn main() {
         panic!("incorrect argument count");
     }
 
-    codegen(&args[1]);
+    let code = format!("{}\n", args[1]);
+}
+
+mod tokenize {
+
+    #[derive(Debug)]
+    pub enum TokenKind {
+        TokenNum(i64),
+        TokenNewline,
+    }
+
+    #[derive(Debug)]
+    struct TokenNode {
+        elem: TokenKind,
+        next: TokenList,
+    }
+
+    #[derive(Debug)]
+    enum TokenLink {
+        Empty,
+        More(Box<TokenNode>),
+    }
+
+    #[derive(Debug)]
+    pub struct TokenList {
+        head: TokenLink,
+    }
 }
 
 mod codegen {
