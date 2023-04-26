@@ -22,8 +22,6 @@ fn main() {
     builder.position_at_end(basic_block);
     builder.build_return(Some(&i32_type.const_int(ret_num, false)));
 
-    let path = Path::new("module.bc");
-    module.write_bitcode_to_path(path);
-
-    println!("{}", ret_num);
+    let path = Path::new("module.ll");
+    module.print_to_file(path).unwrap();
 }
