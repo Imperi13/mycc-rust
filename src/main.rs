@@ -8,7 +8,11 @@ fn main() {
         panic!("incorrect argument count");
     }
 
-    let ret_num: u64 = args[1].parse().unwrap();
+    codegen(&args[1]);
+}
+
+fn codegen(code: &str) {
+    let ret_num: u64 = code.parse().unwrap();
 
     let context = Context::create();
     let module = context.create_module("main");
@@ -24,4 +28,29 @@ fn main() {
 
     let path = Path::new("module.ll");
     module.print_to_file(path).unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::process::Command;
+
+    #[test]
+    fn codegen_test_1() {
+        codegen("12");
+    }
+
+    #[test]
+    fn codegen_test_2() {
+        codegen("12");
+        let status = Command::new("lli-12")
+            .arg("module.ll")
+            .status()
+            .expect("failed to execute lli");
+
+        match status.code() {
+            Some(code) => assert_eq!(12, code),
+            None => panic!("process terminated by signal"),
+        }
+    }
 }
