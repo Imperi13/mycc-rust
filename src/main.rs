@@ -1,5 +1,6 @@
 use codegen::codegen;
 use std::env;
+use tokenize::tokenize;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -8,31 +9,55 @@ fn main() {
     }
 
     let code = format!("{}\n", args[1]);
+
+    let tok_seq = tokenize(&code);
 }
 
 mod tokenize {
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
-    #[derive(Debug)]
     pub enum TokenKind {
-        TokenNum(i64),
+        TokenNumber(i64),
         TokenNewline,
     }
 
-    #[derive(Debug)]
-    struct TokenNode {
-        elem: TokenKind,
-        next: TokenList,
+    struct Node {
+        elem: i32,
+        next: Link,
     }
 
-    #[derive(Debug)]
-    enum TokenLink {
-        Empty,
-        More(Box<TokenNode>),
+    enum Link {
+        End,
+        More(Rc<RefCell<Node>>),
     }
 
-    #[derive(Debug)]
-    pub struct TokenList {
-        head: TokenLink,
+    pub struct List {
+        head: Rc<RefCell<Link>>,
+    }
+
+    fn tokenize_num(code: &str) -> (i64, &str) {
+        let num: i64 = 0;
+        let mut index: usize = 0;
+
+        loop {
+            let (_, ch) = code.char_indices().nth(index).unwrap();
+            if ch.is_digit(10) {
+                index += 1;
+            } else {
+                break;
+            }
+        }
+
+        let (byte_index,_) = code.char_indices().nth(index).unwrap(); 
+        (i64::from_str_radix(&code[..byte_index],10).unwrap(),&code[byte_index..])
+    }
+
+    pub fn tokenize(mut code: &str) -> List {
+        let tok_seq = Rc::new(RefCell::new(Link::End));
+        let cur = tok_seq.clone();
+
+        List { head: tok_seq }
     }
 }
 
