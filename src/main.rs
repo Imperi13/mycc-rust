@@ -12,6 +12,9 @@ fn main() {
 
     let tok_seq = tokenize(&code);
     println!("{:?}", tok_seq);
+
+    let test = tok_seq.next();
+    println!("{:?}", test);
 }
 
 mod tokenize {
@@ -19,13 +22,13 @@ mod tokenize {
     use std::fmt;
     use std::rc::Rc;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub enum PunctKind {
         PunctPlus,
         PunctMinus,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub enum TokenKind {
         TokenNumber(i64),
         TokenPunct(PunctKind),
@@ -42,8 +45,33 @@ mod tokenize {
         More(Node),
     }
 
+    #[derive(Clone)]
     pub struct List {
         head: Rc<RefCell<Link>>,
+    }
+
+    impl List {
+        pub fn is_empty(&self) -> bool {
+            matches!(*self.head.borrow(), Link::End)
+        }
+
+        pub fn next(&self) -> List {
+            if let Link::More(ref node) = *self.head.clone().borrow() {
+                List {
+                    head: node.next.clone(),
+                }
+            } else {
+                panic!("empty List")
+            }
+        }
+
+        pub fn get_token(&self) -> TokenKind {
+            if let Link::More(ref node) = *self.head.clone().borrow() {
+                node.elem.clone()
+            } else {
+                panic!("empty List")
+            }
+        }
     }
 
     impl fmt::Debug for List {
@@ -141,6 +169,8 @@ mod tokenize {
         List { head: tok_seq }
     }
 }
+
+mod parse {}
 
 mod codegen {
     use inkwell::context::Context;
