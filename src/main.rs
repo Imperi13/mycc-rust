@@ -20,8 +20,15 @@ mod tokenize {
     use std::rc::Rc;
 
     #[derive(Debug)]
+    pub enum PunctKind {
+        PunctPlus,
+        PunctMinus,
+    }
+
+    #[derive(Debug)]
     pub enum TokenKind {
         TokenNumber(i64),
+        TokenPunct(PunctKind),
         TokenNewline,
     }
 
@@ -55,7 +62,6 @@ mod tokenize {
     }
 
     fn tokenize_num(code: &str) -> (i64, &str) {
-        let num: i64 = 0;
         let mut index: usize = 0;
 
         loop {
@@ -86,6 +92,30 @@ mod tokenize {
                 let new_tok = Rc::new(RefCell::new(Link::End));
                 *cur.borrow_mut() = Link::More(Node {
                     elem: TokenKind::TokenNumber(num),
+                    next: new_tok.clone(),
+                });
+
+                cur = new_tok;
+                continue;
+            }
+
+            if code.chars().nth(0) == Some('+') {
+                code = &code[1..];
+                let new_tok = Rc::new(RefCell::new(Link::End));
+                *cur.borrow_mut() = Link::More(Node {
+                    elem: TokenKind::TokenPunct(PunctKind::PunctPlus),
+                    next: new_tok.clone(),
+                });
+
+                cur = new_tok;
+                continue;
+            }
+
+            if code.chars().nth(0) == Some('-') {
+                code = &code[1..];
+                let new_tok = Rc::new(RefCell::new(Link::End));
+                *cur.borrow_mut() = Link::More(Node {
+                    elem: TokenKind::TokenPunct(PunctKind::PunctMinus),
                     next: new_tok.clone(),
                 });
 
