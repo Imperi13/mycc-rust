@@ -11,29 +11,47 @@ fn main() {
     let code = format!("{}\n", args[1]);
 
     let tok_seq = tokenize(&code);
+    println!("{:?}", tok_seq);
 }
 
 mod tokenize {
     use std::cell::RefCell;
+    use std::fmt;
     use std::rc::Rc;
 
+    #[derive(Debug)]
     pub enum TokenKind {
         TokenNumber(i64),
         TokenNewline,
     }
 
     struct Node {
-        elem: i32,
-        next: Link,
+        elem: TokenKind,
+        next: Rc<RefCell<Link>>,
     }
 
     enum Link {
         End,
-        More(Rc<RefCell<Node>>),
+        More(Node),
     }
 
     pub struct List {
         head: Rc<RefCell<Link>>,
+    }
+
+    impl fmt::Debug for List {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            let mut cur = self.head.clone();
+            let mut index: usize = 0;
+
+            while let Link::More(ref node) = *cur.clone().borrow() {
+                write!(f, "{}th node: {:?}\n", index, node.elem)?;
+                index += 1;
+                cur = node.next.clone();
+            }
+
+            write!(f, "")
+        }
     }
 
     fn tokenize_num(code: &str) -> (i64, &str) {
@@ -49,13 +67,46 @@ mod tokenize {
             }
         }
 
-        let (byte_index,_) = code.char_indices().nth(index).unwrap(); 
-        (i64::from_str_radix(&code[..byte_index],10).unwrap(),&code[byte_index..])
+        let (byte_index, _) = code.char_indices().nth(index).unwrap();
+        (
+            i64::from_str_radix(&code[..byte_index], 10).unwrap(),
+            &code[byte_index..],
+        )
     }
 
     pub fn tokenize(mut code: &str) -> List {
         let tok_seq = Rc::new(RefCell::new(Link::End));
-        let cur = tok_seq.clone();
+        let mut cur = tok_seq.clone();
+
+        while !code.is_empty() {
+            let (_, ch) = code.char_indices().nth(0).unwrap();
+            if ch.is_digit(10) {
+                let num: i64;
+                (num, code) = tokenize_num(code);
+                let new_tok = Rc::new(RefCell::new(Link::End));
+                *cur.borrow_mut() = Link::More(Node {
+                    elem: TokenKind::TokenNumber(num),
+                    next: new_tok.clone(),
+                });
+
+                cur = new_tok;
+                continue;
+            }
+
+            if code.chars().nth(0) == Some('\n') {
+                code = &code[1..];
+                let new_tok = Rc::new(RefCell::new(Link::End));
+                *cur.borrow_mut() = Link::More(Node {
+                    elem: TokenKind::TokenNewline,
+                    next: new_tok.clone(),
+                });
+
+                cur = new_tok;
+                continue;
+            }
+
+            unreachable!();
+        }
 
         List { head: tok_seq }
     }
