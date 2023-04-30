@@ -177,6 +177,9 @@ mod parse {
     use std::cell::RefCell;
     use std::rc::Rc;
 
+    #[derive(Debug, Clone)]
+    pub struct ParseError;
+
     pub enum BinaryOpKind {
         BinaryOpPlus,
         BinaryOpMinus,
@@ -199,14 +202,14 @@ mod parse {
 
     pub fn parse_all(tok_seq: TokenList) -> AST {
         let node;
-        (_, node) = parse_add(tok_seq);
+        (_, node) = parse_add(tok_seq).unwrap();
 
         AST { head: node }
     }
 
-    fn parse_add(mut tok_seq: TokenList) -> (TokenList, Rc<RefCell<ASTNode>>) {
+    fn parse_add(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
         let mut lhs;
-        (tok_seq, lhs) = parse_primary(tok_seq);
+        (tok_seq, lhs) = parse_primary(tok_seq)?;
 
         while let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
             let kind = match punct {
@@ -217,7 +220,7 @@ mod parse {
             tok_seq = tok_seq.next();
 
             let rhs;
-            (tok_seq, rhs) = parse_primary(tok_seq);
+            (tok_seq, rhs) = parse_primary(tok_seq)?;
 
             lhs = Rc::new(RefCell::new(ASTNode::ASTBinaryOp(BinaryOpNode {
                 lhs,
@@ -226,17 +229,17 @@ mod parse {
             })));
         }
 
-        (tok_seq, lhs)
+        Ok((tok_seq, lhs))
     }
 
-    fn parse_primary(tok_seq: TokenList) -> (TokenList, Rc<RefCell<ASTNode>>) {
+    fn parse_primary(tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
         if let TokenKind::TokenNumber(num) = tok_seq.get_token() {
-            (
+            Ok((
                 tok_seq.next(),
                 Rc::new(RefCell::new(ASTNode::ASTNumber(num))),
-            )
+            ))
         } else {
-            unreachable!()
+            Err(ParseError {})
         }
     }
 }
