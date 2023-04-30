@@ -1,4 +1,5 @@
 use codegen::codegen;
+use parse::parse_all;
 use std::env;
 use tokenize::tokenize;
 
@@ -13,11 +14,10 @@ fn main() {
     let tok_seq = tokenize(&code);
     println!("{:?}", tok_seq);
 
-    let test = tok_seq.next();
-    println!("{:?}", test);
+    let tmp = parse_all(tok_seq);
 }
 
-mod tokenize {
+pub mod tokenize {
     use std::cell::RefCell;
     use std::fmt;
     use std::rc::Rc;
@@ -46,18 +46,18 @@ mod tokenize {
     }
 
     #[derive(Clone)]
-    pub struct List {
+    pub struct TokenList {
         head: Rc<RefCell<Link>>,
     }
 
-    impl List {
+    impl TokenList {
         pub fn is_empty(&self) -> bool {
             matches!(*self.head.borrow(), Link::End)
         }
 
-        pub fn next(&self) -> List {
+        pub fn next(&self) -> TokenList {
             if let Link::More(ref node) = *self.head.clone().borrow() {
-                List {
+                TokenList {
                     head: node.next.clone(),
                 }
             } else {
@@ -74,7 +74,7 @@ mod tokenize {
         }
     }
 
-    impl fmt::Debug for List {
+    impl fmt::Debug for TokenList {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             let mut cur = self.head.clone();
             let mut index: usize = 0;
@@ -108,7 +108,7 @@ mod tokenize {
         )
     }
 
-    pub fn tokenize(mut code: &str) -> List {
+    pub fn tokenize(mut code: &str) -> TokenList {
         let tok_seq = Rc::new(RefCell::new(Link::End));
         let mut cur = tok_seq.clone();
 
@@ -166,11 +166,80 @@ mod tokenize {
             unreachable!();
         }
 
-        List { head: tok_seq }
+        TokenList { head: tok_seq }
     }
 }
 
-mod parse {}
+mod parse {
+    use super::tokenize::PunctKind;
+    use super::tokenize::TokenKind;
+    use super::tokenize::TokenList;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    pub enum BinaryOpKind {
+        BinaryOpPlus,
+        BinaryOpMinus,
+    }
+
+    pub struct BinaryOpNode {
+        lhs: Rc<RefCell<ASTNode>>,
+        rhs: Rc<RefCell<ASTNode>>,
+        kind: BinaryOpKind,
+    }
+
+    pub enum ASTNode {
+        ASTBinaryOp(BinaryOpNode),
+        ASTNumber(i64),
+    }
+
+    pub struct AST {
+        head: Rc<RefCell<ASTNode>>,
+    }
+
+    pub fn parse_all(tok_seq: TokenList) -> AST {
+        let node;
+        (_, node) = parse_add(tok_seq);
+
+        AST { head: node }
+    }
+
+    fn parse_add(mut tok_seq: TokenList) -> (TokenList, Rc<RefCell<ASTNode>>) {
+        let mut lhs;
+        (tok_seq, lhs) = parse_primary(tok_seq);
+
+        while let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
+            let kind = match punct {
+                PunctKind::PunctPlus => BinaryOpKind::BinaryOpPlus,
+                PunctKind::PunctMinus => BinaryOpKind::BinaryOpMinus,
+            };
+
+            tok_seq = tok_seq.next();
+
+            let rhs;
+            (tok_seq, rhs) = parse_primary(tok_seq);
+
+            lhs = Rc::new(RefCell::new(ASTNode::ASTBinaryOp(BinaryOpNode {
+                lhs,
+                rhs,
+                kind,
+            })));
+        }
+
+        (tok_seq, lhs)
+    }
+
+    fn parse_primary(tok_seq: TokenList) -> (TokenList, Rc<RefCell<ASTNode>>) {
+        if let TokenKind::TokenNumber(num) = tok_seq.get_token() {
+            (
+                tok_seq.next(),
+                Rc::new(RefCell::new(ASTNode::ASTNumber(num))),
+            )
+        } else {
+            unreachable!()
+        }
+    }
+}
 
 mod codegen {
     use inkwell::context::Context;
