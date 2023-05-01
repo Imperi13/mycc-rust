@@ -239,9 +239,13 @@ mod parse {
         head: Rc<RefCell<ASTNode>>,
     }
 
-    pub fn parse_all(tok_seq: TokenList) -> AST {
+    pub fn parse_all(mut tok_seq: TokenList) -> AST {
         let node;
-        (_, node) = parse_add(tok_seq).unwrap();
+        (tok_seq, node) = parse_add(tok_seq).unwrap();
+
+        if !tok_seq.is_empty() {
+            panic!("parse error: cannot fully parse to the end")
+        }
 
         AST { head: node }
     }
