@@ -11,10 +11,13 @@ fn main() {
 
     let code = format!("{}\n", args[1]);
 
-    let tok_seq = tokenize(&code);
+    let mut tok_seq = tokenize(&code);
     println!("{:?}", tok_seq);
 
-    let tmp = parse_all(tok_seq);
+    tok_seq.remove_newline();
+    println!("{:?}", tok_seq);
+
+    let ast = parse_all(tok_seq);
 }
 
 pub mod tokenize {
@@ -70,6 +73,42 @@ pub mod tokenize {
                 node.elem.clone()
             } else {
                 panic!("empty List")
+            }
+        }
+
+        pub fn remove_newline(&mut self) {
+            // banpei
+            let new_self = Rc::new(RefCell::new(Link::More(Node {
+                elem: TokenKind::TokenNewline,
+                next: self.head.clone(),
+            })));
+            let mut new_cur = new_self.clone();
+            let mut cur = self.head.clone();
+
+            while let Link::More(ref node) = *cur.clone().borrow_mut() {
+                if let TokenKind::TokenNewline = node.elem {
+                    cur = node.next.clone();
+                } else {
+                    if let Link::More(ref mut new_node) = *new_cur.clone().borrow_mut() {
+                        new_node.next = cur.clone();
+                        new_cur = cur.clone();
+                        cur = node.next.clone();
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+
+            if let Link::More(ref mut new_node) = *new_cur.clone().borrow_mut() {
+                new_node.next = Rc::new(RefCell::new(Link::End));
+            } else {
+                unreachable!()
+            }
+
+            if let Link::More(ref new_self_node) = *new_self.clone().borrow() {
+                self.head = new_self_node.next.clone();
+            } else {
+                unreachable!()
             }
         }
     }
@@ -211,28 +250,36 @@ mod parse {
         let mut lhs;
         (tok_seq, lhs) = parse_primary(tok_seq)?;
 
-        while let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
-            let kind = match punct {
-                PunctKind::PunctPlus => BinaryOpKind::BinaryOpPlus,
-                PunctKind::PunctMinus => BinaryOpKind::BinaryOpMinus,
-            };
+        while !tok_seq.is_empty() {
+            if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
+                let kind = match punct {
+                    PunctKind::PunctPlus => BinaryOpKind::BinaryOpPlus,
+                    PunctKind::PunctMinus => BinaryOpKind::BinaryOpMinus,
+                };
 
-            tok_seq = tok_seq.next();
+                tok_seq = tok_seq.next();
 
-            let rhs;
-            (tok_seq, rhs) = parse_primary(tok_seq)?;
+                let rhs;
+                (tok_seq, rhs) = parse_primary(tok_seq)?;
 
-            lhs = Rc::new(RefCell::new(ASTNode::ASTBinaryOp(BinaryOpNode {
-                lhs,
-                rhs,
-                kind,
-            })));
+                lhs = Rc::new(RefCell::new(ASTNode::ASTBinaryOp(BinaryOpNode {
+                    lhs,
+                    rhs,
+                    kind,
+                })));
+            } else {
+                break;
+            }
         }
 
         Ok((tok_seq, lhs))
     }
 
     fn parse_primary(tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
+        if tok_seq.is_empty() {
+            return Err(ParseError {});
+        }
+
         if let TokenKind::TokenNumber(num) = tok_seq.get_token() {
             Ok((
                 tok_seq.next(),
