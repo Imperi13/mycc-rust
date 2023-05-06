@@ -227,9 +227,9 @@ mod parse {
     }
 
     pub struct BinaryOpNode {
-        lhs: Rc<RefCell<ASTNode>>,
-        rhs: Rc<RefCell<ASTNode>>,
-        kind: BinaryOpKind,
+        pub lhs: AST,
+        pub rhs: AST,
+        pub kind: BinaryOpKind,
     }
 
     pub enum ASTNode {
@@ -237,6 +237,7 @@ mod parse {
         ASTNumber(i64),
     }
 
+    #[derive(Clone)]
     pub struct AST {
         pub head: Rc<RefCell<ASTNode>>,
     }
@@ -269,8 +270,8 @@ mod parse {
                 (tok_seq, rhs) = parse_primary(tok_seq)?;
 
                 lhs = Rc::new(RefCell::new(ASTNode::ASTBinaryOp(BinaryOpNode {
-                    lhs,
-                    rhs,
+                    lhs: AST { head: lhs },
+                    rhs: AST { head: rhs },
                     kind,
                 })));
             } else {
@@ -299,6 +300,7 @@ mod parse {
 
 mod codegen {
     use super::parse::ASTNode;
+    use super::parse::BinaryOpKind;
     use super::parse::AST;
     use inkwell::builder::Builder;
     use inkwell::context::Context;
@@ -324,10 +326,28 @@ mod codegen {
             let main_fn = self.module.add_function("main", main_fn_type, None);
             let basic_block = self.context.append_basic_block(main_fn, "entry");
 
-            let val = self.codegen_primary(ast);
+            let val = self.codegen_add(ast);
 
             self.builder.position_at_end(basic_block);
             self.builder.build_return(Some(&val));
+        }
+
+        pub fn codegen_add(&self, ast: AST) -> IntValue {
+            match *ast.head.borrow() {
+                ASTNode::ASTNumber(_) => self.codegen_primary(ast.clone()),
+                ASTNode::ASTBinaryOp(ref binary_node) => match binary_node.kind {
+                    BinaryOpKind::BinaryOpPlus => {
+                        let lhs = self.codegen_primary(binary_node.lhs.clone());
+                        let rhs = self.codegen_primary(binary_node.rhs.clone());
+                        self.builder.build_int_add(lhs, rhs, "add node")
+                    }
+                    BinaryOpKind::BinaryOpMinus => {
+                        let lhs = self.codegen_primary(binary_node.lhs.clone());
+                        let rhs = self.codegen_primary(binary_node.rhs.clone());
+                        self.builder.build_int_sub(lhs, rhs, "add node")
+                    }
+                },
+            }
         }
 
         pub fn codegen_primary(&self, ast: AST) -> IntValue {
