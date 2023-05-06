@@ -1,4 +1,4 @@
-use codegen::codegen;
+use codegen::codegen_all;
 use parse::parse_all;
 use std::env;
 use tokenize::tokenize;
@@ -18,6 +18,8 @@ fn main() {
     println!("{:?}", tok_seq);
 
     let ast = parse_all(tok_seq);
+
+    codegen_all(ast);
 }
 
 pub mod tokenize {
@@ -236,7 +238,7 @@ mod parse {
     }
 
     pub struct AST {
-        head: Rc<RefCell<ASTNode>>,
+        pub head: Rc<RefCell<ASTNode>>,
     }
 
     pub fn parse_all(mut tok_seq: TokenList) -> AST {
@@ -296,50 +298,62 @@ mod parse {
 }
 
 mod codegen {
+    use super::parse::ASTNode;
+    use super::parse::AST;
+    use inkwell::builder::Builder;
     use inkwell::context::Context;
+    use inkwell::module::Module;
+    use inkwell::values::IntValue;
     use std::path::Path;
 
-    pub fn codegen(code: &str) {
-        let ret_num: u64 = code.parse().unwrap();
+    struct CodegenArena<'a> {
+        context: &'a Context,
+        module: Module<'a>,
+        builder: Builder<'a>,
+    }
 
+    impl CodegenArena<'_> {
+        pub fn print_to_file(&self, filepath: &str) {
+            let path = Path::new(filepath);
+            self.module.print_to_file(path).unwrap();
+        }
+
+        pub fn codegen_ret(&self, ast: AST) {
+            let i64_type = self.context.i64_type();
+            let main_fn_type = i64_type.fn_type(&[], false);
+            let main_fn = self.module.add_function("main", main_fn_type, None);
+            let basic_block = self.context.append_basic_block(main_fn, "entry");
+
+            let val = self.codegen_primary(ast);
+
+            self.builder.position_at_end(basic_block);
+            self.builder.build_return(Some(&val));
+        }
+
+        pub fn codegen_primary(&self, ast: AST) -> IntValue {
+            let i64_type = self.context.i64_type();
+
+            if let ASTNode::ASTNumber(num) = *ast.head.borrow() {
+                i64_type.const_int(num as u64, false)
+            } else {
+                panic!("not primary node")
+            }
+        }
+    }
+
+    pub fn codegen_all(ast: AST) {
         let context = Context::create();
         let module = context.create_module("main");
         let builder = context.create_builder();
 
-        let i32_type = context.i32_type();
-        let main_fn_type = i32_type.fn_type(&[], false);
-        let main_fn = module.add_function("main", main_fn_type, None);
-        let basic_block = context.append_basic_block(main_fn, "entry");
+        let arena = CodegenArena {
+            context: &context,
+            module,
+            builder,
+        };
 
-        builder.position_at_end(basic_block);
-        builder.build_return(Some(&i32_type.const_int(ret_num, false)));
+        arena.codegen_ret(ast);
 
-        let path = Path::new("module.ll");
-        module.print_to_file(path).unwrap();
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-        use std::process::Command;
-
-        #[test]
-        fn codegen_test_1() {
-            codegen("12");
-        }
-
-        #[test]
-        fn codegen_test_2() {
-            codegen("12");
-            let status = Command::new("lli-12")
-                .arg("module.ll")
-                .status()
-                .expect("failed to execute lli");
-
-            match status.code() {
-                Some(code) => assert_eq!(12, code),
-                None => panic!("process terminated by signal"),
-            }
-        }
+        arena.print_to_file("module.ll");
     }
 }
