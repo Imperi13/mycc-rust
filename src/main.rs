@@ -281,7 +281,7 @@ mod parse {
                 tok_seq = tok_seq.next();
 
                 let rhs;
-                (tok_seq, rhs) = parse_add(tok_seq)?;
+                (tok_seq, rhs) = parse_primary(tok_seq)?;
 
                 lhs = Rc::new(RefCell::new(ASTNode::ASTBinaryOp(BinaryOpNode {
                     lhs: AST { head: lhs },
