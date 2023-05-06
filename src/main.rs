@@ -1,6 +1,12 @@
-use inkwell::context::Context;
+mod codegen;
+mod parse;
+mod tokenize;
+
 use std::env;
-use std::path::Path;
+
+use codegen::codegen_all;
+use parse::parse_all;
+use tokenize::tokenize;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -8,22 +14,12 @@ fn main() {
         panic!("incorrect argument count");
     }
 
-    let ret_num: u64 = args[1].parse().unwrap();
+    let code = format!("{}\n", args[1]);
 
-    let context = Context::create();
-    let module = context.create_module("main");
-    let builder = context.create_builder();
+    let mut tok_seq = tokenize(&code);
+    tok_seq.remove_newline();
 
-    let i32_type = context.i32_type();
-    let main_fn_type = i32_type.fn_type(&[], false);
-    let main_fn = module.add_function("main", main_fn_type, None);
-    let basic_block = context.append_basic_block(main_fn, "entry");
+    let ast = parse_all(tok_seq);
 
-    builder.position_at_end(basic_block);
-    builder.build_return(Some(&i32_type.const_int(ret_num, false)));
-
-    let path = Path::new("module.bc");
-    module.write_bitcode_to_path(path);
-
-    println!("{}", ret_num);
+    codegen_all(ast);
 }
