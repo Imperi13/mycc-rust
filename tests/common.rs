@@ -22,18 +22,3 @@ pub fn cleanup(path: &str) -> std::io::Result<()> {
     fs::remove_file(path)
 }
 
-#[allow(unused_macros)]
-macro_rules! test_function {
-    ($func_name:ident,$code:literal,$status:expr) => {
-        #[test]
-        fn $func_name() {
-            let filepath = format!("test_{}.ll", stringify!($func_name));
-            common::compile($code, &filepath);
-            assert_eq!(common::exec_code(&filepath), $status);
-            common::cleanup(&filepath).unwrap();
-        }
-    };
-}
-
-#[allow(unused_imports)]
-pub(crate) use test_function;
