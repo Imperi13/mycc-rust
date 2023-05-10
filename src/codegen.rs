@@ -70,7 +70,7 @@ impl CodegenArena<'_> {
     }
 }
 
-pub fn codegen_all(ast: AST) {
+pub fn codegen_all(ast: AST, output_path: &str) {
     let context = Context::create();
     let module = context.create_module("main");
     let builder = context.create_builder();
@@ -83,5 +83,5 @@ pub fn codegen_all(ast: AST) {
 
     arena.codegen_ret(ast);
 
-    arena.print_to_file("module.ll");
+    arena.print_to_file(output_path);
 }
