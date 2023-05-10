@@ -27,3 +27,16 @@ test_function!(sub_expr_3, "9-3", 6);
 test_function!(add_sub_expr_1, "7-4+3", 6);
 test_function!(add_sub_expr_2, "10-9+8-7", 2);
 test_function!(add_sub_expr_3, "23-10-8+5", 10);
+
+test_function!(mul_expr_1, "2*5", 10);
+test_function!(mul_expr_2, "1*2*3", 6);
+
+test_function!(div_expr_1, "4/2", 2);
+test_function!(div_expr_2, "24/2/3", 4);
+test_function!(div_expr_3, "5/2", 2);
+
+test_function!(arith_expr_1, "5/2+3*4-42/3", 0);
+test_function!(arith_expr_2, "1+2-5/9+10*0", 3);
+
+test_function!(parenthesis_1, "(1+2)*3", 9);
+test_function!(parenthesis_2, "(1+2*4)/(9-6)", 3);
