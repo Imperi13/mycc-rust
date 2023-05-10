@@ -59,13 +59,17 @@ impl fmt::Debug for AST {
 
 pub fn parse_all(mut tok_seq: TokenList) -> AST {
     let node;
-    (tok_seq, node) = parse_add(tok_seq).unwrap();
+    (tok_seq, node) = parse_expr(tok_seq).unwrap();
 
     if !tok_seq.is_empty() {
         panic!("parse error: cannot fully parse to the end")
     }
 
     AST { head: node }
+}
+
+fn parse_expr(tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
+    parse_add(tok_seq)
 }
 
 fn parse_add(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
@@ -128,7 +132,7 @@ fn parse_mul(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>)
     Ok((tok_seq, lhs))
 }
 
-fn parse_primary(tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
+fn parse_primary(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
     if tok_seq.is_empty() {
         return Err(ParseError {});
     }
@@ -138,6 +142,21 @@ fn parse_primary(tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>)
             tok_seq.next(),
             Rc::new(RefCell::new(ASTNode::ASTNumber(num))),
         ))
+    } else if tok_seq
+        .expect_punct(PunctKind::PunctOpenParenthesis)
+        .is_some()
+    {
+        tok_seq = tok_seq
+            .expect_punct(PunctKind::PunctOpenParenthesis)
+            .unwrap();
+        let ret;
+        (tok_seq, ret) = parse_expr(tok_seq)?;
+
+        tok_seq = tok_seq
+            .expect_punct(PunctKind::PunctCloseParenthesis)
+            .ok_or(ParseError {})?;
+
+        Ok((tok_seq, ret))
     } else {
         Err(ParseError {})
     }

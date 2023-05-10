@@ -8,6 +8,8 @@ pub enum PunctKind {
     PunctMinus,
     PunctAsterisk,
     PunctSlash,
+    PunctOpenParenthesis,
+    PunctCloseParenthesis,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +46,23 @@ impl TokenList {
             }
         } else {
             panic!("empty List")
+        }
+    }
+
+    pub fn expect_punct(&self, _expect_punct: PunctKind) -> Option<TokenList> {
+        if let Link::More(ref node) = *self.head.clone().borrow() {
+            match node.elem {
+                TokenKind::TokenPunct(ref punct) => {
+                    if matches!(punct, _expect_punct) {
+                        Some(self.next())
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }
+        } else {
+            None
         }
     }
 
@@ -186,6 +205,28 @@ pub fn tokenize(mut code: &str) -> TokenList {
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
                 elem: TokenKind::TokenPunct(PunctKind::PunctSlash),
+                next: new_tok.clone(),
+            });
+
+            cur = new_tok;
+            continue;
+        }
+        if code.chars().nth(0) == Some('(') {
+            code = &code[1..];
+            let new_tok = Rc::new(RefCell::new(Link::End));
+            *cur.borrow_mut() = Link::More(Node {
+                elem: TokenKind::TokenPunct(PunctKind::PunctOpenParenthesis),
+                next: new_tok.clone(),
+            });
+
+            cur = new_tok;
+            continue;
+        }
+        if code.chars().nth(0) == Some(')') {
+            code = &code[1..];
+            let new_tok = Rc::new(RefCell::new(Link::End));
+            *cur.borrow_mut() = Link::More(Node {
+                elem: TokenKind::TokenPunct(PunctKind::PunctCloseParenthesis),
                 next: new_tok.clone(),
             });
 
