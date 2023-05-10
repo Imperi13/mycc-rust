@@ -1,4 +1,3 @@
-
 use super::tokenize::PunctKind;
 use super::tokenize::TokenKind;
 use super::tokenize::TokenList;
@@ -31,18 +30,28 @@ pub struct AST {
     pub head: Rc<RefCell<ASTNode>>,
 }
 
-impl fmt::Debug for AST {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl AST {
+    pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
         match *self.head.borrow() {
             ASTNode::ASTBinaryOp(ref binary_node) => {
-                writeln!(f, "BinaryOp {:?}", binary_node.kind)?;
-                writeln!(f, "\tlhs: {:?}", binary_node.lhs)?;
-                writeln!(f, "\trhs: {:?}", binary_node.rhs)
+                writeln!(f, "{}BinaryOp {:?}", indent, binary_node.kind)?;
+                writeln!(f, "{}lhs:", indent)?;
+                binary_node
+                    .lhs
+                    .fmt_with_indent(f, &format!("{}\t", indent))?;
+                writeln!(f, "{}rhs:", indent)?;
+                binary_node.rhs.fmt_with_indent(f, &format!("{}\t", indent))
             }
             ASTNode::ASTNumber(num) => {
-                writeln!(f, "Number {}", num)
+                writeln!(f, "{}Number {}", indent, num)
             }
         }
+    }
+}
+
+impl fmt::Debug for AST {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_with_indent(f, "")
     }
 }
 
