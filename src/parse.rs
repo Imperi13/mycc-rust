@@ -12,6 +12,8 @@ pub struct ParseError;
 pub enum BinaryOpKind {
     BinaryOpPlus,
     BinaryOpMinus,
+    BinaryOpMul,
+    BinaryOpDiv,
 }
 
 pub struct BinaryOpNode {
@@ -68,13 +70,44 @@ pub fn parse_all(mut tok_seq: TokenList) -> AST {
 
 fn parse_add(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
     let mut lhs;
-    (tok_seq, lhs) = parse_primary(tok_seq)?;
+    (tok_seq, lhs) = parse_mul(tok_seq)?;
 
     while !tok_seq.is_empty() {
         if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
             let kind = match punct {
                 PunctKind::PunctPlus => BinaryOpKind::BinaryOpPlus,
                 PunctKind::PunctMinus => BinaryOpKind::BinaryOpMinus,
+                _ => break,
+            };
+
+            tok_seq = tok_seq.next();
+
+            let rhs;
+            (tok_seq, rhs) = parse_mul(tok_seq)?;
+
+            lhs = Rc::new(RefCell::new(ASTNode::ASTBinaryOp(BinaryOpNode {
+                lhs: AST { head: lhs },
+                rhs: AST { head: rhs },
+                kind,
+            })));
+        } else {
+            break;
+        }
+    }
+
+    Ok((tok_seq, lhs))
+}
+
+fn parse_mul(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
+    let mut lhs;
+    (tok_seq, lhs) = parse_primary(tok_seq)?;
+
+    while !tok_seq.is_empty() {
+        if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
+            let kind = match punct {
+                PunctKind::PunctAsterisk => BinaryOpKind::BinaryOpMul,
+                PunctKind::PunctSlash => BinaryOpKind::BinaryOpDiv,
+                _ => break,
             };
 
             tok_seq = tok_seq.next();

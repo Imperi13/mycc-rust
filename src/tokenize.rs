@@ -1,4 +1,3 @@
-
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -7,6 +6,8 @@ use std::rc::Rc;
 pub enum PunctKind {
     PunctPlus,
     PunctMinus,
+    PunctAsterisk,
+    PunctSlash,
 }
 
 #[derive(Debug, Clone)]
@@ -161,6 +162,30 @@ pub fn tokenize(mut code: &str) -> TokenList {
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
                 elem: TokenKind::TokenPunct(PunctKind::PunctMinus),
+                next: new_tok.clone(),
+            });
+
+            cur = new_tok;
+            continue;
+        }
+
+        if code.chars().nth(0) == Some('*') {
+            code = &code[1..];
+            let new_tok = Rc::new(RefCell::new(Link::End));
+            *cur.borrow_mut() = Link::More(Node {
+                elem: TokenKind::TokenPunct(PunctKind::PunctAsterisk),
+                next: new_tok.clone(),
+            });
+
+            cur = new_tok;
+            continue;
+        }
+
+        if code.chars().nth(0) == Some('/') {
+            code = &code[1..];
+            let new_tok = Rc::new(RefCell::new(Link::End));
+            *cur.borrow_mut() = Link::More(Node {
+                elem: TokenKind::TokenPunct(PunctKind::PunctSlash),
                 next: new_tok.clone(),
             });
 

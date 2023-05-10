@@ -1,4 +1,3 @@
-
 use super::parse::ASTNode;
 use super::parse::BinaryOpKind;
 use super::parse::AST;
@@ -26,27 +25,37 @@ impl CodegenArena<'_> {
         let main_fn = self.module.add_function("main", main_fn_type, None);
         let basic_block = self.context.append_basic_block(main_fn, "entry");
 
-        let val = self.codegen_add(ast);
+        let val = self.codegen_binary_op(ast);
 
         self.builder.position_at_end(basic_block);
         self.builder.build_return(Some(&val));
     }
 
-    pub fn codegen_add(&self, ast: AST) -> IntValue {
+    pub fn codegen_binary_op(&self, ast: AST) -> IntValue {
         match *ast.head.borrow() {
-            ASTNode::ASTNumber(_) => self.codegen_primary(ast.clone()),
             ASTNode::ASTBinaryOp(ref binary_node) => match binary_node.kind {
                 BinaryOpKind::BinaryOpPlus => {
-                    let lhs = self.codegen_add(binary_node.lhs.clone());
-                    let rhs = self.codegen_add(binary_node.rhs.clone());
+                    let lhs = self.codegen_binary_op(binary_node.lhs.clone());
+                    let rhs = self.codegen_binary_op(binary_node.rhs.clone());
                     self.builder.build_int_add(lhs, rhs, "add node")
                 }
                 BinaryOpKind::BinaryOpMinus => {
-                    let lhs = self.codegen_add(binary_node.lhs.clone());
-                    let rhs = self.codegen_add(binary_node.rhs.clone());
+                    let lhs = self.codegen_binary_op(binary_node.lhs.clone());
+                    let rhs = self.codegen_binary_op(binary_node.rhs.clone());
                     self.builder.build_int_sub(lhs, rhs, "add node")
                 }
+                BinaryOpKind::BinaryOpMul => {
+                    let lhs = self.codegen_binary_op(binary_node.lhs.clone());
+                    let rhs = self.codegen_binary_op(binary_node.rhs.clone());
+                    self.builder.build_int_mul(lhs, rhs, "add node")
+                }
+                BinaryOpKind::BinaryOpDiv => {
+                    let lhs = self.codegen_binary_op(binary_node.lhs.clone());
+                    let rhs = self.codegen_binary_op(binary_node.rhs.clone());
+                    self.builder.build_int_signed_div(lhs, rhs, "add node")
+                }
             },
+            _ => self.codegen_primary(ast.clone()),
         }
     }
 
