@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum PunctKind {
     PunctPlus,
     PunctMinus,
@@ -49,11 +49,11 @@ impl TokenList {
         }
     }
 
-    pub fn expect_punct(&self, _expect_punct: PunctKind) -> Option<TokenList> {
+    pub fn expect_punct(&self, expect_punct: PunctKind) -> Option<TokenList> {
         if let Link::More(ref node) = *self.head.clone().borrow() {
-            match node.elem {
-                TokenKind::TokenPunct(ref punct) => {
-                    if matches!(punct, _expect_punct) {
+            match &node.elem {
+                TokenKind::TokenPunct(punct) => {
+                    if &expect_punct == punct {
                         Some(self.next())
                     } else {
                         None

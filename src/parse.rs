@@ -10,8 +10,8 @@ pub struct ParseError;
 
 #[derive(Debug)]
 pub enum BinaryOpKind {
-    BinaryOpPlus,
-    BinaryOpMinus,
+    BinaryOpAdd,
+    BinaryOpSub,
     BinaryOpMul,
     BinaryOpDiv,
 }
@@ -22,8 +22,20 @@ pub struct BinaryOpNode {
     pub kind: BinaryOpKind,
 }
 
+#[derive(Debug)]
+pub enum UnaryOpKind {
+    UnaryOpPlus,
+    UnaryOpMinus,
+}
+
+pub struct UnaryOpNode {
+    pub expr: AST,
+    pub kind: UnaryOpKind,
+}
+
 pub enum ASTNode {
     ASTBinaryOp(BinaryOpNode),
+    ASTUnaryOp(UnaryOpNode),
     ASTNumber(i64),
 }
 
@@ -43,6 +55,11 @@ impl AST {
                     .fmt_with_indent(f, &format!("{}\t", indent))?;
                 writeln!(f, "{}rhs:", indent)?;
                 binary_node.rhs.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTNode::ASTUnaryOp(ref unary_node) => {
+                writeln!(f, "{}UnaryOp {:?}", indent, unary_node.kind)?;
+                writeln!(f, "{}expr:", indent)?;
+                unary_node.expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
             ASTNode::ASTNumber(num) => {
                 writeln!(f, "{}Number {}", indent, num)
@@ -79,8 +96,8 @@ fn parse_add(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>)
     while !tok_seq.is_empty() {
         if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
             let kind = match punct {
-                PunctKind::PunctPlus => BinaryOpKind::BinaryOpPlus,
-                PunctKind::PunctMinus => BinaryOpKind::BinaryOpMinus,
+                PunctKind::PunctPlus => BinaryOpKind::BinaryOpAdd,
+                PunctKind::PunctMinus => BinaryOpKind::BinaryOpSub,
                 _ => break,
             };
 
@@ -104,7 +121,7 @@ fn parse_add(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>)
 
 fn parse_mul(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
     let mut lhs;
-    (tok_seq, lhs) = parse_primary(tok_seq)?;
+    (tok_seq, lhs) = parse_unary(tok_seq)?;
 
     while !tok_seq.is_empty() {
         if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
@@ -117,7 +134,7 @@ fn parse_mul(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>)
             tok_seq = tok_seq.next();
 
             let rhs;
-            (tok_seq, rhs) = parse_primary(tok_seq)?;
+            (tok_seq, rhs) = parse_unary(tok_seq)?;
 
             lhs = Rc::new(RefCell::new(ASTNode::ASTBinaryOp(BinaryOpNode {
                 lhs: AST { head: lhs },
@@ -130,6 +147,38 @@ fn parse_mul(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>)
     }
 
     Ok((tok_seq, lhs))
+}
+
+fn parse_unary(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
+    if tok_seq.expect_punct(PunctKind::PunctPlus).is_some() {
+        tok_seq = tok_seq
+            .expect_punct(PunctKind::PunctPlus)
+            .ok_or(ParseError {})?;
+        let head;
+        (tok_seq, head) = parse_unary(tok_seq)?;
+
+        let node = Rc::new(RefCell::new(ASTNode::ASTUnaryOp(UnaryOpNode {
+            expr: AST { head },
+            kind: UnaryOpKind::UnaryOpPlus,
+        })));
+
+        Ok((tok_seq, node))
+    } else if tok_seq.expect_punct(PunctKind::PunctMinus).is_some() {
+        tok_seq = tok_seq
+            .expect_punct(PunctKind::PunctMinus)
+            .ok_or(ParseError {})?;
+        let head;
+        (tok_seq, head) = parse_unary(tok_seq)?;
+
+        let node = Rc::new(RefCell::new(ASTNode::ASTUnaryOp(UnaryOpNode {
+            expr: AST { head },
+            kind: UnaryOpKind::UnaryOpMinus,
+        })));
+
+        Ok((tok_seq, node))
+    } else {
+        parse_primary(tok_seq)
+    }
 }
 
 fn parse_primary(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
@@ -148,7 +197,7 @@ fn parse_primary(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNod
     {
         tok_seq = tok_seq
             .expect_punct(PunctKind::PunctOpenParenthesis)
-            .unwrap();
+            .ok_or(ParseError {})?;
         let ret;
         (tok_seq, ret) = parse_expr(tok_seq)?;
 

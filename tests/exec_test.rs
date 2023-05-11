@@ -40,3 +40,6 @@ test_function!(arith_expr_2, "1+2-5/9+10*0", 3);
 
 test_function!(parenthesis_1, "(1+2)*3", 9);
 test_function!(parenthesis_2, "(1+2*4)/(9-6)", 3);
+
+test_function!(plus_1, "+1*3", 3);
+test_function!(plus_2, "+2*+5+-2*3", 4);

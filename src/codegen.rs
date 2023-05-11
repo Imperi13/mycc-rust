@@ -1,5 +1,8 @@
 use super::parse::ASTNode;
 use super::parse::BinaryOpKind;
+use super::parse::BinaryOpNode;
+use super::parse::UnaryOpKind;
+use super::parse::UnaryOpNode;
 use super::parse::AST;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -25,47 +28,55 @@ impl CodegenArena<'_> {
         let main_fn = self.module.add_function("main", main_fn_type, None);
         let basic_block = self.context.append_basic_block(main_fn, "entry");
 
-        let val = self.codegen_binary_op(ast);
+        let val = self.codegen_expr(ast);
 
         self.builder.position_at_end(basic_block);
         self.builder.build_return(Some(&val));
     }
 
-    pub fn codegen_binary_op(&self, ast: AST) -> IntValue {
+    pub fn codegen_expr(&self, ast: AST) -> IntValue {
         match *ast.head.borrow() {
-            ASTNode::ASTBinaryOp(ref binary_node) => match binary_node.kind {
-                BinaryOpKind::BinaryOpPlus => {
-                    let lhs = self.codegen_binary_op(binary_node.lhs.clone());
-                    let rhs = self.codegen_binary_op(binary_node.rhs.clone());
-                    self.builder.build_int_add(lhs, rhs, "add node")
-                }
-                BinaryOpKind::BinaryOpMinus => {
-                    let lhs = self.codegen_binary_op(binary_node.lhs.clone());
-                    let rhs = self.codegen_binary_op(binary_node.rhs.clone());
-                    self.builder.build_int_sub(lhs, rhs, "add node")
-                }
-                BinaryOpKind::BinaryOpMul => {
-                    let lhs = self.codegen_binary_op(binary_node.lhs.clone());
-                    let rhs = self.codegen_binary_op(binary_node.rhs.clone());
-                    self.builder.build_int_mul(lhs, rhs, "add node")
-                }
-                BinaryOpKind::BinaryOpDiv => {
-                    let lhs = self.codegen_binary_op(binary_node.lhs.clone());
-                    let rhs = self.codegen_binary_op(binary_node.rhs.clone());
-                    self.builder.build_int_signed_div(lhs, rhs, "add node")
-                }
-            },
-            _ => self.codegen_primary(ast.clone()),
+            ASTNode::ASTBinaryOp(ref binary_node) => self.codegen_binary_op(binary_node),
+            ASTNode::ASTUnaryOp(ref unary_node) => self.codegen_unary_op(unary_node),
+            ASTNode::ASTNumber(num) => {
+                let i64_type = self.context.i64_type();
+                i64_type.const_int(num as u64, false)
+            }
         }
     }
 
-    pub fn codegen_primary(&self, ast: AST) -> IntValue {
-        let i64_type = self.context.i64_type();
+    pub fn codegen_binary_op(&self, binary_node: &BinaryOpNode) -> IntValue {
+        match binary_node.kind {
+            BinaryOpKind::BinaryOpAdd => {
+                let lhs = self.codegen_expr(binary_node.lhs.clone());
+                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                self.builder.build_int_add(lhs, rhs, "add node")
+            }
+            BinaryOpKind::BinaryOpSub => {
+                let lhs = self.codegen_expr(binary_node.lhs.clone());
+                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                self.builder.build_int_sub(lhs, rhs, "sub node")
+            }
+            BinaryOpKind::BinaryOpMul => {
+                let lhs = self.codegen_expr(binary_node.lhs.clone());
+                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                self.builder.build_int_mul(lhs, rhs, "mul node")
+            }
+            BinaryOpKind::BinaryOpDiv => {
+                let lhs = self.codegen_expr(binary_node.lhs.clone());
+                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                self.builder.build_int_signed_div(lhs, rhs, "div node")
+            }
+        }
+    }
 
-        if let ASTNode::ASTNumber(num) = *ast.head.borrow() {
-            i64_type.const_int(num as u64, false)
-        } else {
-            panic!("not primary node")
+    pub fn codegen_unary_op(&self, unary_node: &UnaryOpNode) -> IntValue {
+        match unary_node.kind {
+            UnaryOpKind::UnaryOpPlus => self.codegen_expr(unary_node.expr.clone()),
+            UnaryOpKind::UnaryOpMinus => {
+                let expr = self.codegen_expr(unary_node.expr.clone());
+                self.builder.build_int_neg(expr, "neg")
+            }
         }
     }
 }
