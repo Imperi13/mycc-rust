@@ -67,6 +67,39 @@ impl CodegenArena<'_> {
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
                 self.builder.build_int_signed_div(lhs, rhs, "div node")
             }
+            BinaryOpKind::BinaryOpEqual => {
+                let lhs = self.codegen_expr(binary_node.lhs.clone());
+                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    lhs,
+                    rhs,
+                    "equal node",
+                );
+                self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.context.i64_type(),
+                    false,
+                    "cast to i64",
+                )
+            }
+            BinaryOpKind::BinaryOpNotEqual => {
+                let lhs = self.codegen_expr(binary_node.lhs.clone());
+                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    lhs,
+                    rhs,
+                    "equal node",
+                );
+
+                self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.context.i64_type(),
+                    false,
+                    "cast to i64",
+                )
+            }
         }
     }
 

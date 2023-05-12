@@ -43,3 +43,9 @@ test_function!(parenthesis_2, "(1+2*4)/(9-6)", 3);
 
 test_function!(plus_1, "+1*3", 3);
 test_function!(plus_2, "+2*+5+-2*3", 4);
+
+test_function!(equal_1, "1==1", 1);
+test_function!(equal_2, "1==0", 0);
+
+test_function!(not_equal_1, "1!=1", 0);
+test_function!(not_equal_2, "1!=0", 1);
