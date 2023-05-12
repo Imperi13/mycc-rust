@@ -97,7 +97,7 @@ fn parse_add(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>)
         if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
             let kind = match punct {
                 PunctKind::PunctPlus => BinaryOpKind::BinaryOpAdd,
-                PunctKind::PunctMinus => BinaryOpKind::BinaryOpSub,
+                PunctKind::PunctDash => BinaryOpKind::BinaryOpSub,
                 _ => break,
             };
 
@@ -163,9 +163,9 @@ fn parse_unary(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>
         })));
 
         Ok((tok_seq, node))
-    } else if tok_seq.expect_punct(PunctKind::PunctMinus).is_some() {
+    } else if tok_seq.expect_punct(PunctKind::PunctDash).is_some() {
         tok_seq = tok_seq
-            .expect_punct(PunctKind::PunctMinus)
+            .expect_punct(PunctKind::PunctDash)
             .ok_or(ParseError {})?;
         let head;
         (tok_seq, head) = parse_unary(tok_seq)?;

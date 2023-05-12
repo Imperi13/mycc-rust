@@ -5,7 +5,7 @@ use std::rc::Rc;
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum PunctKind {
     PunctPlus,
-    PunctMinus,
+    PunctDash,
     PunctAsterisk,
     PunctSlash,
     PunctOpenParenthesis,
@@ -160,7 +160,7 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
 
     match &code[..1] {
         "+" => Some((PunctKind::PunctPlus, &code[1..])),
-        "-" => Some((PunctKind::PunctMinus, &code[1..])),
+        "-" => Some((PunctKind::PunctDash, &code[1..])),
         "*" => Some((PunctKind::PunctAsterisk, &code[1..])),
         "/" => Some((PunctKind::PunctSlash, &code[1..])),
         "(" => Some((PunctKind::PunctOpenParenthesis, &code[1..])),
