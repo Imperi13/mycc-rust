@@ -10,6 +10,8 @@ pub enum PunctKind {
     PunctSlash,
     PunctOpenParenthesis,
     PunctCloseParenthesis,
+    PunctEqual,
+    PunctNotEqual,
 }
 
 #[derive(Debug, Clone)]
@@ -145,12 +147,35 @@ fn tokenize_num(code: &str) -> (i64, &str) {
     )
 }
 
+fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
+    if code.len() >= 2 {
+        match &code[..2] {
+            "==" => return Some((PunctKind::PunctEqual, &code[2..])),
+            "!=" => return Some((PunctKind::PunctNotEqual, &code[2..])),
+            _ => (),
+        }
+    }
+
+    assert!(!code.is_empty());
+
+    match &code[..1] {
+        "+" => Some((PunctKind::PunctPlus, &code[1..])),
+        "-" => Some((PunctKind::PunctMinus, &code[1..])),
+        "*" => Some((PunctKind::PunctAsterisk, &code[1..])),
+        "/" => Some((PunctKind::PunctSlash, &code[1..])),
+        "(" => Some((PunctKind::PunctOpenParenthesis, &code[1..])),
+        ")" => Some((PunctKind::PunctCloseParenthesis, &code[1..])),
+        _ => None,
+    }
+}
+
 pub fn tokenize(mut code: &str) -> TokenList {
     let tok_seq = Rc::new(RefCell::new(Link::End));
     let mut cur = tok_seq.clone();
 
     while !code.is_empty() {
         let (_, ch) = code.char_indices().nth(0).unwrap();
+
         if ch.is_digit(10) {
             let num: i64;
             (num, code) = tokenize_num(code);
@@ -164,69 +189,13 @@ pub fn tokenize(mut code: &str) -> TokenList {
             continue;
         }
 
-        if code.chars().nth(0) == Some('+') {
-            code = &code[1..];
+        if tokenize_punct(code).is_some() {
+            let punct;
+            (punct, code) = tokenize_punct(code).unwrap();
+
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenPunct(PunctKind::PunctPlus),
-                next: new_tok.clone(),
-            });
-
-            cur = new_tok;
-            continue;
-        }
-
-        if code.chars().nth(0) == Some('-') {
-            code = &code[1..];
-            let new_tok = Rc::new(RefCell::new(Link::End));
-            *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenPunct(PunctKind::PunctMinus),
-                next: new_tok.clone(),
-            });
-
-            cur = new_tok;
-            continue;
-        }
-
-        if code.chars().nth(0) == Some('*') {
-            code = &code[1..];
-            let new_tok = Rc::new(RefCell::new(Link::End));
-            *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenPunct(PunctKind::PunctAsterisk),
-                next: new_tok.clone(),
-            });
-
-            cur = new_tok;
-            continue;
-        }
-
-        if code.chars().nth(0) == Some('/') {
-            code = &code[1..];
-            let new_tok = Rc::new(RefCell::new(Link::End));
-            *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenPunct(PunctKind::PunctSlash),
-                next: new_tok.clone(),
-            });
-
-            cur = new_tok;
-            continue;
-        }
-        if code.chars().nth(0) == Some('(') {
-            code = &code[1..];
-            let new_tok = Rc::new(RefCell::new(Link::End));
-            *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenPunct(PunctKind::PunctOpenParenthesis),
-                next: new_tok.clone(),
-            });
-
-            cur = new_tok;
-            continue;
-        }
-        if code.chars().nth(0) == Some(')') {
-            code = &code[1..];
-            let new_tok = Rc::new(RefCell::new(Link::End));
-            *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenPunct(PunctKind::PunctCloseParenthesis),
+                elem: TokenKind::TokenPunct(punct),
                 next: new_tok.clone(),
             });
 
