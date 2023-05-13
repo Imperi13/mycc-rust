@@ -16,8 +16,8 @@ pub enum BinaryOpKind {
     BinaryOpDiv,
     BinaryOpEqual,
     BinaryOpNotEqual,
-    BinaryOpSmaller,
-    BinaryOpSmallerEqual,
+    BinaryOpLess,
+    BinaryOpLessEqual,
     BinaryOpGreater,
     BinaryOpGreaterEqual,
 }
@@ -134,8 +134,8 @@ fn parse_relational(
     while !tok_seq.is_empty() {
         if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
             let kind = match punct {
-                PunctKind::PunctSmaller => BinaryOpKind::BinaryOpSmaller,
-                PunctKind::PunctSmallerEqual => BinaryOpKind::BinaryOpSmallerEqual,
+                PunctKind::PunctLess => BinaryOpKind::BinaryOpLess,
+                PunctKind::PunctLessEqual => BinaryOpKind::BinaryOpLessEqual,
                 PunctKind::PunctGreater => BinaryOpKind::BinaryOpGreater,
                 PunctKind::PunctGreaterEqual => BinaryOpKind::BinaryOpGreaterEqual,
                 _ => break,
@@ -167,7 +167,7 @@ fn parse_add(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>)
         if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
             let kind = match punct {
                 PunctKind::PunctPlus => BinaryOpKind::BinaryOpAdd,
-                PunctKind::PunctDash => BinaryOpKind::BinaryOpSub,
+                PunctKind::PunctMinus => BinaryOpKind::BinaryOpSub,
                 _ => break,
             };
 
@@ -233,9 +233,9 @@ fn parse_unary(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>
         })));
 
         Ok((tok_seq, node))
-    } else if tok_seq.expect_punct(PunctKind::PunctDash).is_some() {
+    } else if tok_seq.expect_punct(PunctKind::PunctMinus).is_some() {
         tok_seq = tok_seq
-            .expect_punct(PunctKind::PunctDash)
+            .expect_punct(PunctKind::PunctMinus)
             .ok_or(ParseError {})?;
         let head;
         (tok_seq, head) = parse_unary(tok_seq)?;

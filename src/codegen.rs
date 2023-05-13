@@ -100,7 +100,7 @@ impl CodegenArena<'_> {
                     "cast to i64",
                 )
             }
-            BinaryOpKind::BinaryOpSmaller => {
+            BinaryOpKind::BinaryOpLess => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
                 let cmp = self.builder.build_int_compare(
@@ -117,7 +117,7 @@ impl CodegenArena<'_> {
                     "cast to i64",
                 )
             }
-            BinaryOpKind::BinaryOpSmallerEqual => {
+            BinaryOpKind::BinaryOpLessEqual => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
                 let cmp = self.builder.build_int_compare(
