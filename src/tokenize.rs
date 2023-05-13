@@ -184,6 +184,11 @@ pub fn tokenize(mut code: &str) -> TokenList {
     while !code.is_empty() {
         let (_, ch) = code.char_indices().nth(0).unwrap();
 
+        if code.chars().nth(0) == Some(' ') {
+            code = &code[1..];
+            continue;
+        }
+
         if ch.is_digit(10) {
             let num: i64;
             (num, code) = tokenize_num(code);

@@ -61,3 +61,5 @@ test_function!(greater_2, "32>10", 1);
 test_function!(greater_3, "32>=43", 0);
 test_function!(greater_4, "32>=10", 1);
 test_function!(greater_5, "32>=32", 1);
+
+test_function!(whitespace_1,"1            + 2   ",3);
