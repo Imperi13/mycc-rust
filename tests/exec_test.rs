@@ -49,3 +49,15 @@ test_function!(equal_2, "1==0", 0);
 
 test_function!(not_equal_1, "1!=1", 0);
 test_function!(not_equal_2, "1!=0", 1);
+
+test_function!(smaller_1, "32<43", 1);
+test_function!(smaller_2, "32<10", 0);
+test_function!(smaller_3, "32<=43", 1);
+test_function!(smaller_4, "32<=10", 0);
+test_function!(smaller_5, "32<=32", 1);
+
+test_function!(greater_1, "32>43", 0);
+test_function!(greater_2, "32>10", 1);
+test_function!(greater_3, "32>=43", 0);
+test_function!(greater_4, "32>=10", 1);
+test_function!(greater_5, "32>=32", 1);

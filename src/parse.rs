@@ -16,6 +16,10 @@ pub enum BinaryOpKind {
     BinaryOpDiv,
     BinaryOpEqual,
     BinaryOpNotEqual,
+    BinaryOpSmaller,
+    BinaryOpSmallerEqual,
+    BinaryOpGreater,
+    BinaryOpGreaterEqual,
 }
 
 pub struct BinaryOpNode {
@@ -93,13 +97,47 @@ fn parse_expr(tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), P
 
 fn parse_equality(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
     let mut lhs;
-    (tok_seq, lhs) = parse_add(tok_seq)?;
+    (tok_seq, lhs) = parse_relational(tok_seq)?;
 
     while !tok_seq.is_empty() {
         if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
             let kind = match punct {
                 PunctKind::PunctEqual => BinaryOpKind::BinaryOpEqual,
                 PunctKind::PunctNotEqual => BinaryOpKind::BinaryOpNotEqual,
+                _ => break,
+            };
+
+            tok_seq = tok_seq.next();
+
+            let rhs;
+            (tok_seq, rhs) = parse_relational(tok_seq)?;
+
+            lhs = Rc::new(RefCell::new(ASTNode::ASTBinaryOp(BinaryOpNode {
+                lhs: AST { head: lhs },
+                rhs: AST { head: rhs },
+                kind,
+            })));
+        } else {
+            break;
+        }
+    }
+
+    Ok((tok_seq, lhs))
+}
+
+fn parse_relational(
+    mut tok_seq: TokenList,
+) -> Result<(TokenList, Rc<RefCell<ASTNode>>), ParseError> {
+    let mut lhs;
+    (tok_seq, lhs) = parse_add(tok_seq)?;
+
+    while !tok_seq.is_empty() {
+        if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
+            let kind = match punct {
+                PunctKind::PunctSmaller => BinaryOpKind::BinaryOpSmaller,
+                PunctKind::PunctSmallerEqual => BinaryOpKind::BinaryOpSmallerEqual,
+                PunctKind::PunctGreater => BinaryOpKind::BinaryOpGreater,
+                PunctKind::PunctGreaterEqual => BinaryOpKind::BinaryOpGreaterEqual,
                 _ => break,
             };
 

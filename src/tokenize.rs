@@ -12,6 +12,10 @@ pub enum PunctKind {
     PunctCloseParenthesis,
     PunctEqual,
     PunctNotEqual,
+    PunctSmaller,
+    PunctSmallerEqual,
+    PunctGreater,
+    PunctGreaterEqual,
 }
 
 #[derive(Debug, Clone)]
@@ -152,6 +156,8 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
         match &code[..2] {
             "==" => return Some((PunctKind::PunctEqual, &code[2..])),
             "!=" => return Some((PunctKind::PunctNotEqual, &code[2..])),
+            "<=" => return Some((PunctKind::PunctSmallerEqual, &code[2..])),
+            ">=" => return Some((PunctKind::PunctGreaterEqual, &code[2..])),
             _ => (),
         }
     }
@@ -163,6 +169,8 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
         "-" => Some((PunctKind::PunctDash, &code[1..])),
         "*" => Some((PunctKind::PunctAsterisk, &code[1..])),
         "/" => Some((PunctKind::PunctSlash, &code[1..])),
+        "<" => Some((PunctKind::PunctSmaller, &code[1..])),
+        ">" => Some((PunctKind::PunctGreater, &code[1..])),
         "(" => Some((PunctKind::PunctOpenParenthesis, &code[1..])),
         ")" => Some((PunctKind::PunctCloseParenthesis, &code[1..])),
         _ => None,

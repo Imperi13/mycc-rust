@@ -100,6 +100,74 @@ impl CodegenArena<'_> {
                     "cast to i64",
                 )
             }
+            BinaryOpKind::BinaryOpSmaller => {
+                let lhs = self.codegen_expr(binary_node.lhs.clone());
+                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SLT,
+                    lhs,
+                    rhs,
+                    "equal node",
+                );
+
+                self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.context.i64_type(),
+                    false,
+                    "cast to i64",
+                )
+            }
+            BinaryOpKind::BinaryOpSmallerEqual => {
+                let lhs = self.codegen_expr(binary_node.lhs.clone());
+                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SLE,
+                    lhs,
+                    rhs,
+                    "equal node",
+                );
+
+                self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.context.i64_type(),
+                    false,
+                    "cast to i64",
+                )
+            }
+            BinaryOpKind::BinaryOpGreater => {
+                let lhs = self.codegen_expr(binary_node.lhs.clone());
+                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SGT,
+                    lhs,
+                    rhs,
+                    "equal node",
+                );
+
+                self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.context.i64_type(),
+                    false,
+                    "cast to i64",
+                )
+            }
+            BinaryOpKind::BinaryOpGreaterEqual => {
+                let lhs = self.codegen_expr(binary_node.lhs.clone());
+                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SGE,
+                    lhs,
+                    rhs,
+                    "equal node",
+                );
+
+                self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.context.i64_type(),
+                    false,
+                    "cast to i64",
+                )
+            }
         }
     }
 
