@@ -2,26 +2,36 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
+const VARIABLE_LETTERS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum PunctKind {
-    PunctPlus,
-    PunctMinus,
-    PunctAsterisk,
-    PunctSlash,
-    PunctOpenParenthesis,
-    PunctCloseParenthesis,
-    PunctEqual,
-    PunctNotEqual,
-    PunctLess,
-    PunctLessEqual,
-    PunctGreater,
-    PunctGreaterEqual,
+    Plus,
+    Minus,
+    Asterisk,
+    Slash,
+    OpenParenthesis,
+    CloseParenthesis,
+    SemiColon,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum KeywordKind {
+    Return,
 }
 
 #[derive(Debug, Clone)]
 pub enum TokenKind {
     TokenNumber(i64),
     TokenPunct(PunctKind),
+    TokenKeyword(KeywordKind),
+    TokenIdent(String),
     TokenNewline,
 }
 
@@ -60,6 +70,23 @@ impl TokenList {
             match &node.elem {
                 TokenKind::TokenPunct(punct) => {
                     if &expect_punct == punct {
+                        Some(self.next())
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn expect_keyword(&self, expect_keyword: KeywordKind) -> Option<TokenList> {
+        if let Link::More(ref node) = *self.head.clone().borrow() {
+            match &node.elem {
+                TokenKind::TokenKeyword(keyword) => {
+                    if &expect_keyword == keyword {
                         Some(self.next())
                     } else {
                         None
@@ -151,13 +178,29 @@ fn tokenize_num(code: &str) -> (i64, &str) {
     )
 }
 
+fn tokenize_ident(code: &str) -> (String, &str) {
+    let mut index: usize = 0;
+
+    loop {
+        let (_, ch) = code.char_indices().nth(index).unwrap();
+        if VARIABLE_LETTERS.contains(ch) {
+            index += 1;
+        } else {
+            break;
+        }
+    }
+
+    let (byte_index, _) = code.char_indices().nth(index).unwrap();
+    (String::from(&code[..byte_index]), &code[byte_index..])
+}
+
 fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
     if code.len() >= 2 {
         match &code[..2] {
-            "==" => return Some((PunctKind::PunctEqual, &code[2..])),
-            "!=" => return Some((PunctKind::PunctNotEqual, &code[2..])),
-            "<=" => return Some((PunctKind::PunctLessEqual, &code[2..])),
-            ">=" => return Some((PunctKind::PunctGreaterEqual, &code[2..])),
+            "==" => return Some((PunctKind::Equal, &code[2..])),
+            "!=" => return Some((PunctKind::NotEqual, &code[2..])),
+            "<=" => return Some((PunctKind::LessEqual, &code[2..])),
+            ">=" => return Some((PunctKind::GreaterEqual, &code[2..])),
             _ => (),
         }
     }
@@ -165,16 +208,28 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
     assert!(!code.is_empty());
 
     match &code[..1] {
-        "+" => Some((PunctKind::PunctPlus, &code[1..])),
-        "-" => Some((PunctKind::PunctMinus, &code[1..])),
-        "*" => Some((PunctKind::PunctAsterisk, &code[1..])),
-        "/" => Some((PunctKind::PunctSlash, &code[1..])),
-        "<" => Some((PunctKind::PunctLess, &code[1..])),
-        ">" => Some((PunctKind::PunctGreater, &code[1..])),
-        "(" => Some((PunctKind::PunctOpenParenthesis, &code[1..])),
-        ")" => Some((PunctKind::PunctCloseParenthesis, &code[1..])),
+        "+" => Some((PunctKind::Plus, &code[1..])),
+        "-" => Some((PunctKind::Minus, &code[1..])),
+        "*" => Some((PunctKind::Asterisk, &code[1..])),
+        "/" => Some((PunctKind::Slash, &code[1..])),
+        "<" => Some((PunctKind::Less, &code[1..])),
+        ">" => Some((PunctKind::Greater, &code[1..])),
+        "(" => Some((PunctKind::OpenParenthesis, &code[1..])),
+        ")" => Some((PunctKind::CloseParenthesis, &code[1..])),
+        ";" => Some((PunctKind::SemiColon, &code[1..])),
         _ => None,
     }
+}
+
+fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
+    if code.len() >= 6 {
+        match &code[..6] {
+            "return" => return Some((KeywordKind::Return, &code[6..])),
+            _ => (),
+        }
+    }
+
+    None
 }
 
 pub fn tokenize(mut code: &str) -> TokenList {
@@ -209,6 +264,34 @@ pub fn tokenize(mut code: &str) -> TokenList {
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
                 elem: TokenKind::TokenPunct(punct),
+                next: new_tok.clone(),
+            });
+
+            cur = new_tok;
+            continue;
+        }
+
+        if tokenize_keyword(code).is_some() {
+            let keyword;
+            (keyword, code) = tokenize_keyword(code).unwrap();
+
+            let new_tok = Rc::new(RefCell::new(Link::End));
+            *cur.borrow_mut() = Link::More(Node {
+                elem: TokenKind::TokenKeyword(keyword),
+                next: new_tok.clone(),
+            });
+
+            cur = new_tok;
+            continue;
+        }
+
+        if VARIABLE_LETTERS.contains(ch) {
+            let ident: String;
+            (ident, code) = tokenize_ident(code);
+
+            let new_tok = Rc::new(RefCell::new(Link::End));
+            *cur.borrow_mut() = Link::More(Node {
+                elem: TokenKind::TokenIdent(ident),
                 next: new_tok.clone(),
             });
 
