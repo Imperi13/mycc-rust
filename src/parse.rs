@@ -83,8 +83,10 @@ impl fmt::Debug for ASTExpr {
 
 pub enum ASTStmtNode {
     Return(ASTExpr),
+    Declaration(String),
 }
 
+#[derive(Clone)]
 pub struct ASTStmt {
     pub head: Rc<RefCell<ASTStmtNode>>,
 }
@@ -97,6 +99,9 @@ impl ASTStmt {
                 writeln!(f, "{}expr:", indent)?;
                 expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
+            ASTStmtNode::Declaration(ref var_name) => {
+                writeln!(f, "{}Declaration :{}", indent, var_name)
+            }
         }
     }
 }
@@ -107,33 +112,56 @@ impl fmt::Debug for ASTStmt {
     }
 }
 
-pub fn parse_all(mut tok_seq: TokenList) -> ASTStmt {
-    let node;
-    (tok_seq, node) = parse_stmt(tok_seq).unwrap();
+pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTStmt> {
+    let mut ret = Vec::new();
+    while !tok_seq.is_empty() {
+        let node;
+        (tok_seq, node) = parse_stmt(tok_seq).unwrap();
 
-    if !tok_seq.is_empty() {
-        panic!("parse error: cannot fully parse to the end")
+        ret.push(ASTStmt { head: node });
     }
 
-    ASTStmt { head: node }
+    ret
 }
 
 fn parse_stmt(mut tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTStmtNode>>), ParseError> {
-    tok_seq = tok_seq
-        .expect_keyword(KeywordKind::Return)
-        .ok_or(ParseError {})?;
+    if tok_seq.expect_keyword(KeywordKind::Return).is_some() {
+        tok_seq = tok_seq
+            .expect_keyword(KeywordKind::Return)
+            .ok_or(ParseError {})?;
 
-    let expr;
-    (tok_seq, expr) = parse_expr(tok_seq)?;
+        let expr;
+        (tok_seq, expr) = parse_expr(tok_seq)?;
 
-    tok_seq = tok_seq
-        .expect_punct(PunctKind::SemiColon)
-        .ok_or(ParseError {})?;
+        tok_seq = tok_seq
+            .expect_punct(PunctKind::SemiColon)
+            .ok_or(ParseError {})?;
 
-    Ok((
-        tok_seq,
-        Rc::new(RefCell::new(ASTStmtNode::Return(ASTExpr { head: expr }))),
-    ))
+        Ok((
+            tok_seq,
+            Rc::new(RefCell::new(ASTStmtNode::Return(ASTExpr { head: expr }))),
+        ))
+    } else if tok_seq.expect_keyword(KeywordKind::Int).is_some() {
+        tok_seq = tok_seq
+            .expect_keyword(KeywordKind::Int)
+            .ok_or(ParseError {})?;
+
+        if let TokenKind::TokenIdent(ref var_name) = tok_seq.get_token() {
+            tok_seq = tok_seq.next();
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::SemiColon)
+                .ok_or(ParseError {})?;
+            Ok((
+                tok_seq,
+                Rc::new(RefCell::new(ASTStmtNode::Declaration(var_name.clone()))),
+            ))
+        } else {
+            Err(ParseError {})
+        }
+    } else {
+        Err(ParseError {})
+    }
 }
 
 fn parse_expr(tok_seq: TokenList) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
@@ -270,9 +298,7 @@ fn parse_unary(
     mut tok_seq: TokenList,
 ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
     if tok_seq.expect_punct(PunctKind::Plus).is_some() {
-        tok_seq = tok_seq
-            .expect_punct(PunctKind::Plus)
-            .ok_or(ParseError {})?;
+        tok_seq = tok_seq.expect_punct(PunctKind::Plus).ok_or(ParseError {})?;
         let head;
         (tok_seq, head) = parse_unary(tok_seq)?;
 
@@ -312,10 +338,7 @@ fn parse_primary(
             tok_seq.next(),
             Rc::new(RefCell::new(ASTExprNode::Number(num))),
         ))
-    } else if tok_seq
-        .expect_punct(PunctKind::OpenParenthesis)
-        .is_some()
-    {
+    } else if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
         tok_seq = tok_seq
             .expect_punct(PunctKind::OpenParenthesis)
             .ok_or(ParseError {})?;

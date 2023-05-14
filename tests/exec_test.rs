@@ -63,3 +63,5 @@ test_function!(greater_4, "return 32>=10;", 1);
 test_function!(greater_5, "return 32>=32;", 1);
 
 test_function!(whitespace_1, "return 1            + 2   ;", 3);
+
+test_function!(stmt_1, "int a;return 1+1;", 2);

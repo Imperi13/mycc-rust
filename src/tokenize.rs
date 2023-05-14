@@ -24,6 +24,7 @@ pub enum PunctKind {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum KeywordKind {
     Return,
+    Int,
 }
 
 #[derive(Debug, Clone)]
@@ -225,6 +226,13 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
     if code.len() >= 6 {
         match &code[..6] {
             "return" => return Some((KeywordKind::Return, &code[6..])),
+            _ => (),
+        }
+    }
+
+    if code.len() >= 3 {
+        match &code[..3] {
+            "int" => return Some((KeywordKind::Int, &code[3..])),
             _ => (),
         }
     }

@@ -9,13 +9,21 @@ use super::parse::UnaryOpNode;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
+use inkwell::types::IntType;
+use inkwell::values::FunctionValue;
 use inkwell::values::IntValue;
 use std::path::Path;
+
+struct BuiltinType<'a> {
+    pub int_type: IntType<'a>,
+}
 
 struct CodegenArena<'a> {
     context: &'a Context,
     module: Module<'a>,
     builder: Builder<'a>,
+    types: BuiltinType<'a>,
+    current_func: Option<FunctionValue<'a>>,
 }
 
 impl CodegenArena<'_> {
@@ -24,14 +32,17 @@ impl CodegenArena<'_> {
         self.module.print_to_file(path).unwrap();
     }
 
-    pub fn codegen_func(&self, ast: ASTStmt) {
-        let i64_type = self.context.i64_type();
-        let main_fn_type = i64_type.fn_type(&[], false);
+    pub fn codegen_func(&mut self, ast: Vec<ASTStmt>) {
+        let main_fn_type = self.types.int_type.fn_type(&[], false);
         let main_fn = self.module.add_function("main", main_fn_type, None);
         let basic_block = self.context.append_basic_block(main_fn, "entry");
 
+        self.current_func = Some(main_fn);
         self.builder.position_at_end(basic_block);
-        self.codegen_stmt(ast);
+        for stmt in ast.iter() {
+            self.codegen_stmt(stmt.clone());
+        }
+        self.current_func = None;
     }
 
     pub fn codegen_stmt(&self, ast: ASTStmt) {
@@ -40,6 +51,20 @@ impl CodegenArena<'_> {
                 let val = self.codegen_expr(expr.clone());
                 self.builder.build_return(Some(&val));
             }
+            ASTStmtNode::Declaration(ref var_name) => {
+                let builder = self.context.create_builder();
+
+                let func = self.current_func.unwrap();
+
+                let entry = func.get_first_basic_block().unwrap();
+
+                match entry.get_first_instruction() {
+                    Some(first_instr) => builder.position_before(&first_instr),
+                    None => builder.position_at_end(entry),
+                }
+
+                builder.build_alloca(self.context.f64_type(), var_name);
+            }
         }
     }
 
@@ -47,10 +72,7 @@ impl CodegenArena<'_> {
         match *ast.head.borrow() {
             ASTExprNode::BinaryOp(ref binary_node) => self.codegen_binary_op(binary_node),
             ASTExprNode::UnaryOp(ref unary_node) => self.codegen_unary_op(unary_node),
-            ASTExprNode::Number(num) => {
-                let i64_type = self.context.i64_type();
-                i64_type.const_int(num as u64, false)
-            }
+            ASTExprNode::Number(num) => self.types.int_type.const_int(num as u64, false),
         }
     }
 
@@ -87,7 +109,7 @@ impl CodegenArena<'_> {
                 );
                 self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.context.i64_type(),
+                    self.types.int_type,
                     false,
                     "cast to i64",
                 )
@@ -104,7 +126,7 @@ impl CodegenArena<'_> {
 
                 self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.context.i64_type(),
+                    self.types.int_type,
                     false,
                     "cast to i64",
                 )
@@ -121,7 +143,7 @@ impl CodegenArena<'_> {
 
                 self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.context.i64_type(),
+                    self.types.int_type,
                     false,
                     "cast to i64",
                 )
@@ -138,7 +160,7 @@ impl CodegenArena<'_> {
 
                 self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.context.i64_type(),
+                    self.types.int_type,
                     false,
                     "cast to i64",
                 )
@@ -155,7 +177,7 @@ impl CodegenArena<'_> {
 
                 self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.context.i64_type(),
+                    self.types.int_type,
                     false,
                     "cast to i64",
                 )
@@ -172,7 +194,7 @@ impl CodegenArena<'_> {
 
                 self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.context.i64_type(),
+                    self.types.int_type,
                     false,
                     "cast to i64",
                 )
@@ -191,15 +213,20 @@ impl CodegenArena<'_> {
     }
 }
 
-pub fn codegen_all(ast: ASTStmt, output_path: &str) {
+pub fn codegen_all(ast: Vec<ASTStmt>, output_path: &str) {
     let context = Context::create();
     let module = context.create_module("main");
     let builder = context.create_builder();
+    let types = BuiltinType {
+        int_type: context.i32_type(),
+    };
 
-    let arena = CodegenArena {
+    let mut arena = CodegenArena {
         context: &context,
         module,
         builder,
+        types,
+        current_func: None,
     };
 
     arena.codegen_func(ast);
