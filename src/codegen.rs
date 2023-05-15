@@ -51,7 +51,7 @@ impl CodegenArena<'_> {
                 let val = self.codegen_expr(expr.clone());
                 self.builder.build_return(Some(&val));
             }
-            ASTStmtNode::Declaration(ref var_name) => {
+            ASTStmtNode::Declaration(ref obj) => {
                 let builder = self.context.create_builder();
 
                 let func = self.current_func.unwrap();
@@ -63,7 +63,7 @@ impl CodegenArena<'_> {
                     None => builder.position_at_end(entry),
                 }
 
-                builder.build_alloca(self.context.f64_type(), var_name);
+                builder.build_alloca(self.context.f64_type(), &*obj.borrow().name);
             }
         }
     }
@@ -73,6 +73,9 @@ impl CodegenArena<'_> {
             ASTExprNode::BinaryOp(ref binary_node) => self.codegen_binary_op(binary_node),
             ASTExprNode::UnaryOp(ref unary_node) => self.codegen_unary_op(unary_node),
             ASTExprNode::Number(num) => self.types.int_type.const_int(num as u64, false),
+            ASTExprNode::Var(ref obj) => {
+                unimplemented!()
+            }
         }
     }
 

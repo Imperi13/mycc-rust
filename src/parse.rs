@@ -7,8 +7,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
-use inkwell::values::PointerValue;
-
 #[derive(Debug, Clone)]
 pub struct ParseError;
 
@@ -47,6 +45,7 @@ pub enum ASTExprNode {
     BinaryOp(BinaryOpNode),
     UnaryOp(UnaryOpNode),
     Number(i64),
+    Var(Rc<RefCell<Obj>>),
 }
 
 #[derive(Clone)]
@@ -74,6 +73,9 @@ impl ASTExpr {
             ASTExprNode::Number(num) => {
                 writeln!(f, "{}Number {}", indent, num)
             }
+            ASTExprNode::Var(ref obj) => {
+                writeln!(f, "{}Number {}", indent, &*obj.borrow().name)
+            }
         }
     }
 }
@@ -86,7 +88,7 @@ impl fmt::Debug for ASTExpr {
 
 pub enum ASTStmtNode {
     Return(ASTExpr),
-    Declaration(String),
+    Declaration(Rc<RefCell<Obj>>),
 }
 
 #[derive(Clone)]
@@ -102,8 +104,8 @@ impl ASTStmt {
                 writeln!(f, "{}expr:", indent)?;
                 expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
-            ASTStmtNode::Declaration(ref var_name) => {
-                writeln!(f, "{}Declaration :{}", indent, var_name)
+            ASTStmtNode::Declaration(ref obj) => {
+                writeln!(f, "{}Declaration :{}", indent, &*obj.borrow().name)
             }
         }
     }
@@ -117,8 +119,8 @@ impl fmt::Debug for ASTStmt {
 
 pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTStmt> {
     let mut ret = Vec::new();
-    let arena = ParseArena {
-        vars: HashMap::new(),
+    let mut arena = ParseArena {
+        objs: HashMap::new(),
     };
     while !tok_seq.is_empty() {
         let node;
@@ -130,18 +132,33 @@ pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTStmt> {
     ret
 }
 
-pub struct Obj<'ctx> {
-    name: String,
-    ptr: PointerValue<'ctx>,
+pub struct Obj {
+    pub id: usize,
+    pub name: String,
 }
 
-pub struct ParseArena<'ctx> {
-    vars: HashMap<String, Rc<RefCell<Obj<'ctx>>>>,
+pub struct ParseArena {
+    objs: HashMap<String, Rc<RefCell<Obj>>>,
 }
 
-impl<'ctx> ParseArena<'ctx> {
+impl ParseArena {
+    fn push_obj(&mut self, obj_name: String) -> Rc<RefCell<Obj>> {
+        if self.objs.contains_key(&obj_name) {
+            panic!("push_obj");
+        }
+
+        let obj_id = self.objs.len();
+        let obj = Rc::new(RefCell::new(Obj {
+            id: obj_id,
+            name: obj_name.clone(),
+        }));
+
+        self.objs.insert(obj_name, obj.clone());
+        obj
+    }
+
     fn parse_stmt(
-        &self,
+        &mut self,
         mut tok_seq: TokenList,
     ) -> Result<(TokenList, Rc<RefCell<ASTStmtNode>>), ParseError> {
         if tok_seq.expect_keyword(KeywordKind::Return).is_some() {
@@ -171,9 +188,11 @@ impl<'ctx> ParseArena<'ctx> {
                 tok_seq = tok_seq
                     .expect_punct(PunctKind::SemiColon)
                     .ok_or(ParseError {})?;
+
+                let obj = self.push_obj(var_name.clone());
                 Ok((
                     tok_seq,
-                    Rc::new(RefCell::new(ASTStmtNode::Declaration(var_name.clone()))),
+                    Rc::new(RefCell::new(ASTStmtNode::Declaration(obj))),
                 ))
             } else {
                 Err(ParseError {})
