@@ -3,8 +3,11 @@ use super::tokenize::PunctKind;
 use super::tokenize::TokenKind;
 use super::tokenize::TokenList;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
+
+use inkwell::values::PointerValue;
 
 #[derive(Debug, Clone)]
 pub struct ParseError;
@@ -114,7 +117,9 @@ impl fmt::Debug for ASTStmt {
 
 pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTStmt> {
     let mut ret = Vec::new();
-    let arena = ParseArena {};
+    let arena = ParseArena {
+        vars: HashMap::new(),
+    };
     while !tok_seq.is_empty() {
         let node;
         (tok_seq, node) = arena.parse_stmt(tok_seq).unwrap();
@@ -125,9 +130,16 @@ pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTStmt> {
     ret
 }
 
-struct ParseArena {}
+pub struct Obj<'ctx> {
+    name: String,
+    ptr: PointerValue<'ctx>,
+}
 
-impl ParseArena {
+pub struct ParseArena<'ctx> {
+    vars: HashMap<String, Rc<RefCell<Obj<'ctx>>>>,
+}
+
+impl<'ctx> ParseArena<'ctx> {
     fn parse_stmt(
         &self,
         mut tok_seq: TokenList,
