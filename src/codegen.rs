@@ -99,6 +99,35 @@ impl CodegenArena<'_> {
             ASTStmtNode::ExprStmt(ref expr) => {
                 self.codegen_expr(expr.clone());
             }
+            ASTStmtNode::If(ref cond, ref if_stmt) => {
+                let func = self.current_func.unwrap();
+                let zero = self.types.int_type.const_int(0, false);
+
+                let cond = self.codegen_expr(cond.clone());
+                let cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond,
+                    zero,
+                    "if_cond",
+                );
+
+                let then_bb = self.context.append_basic_block(func, "if_then");
+                let else_bb = self.context.append_basic_block(func, "if_else");
+                let cont_bb = self.context.append_basic_block(func, "if_cont");
+
+                self.builder
+                    .build_conditional_branch(cond, then_bb, else_bb);
+
+                self.builder.position_at_end(then_bb);
+                self.codegen_stmt(if_stmt.clone());
+                self.builder.build_unconditional_branch(cont_bb);
+
+                self.builder.position_at_end(else_bb);
+                //self.codegen_stmt(else_stmt.clone());
+                self.builder.build_unconditional_branch(cont_bb);
+
+                self.builder.position_at_end(cont_bb);
+            }
         }
     }
 

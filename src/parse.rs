@@ -91,6 +91,7 @@ pub enum ASTStmtNode {
     Return(ASTExpr),
     Declaration(Rc<RefCell<Obj>>),
     ExprStmt(ASTExpr),
+    If(ASTExpr, ASTStmt),
 }
 
 #[derive(Clone)]
@@ -113,6 +114,13 @@ impl ASTStmt {
                 writeln!(f, "{}ExprStmt", indent)?;
                 writeln!(f, "{}expr:", indent)?;
                 expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTStmtNode::If(ref cond, ref if_stmt) => {
+                writeln!(f, "{}If", indent)?;
+                writeln!(f, "{}cond:", indent)?;
+                cond.fmt_with_indent(f, &format!("{}\t", indent))?;
+                writeln!(f, "{}if_stmt:", indent)?;
+                if_stmt.fmt_with_indent(f, &format!("{}\t", indent))
             }
         }
     }
@@ -212,6 +220,32 @@ impl ParseArena {
             } else {
                 Err(ParseError {})
             }
+        } else if tok_seq.expect_keyword(KeywordKind::If).is_some() {
+            tok_seq = tok_seq
+                .expect_keyword(KeywordKind::If)
+                .ok_or(ParseError {})?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenParenthesis)
+                .ok_or(ParseError {})?;
+
+            let cond;
+            (tok_seq, cond) = self.parse_expr(tok_seq)?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseParenthesis)
+                .ok_or(ParseError {})?;
+
+            let if_stmt;
+            (tok_seq, if_stmt) = self.parse_stmt(tok_seq)?;
+
+            Ok((
+                tok_seq,
+                Rc::new(RefCell::new(ASTStmtNode::If(
+                    ASTExpr { head: cond },
+                    ASTStmt { head: if_stmt },
+                ))),
+            ))
         } else {
             let expr;
             (tok_seq, expr) = self.parse_expr(tok_seq)?;
