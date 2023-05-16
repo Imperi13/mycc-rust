@@ -92,6 +92,7 @@ pub enum ASTStmtNode {
     Declaration(Rc<RefCell<Obj>>),
     ExprStmt(ASTExpr),
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
+    While(ASTExpr, ASTStmt),
 }
 
 #[derive(Clone)]
@@ -130,6 +131,13 @@ impl ASTStmt {
                 } else {
                     Ok(())
                 }
+            }
+            ASTStmtNode::While(ref cond, ref stmt) => {
+                writeln!(f, "{}While", indent)?;
+                writeln!(f, "{}cond:", indent)?;
+                cond.fmt_with_indent(f, &format!("{}\t", indent))?;
+                writeln!(f, "{}stmt:", indent)?;
+                stmt.fmt_with_indent(f, &format!("{}\t", indent))
             }
         }
     }
@@ -274,6 +282,31 @@ impl ParseArena {
                     ))),
                 ))
             }
+        } else if tok_seq.expect_keyword(KeywordKind::While).is_some() {
+            tok_seq = tok_seq
+                .expect_keyword(KeywordKind::While)
+                .ok_or(ParseError {})?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenParenthesis)
+                .ok_or(ParseError {})?;
+
+            let cond;
+            (tok_seq, cond) = self.parse_expr(tok_seq)?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseParenthesis)
+                .ok_or(ParseError {})?;
+
+            let stmt;
+            (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+            Ok((
+                tok_seq,
+                Rc::new(RefCell::new(ASTStmtNode::While(
+                    ASTExpr { head: cond },
+                    ASTStmt { head: stmt },
+                ))),
+            ))
         } else {
             let expr;
             (tok_seq, expr) = self.parse_expr(tok_seq)?;

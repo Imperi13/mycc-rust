@@ -113,23 +113,50 @@ impl CodegenArena<'_> {
 
                 let then_bb = self.context.append_basic_block(func, "if_then");
                 let else_bb = self.context.append_basic_block(func, "if_else");
-                let cont_bb = self.context.append_basic_block(func, "if_cont");
+                let after_bb = self.context.append_basic_block(func, "if_after");
 
                 self.builder
                     .build_conditional_branch(cond, then_bb, else_bb);
 
                 self.builder.position_at_end(then_bb);
                 self.codegen_stmt(if_stmt.clone());
-                self.builder.build_unconditional_branch(cont_bb);
+                self.builder.build_unconditional_branch(after_bb);
 
                 self.builder.position_at_end(else_bb);
                 if else_stmt.is_some() {
                     let else_stmt = else_stmt.clone().unwrap();
                     self.codegen_stmt(else_stmt.clone());
                 }
-                self.builder.build_unconditional_branch(cont_bb);
+                self.builder.build_unconditional_branch(after_bb);
 
-                self.builder.position_at_end(cont_bb);
+                self.builder.position_at_end(after_bb);
+            }
+            ASTStmtNode::While(ref cond, ref stmt) => {
+                let func = self.current_func.unwrap();
+                let zero = self.types.int_type.const_int(0, false);
+
+                let cond_bb = self.context.append_basic_block(func, "cond");
+                let loop_bb = self.context.append_basic_block(func, "loop");
+                let after_bb = self.context.append_basic_block(func, "after");
+
+                self.builder.build_unconditional_branch(cond_bb);
+                self.builder.position_at_end(cond_bb);
+                let cond = self.codegen_expr(cond.clone());
+                let cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond,
+                    zero,
+                    "if_cond",
+                );
+
+                self.builder
+                    .build_conditional_branch(cond, loop_bb, after_bb);
+
+                self.builder.position_at_end(loop_bb);
+                self.codegen_stmt(stmt.clone());
+                self.builder.build_unconditional_branch(cond_bb);
+
+                self.builder.position_at_end(after_bb);
             }
         }
     }
