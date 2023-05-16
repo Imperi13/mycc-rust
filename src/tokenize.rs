@@ -27,6 +27,7 @@ pub enum KeywordKind {
     Return,
     Int,
     If,
+    Else,
 }
 
 #[derive(Debug, Clone)]
@@ -229,6 +230,13 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
     if code.len() >= 6 {
         match &code[..6] {
             "return" => return Some((KeywordKind::Return, &code[6..])),
+            _ => (),
+        }
+    }
+
+    if code.len() >= 4 {
+        match &code[..4] {
+            "else" => return Some((KeywordKind::Else, &code[4..])),
             _ => (),
         }
     }

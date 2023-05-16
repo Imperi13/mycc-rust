@@ -99,7 +99,7 @@ impl CodegenArena<'_> {
             ASTStmtNode::ExprStmt(ref expr) => {
                 self.codegen_expr(expr.clone());
             }
-            ASTStmtNode::If(ref cond, ref if_stmt) => {
+            ASTStmtNode::If(ref cond, ref if_stmt, ref else_stmt) => {
                 let func = self.current_func.unwrap();
                 let zero = self.types.int_type.const_int(0, false);
 
@@ -123,7 +123,10 @@ impl CodegenArena<'_> {
                 self.builder.build_unconditional_branch(cont_bb);
 
                 self.builder.position_at_end(else_bb);
-                //self.codegen_stmt(else_stmt.clone());
+                if else_stmt.is_some() {
+                    let else_stmt = else_stmt.clone().unwrap();
+                    self.codegen_stmt(else_stmt.clone());
+                }
                 self.builder.build_unconditional_branch(cont_bb);
 
                 self.builder.position_at_end(cont_bb);

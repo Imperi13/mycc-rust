@@ -91,7 +91,7 @@ pub enum ASTStmtNode {
     Return(ASTExpr),
     Declaration(Rc<RefCell<Obj>>),
     ExprStmt(ASTExpr),
-    If(ASTExpr, ASTStmt),
+    If(ASTExpr, ASTStmt, Option<ASTStmt>),
 }
 
 #[derive(Clone)]
@@ -115,12 +115,21 @@ impl ASTStmt {
                 writeln!(f, "{}expr:", indent)?;
                 expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
-            ASTStmtNode::If(ref cond, ref if_stmt) => {
+            ASTStmtNode::If(ref cond, ref if_stmt, ref else_stmt) => {
                 writeln!(f, "{}If", indent)?;
                 writeln!(f, "{}cond:", indent)?;
                 cond.fmt_with_indent(f, &format!("{}\t", indent))?;
                 writeln!(f, "{}if_stmt:", indent)?;
-                if_stmt.fmt_with_indent(f, &format!("{}\t", indent))
+                if_stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
+
+                if else_stmt.is_some() {
+                    let else_stmt = else_stmt.clone().unwrap();
+
+                    writeln!(f, "{}else_stmt:", indent)?;
+                    else_stmt.fmt_with_indent(f, &format!("{}\t", indent))
+                } else {
+                    Ok(())
+                }
             }
         }
     }
@@ -239,13 +248,32 @@ impl ParseArena {
             let if_stmt;
             (tok_seq, if_stmt) = self.parse_stmt(tok_seq)?;
 
-            Ok((
-                tok_seq,
-                Rc::new(RefCell::new(ASTStmtNode::If(
-                    ASTExpr { head: cond },
-                    ASTStmt { head: if_stmt },
-                ))),
-            ))
+            if tok_seq.expect_keyword(KeywordKind::Else).is_some() {
+                tok_seq = tok_seq
+                    .expect_keyword(KeywordKind::Else)
+                    .ok_or(ParseError {})?;
+
+                let else_stmt;
+                (tok_seq, else_stmt) = self.parse_stmt(tok_seq)?;
+
+                Ok((
+                    tok_seq,
+                    Rc::new(RefCell::new(ASTStmtNode::If(
+                        ASTExpr { head: cond },
+                        ASTStmt { head: if_stmt },
+                        Some(ASTStmt { head: else_stmt }),
+                    ))),
+                ))
+            } else {
+                Ok((
+                    tok_seq,
+                    Rc::new(RefCell::new(ASTStmtNode::If(
+                        ASTExpr { head: cond },
+                        ASTStmt { head: if_stmt },
+                        None,
+                    ))),
+                ))
+            }
         } else {
             let expr;
             (tok_seq, expr) = self.parse_expr(tok_seq)?;

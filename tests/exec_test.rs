@@ -77,4 +77,8 @@ test_function!(var_4, "int a;int b;a=b=10;return a+b;", 20);
 
 test_function!(if_1, "if(10)1+1;return 10;", 10);
 test_function!(if_2, "int a;a = 10;if(1)a = 20;return a;", 20);
+test_function!(if_3, "int a;a = 10;if(0)a = 20;return a;", 10);
+test_function!(ifelse_1,"if(1)1+1;else 1+2;return 10;",10);
+test_function!(ifelse_2,"int a;if(1)a=10;else a=20;return a;",10);
+test_function!(ifelse_3,"int a;if(0)a=10;else a=20;return a;",20);
 
