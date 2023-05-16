@@ -69,3 +69,8 @@ test_function!(declaration_2, "int a;int b;return 1+1;", 2);
 
 test_function!(assign_1, "int a;return a=10;", 10);
 test_function!(assign_2, "int a;int b;return (a=10) + (b=20);", 30);
+
+test_function!(var_1,"int a;a=10;return a;",10);
+test_function!(var_2,"int a;a=10;return a+20;",30);
+test_function!(var_3,"int a;int b;a=10;b=20;return a+b;",30);
+

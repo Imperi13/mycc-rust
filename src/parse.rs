@@ -90,6 +90,7 @@ impl fmt::Debug for ASTExpr {
 pub enum ASTStmtNode {
     Return(ASTExpr),
     Declaration(Rc<RefCell<Obj>>),
+    ExprStmt(ASTExpr),
 }
 
 #[derive(Clone)]
@@ -107,6 +108,11 @@ impl ASTStmt {
             }
             ASTStmtNode::Declaration(ref obj) => {
                 writeln!(f, "{}Declaration :{}", indent, &*obj.borrow().name)
+            }
+            ASTStmtNode::ExprStmt(ref expr) => {
+                writeln!(f, "{}ExprStmt", indent)?;
+                writeln!(f, "{}expr:", indent)?;
+                expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
         }
     }
@@ -207,7 +213,17 @@ impl ParseArena {
                 Err(ParseError {})
             }
         } else {
-            Err(ParseError {})
+            let expr;
+            (tok_seq, expr) = self.parse_expr(tok_seq)?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::SemiColon)
+                .ok_or(ParseError {})?;
+
+            Ok((
+                tok_seq,
+                Rc::new(RefCell::new(ASTStmtNode::ExprStmt(ASTExpr { head: expr }))),
+            ))
         }
     }
 

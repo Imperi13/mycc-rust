@@ -96,6 +96,9 @@ impl CodegenArena<'_> {
             ASTStmtNode::Declaration(ref obj) => {
                 self.alloc_local_obj(&*obj.borrow());
             }
+            ASTStmtNode::ExprStmt(ref expr) => {
+                self.codegen_expr(expr.clone());
+            }
         }
     }
 
