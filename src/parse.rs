@@ -93,6 +93,7 @@ pub enum ASTStmtNode {
     ExprStmt(ASTExpr),
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
     While(ASTExpr, ASTStmt),
+    For(ASTExpr, ASTExpr, ASTExpr, ASTStmt),
 }
 
 #[derive(Clone)]
@@ -136,6 +137,17 @@ impl ASTStmt {
                 writeln!(f, "{}While", indent)?;
                 writeln!(f, "{}cond:", indent)?;
                 cond.fmt_with_indent(f, &format!("{}\t", indent))?;
+                writeln!(f, "{}stmt:", indent)?;
+                stmt.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTStmtNode::For(ref start, ref cond, ref step, ref stmt) => {
+                writeln!(f, "{}For", indent)?;
+                writeln!(f, "{}start:", indent)?;
+                start.fmt_with_indent(f, &format!("{}\t", indent))?;
+                writeln!(f, "{}cond:", indent)?;
+                cond.fmt_with_indent(f, &format!("{}\t", indent))?;
+                writeln!(f, "{}step:", indent)?;
+                step.fmt_with_indent(f, &format!("{}\t", indent))?;
                 writeln!(f, "{}stmt:", indent)?;
                 stmt.fmt_with_indent(f, &format!("{}\t", indent))
             }
@@ -304,6 +316,45 @@ impl ParseArena {
                 tok_seq,
                 Rc::new(RefCell::new(ASTStmtNode::While(
                     ASTExpr { head: cond },
+                    ASTStmt { head: stmt },
+                ))),
+            ))
+        } else if tok_seq.expect_keyword(KeywordKind::For).is_some() {
+            tok_seq = tok_seq
+                .expect_keyword(KeywordKind::For)
+                .ok_or(ParseError {})?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenParenthesis)
+                .ok_or(ParseError {})?;
+
+            let start;
+            (tok_seq, start) = self.parse_expr(tok_seq)?;
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::SemiColon)
+                .ok_or(ParseError {})?;
+
+            let cond;
+            (tok_seq, cond) = self.parse_expr(tok_seq)?;
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::SemiColon)
+                .ok_or(ParseError {})?;
+
+            let step;
+            (tok_seq, step) = self.parse_expr(tok_seq)?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseParenthesis)
+                .ok_or(ParseError {})?;
+
+            let stmt;
+            (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+            Ok((
+                tok_seq,
+                Rc::new(RefCell::new(ASTStmtNode::For(
+                    ASTExpr { head: start },
+                    ASTExpr { head: cond },
+                    ASTExpr { head: step },
                     ASTStmt { head: stmt },
                 ))),
             ))

@@ -29,6 +29,7 @@ pub enum KeywordKind {
     If,
     Else,
     While,
+    For,
 }
 
 #[derive(Debug, Clone)]
@@ -252,6 +253,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
     if code.len() >= 3 {
         match &code[..3] {
             "int" => return Some((KeywordKind::Int, &code[3..])),
+            "for" => return Some((KeywordKind::For, &code[3..])),
             _ => (),
         }
     }

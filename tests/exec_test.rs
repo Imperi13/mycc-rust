@@ -89,3 +89,10 @@ test_function!(
     "int a;a = 0;while(a<10)a = a+1;while(a<20)a = a+1;return a;",
     20
 );
+
+test_function!(for_1, "int a;for(a=0;a<10;a=a+1)1;return a;", 10);
+test_function!(
+    for_2,
+    "int a;int b;b=0;for(a=0;a<10;a=a+1)b = b+2;return b;",
+    20
+);
