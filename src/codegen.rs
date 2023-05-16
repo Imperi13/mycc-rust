@@ -99,6 +99,11 @@ impl CodegenArena<'_> {
             ASTStmtNode::ExprStmt(ref expr) => {
                 self.codegen_expr(expr.clone());
             }
+            ASTStmtNode::Block(ref stmts) => {
+                for stmt in stmts.iter() {
+                    self.codegen_stmt(stmt.clone());
+                }
+            }
             ASTStmtNode::If(ref cond, ref if_stmt, ref else_stmt) => {
                 let func = self.current_func.unwrap();
                 let zero = self.types.int_type.const_int(0, false);

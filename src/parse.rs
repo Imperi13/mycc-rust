@@ -91,6 +91,7 @@ pub enum ASTStmtNode {
     Return(ASTExpr),
     Declaration(Rc<RefCell<Obj>>),
     ExprStmt(ASTExpr),
+    Block(Vec<ASTStmt>),
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
     While(ASTExpr, ASTStmt),
     For(ASTExpr, ASTExpr, ASTExpr, ASTStmt),
@@ -116,6 +117,14 @@ impl ASTStmt {
                 writeln!(f, "{}ExprStmt", indent)?;
                 writeln!(f, "{}expr:", indent)?;
                 expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTStmtNode::Block(ref stmts) => {
+                writeln!(f, "{}Block", indent)?;
+                for (i, stmt) in stmts.iter().enumerate() {
+                    writeln!(f, "{} {}th expr:", indent, i)?;
+                    stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
+                }
+                Ok(())
             }
             ASTStmtNode::If(ref cond, ref if_stmt, ref else_stmt) => {
                 writeln!(f, "{}If", indent)?;
@@ -166,6 +175,7 @@ pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTStmt> {
     let mut arena = ParseArena {
         objs: HashMap::new(),
     };
+
     while !tok_seq.is_empty() {
         let node;
         (tok_seq, node) = arena.parse_stmt(tok_seq).unwrap();
@@ -358,6 +368,24 @@ impl ParseArena {
                     ASTStmt { head: stmt },
                 ))),
             ))
+        } else if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenBrace)
+                .ok_or(ParseError {})?;
+
+            let mut stmts = Vec::new();
+
+            while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
+                let stmt;
+                (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+                stmts.push(ASTStmt { head: stmt });
+            }
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseBrace)
+                .ok_or(ParseError {})?;
+
+            Ok((tok_seq, Rc::new(RefCell::new(ASTStmtNode::Block(stmts)))))
         } else {
             let expr;
             (tok_seq, expr) = self.parse_expr(tok_seq)?;

@@ -96,3 +96,6 @@ test_function!(
     "int a;int b;b=0;for(a=0;a<10;a=a+1)b = b+2;return b;",
     20
 );
+
+test_function!(block_1, "{int a;a = 10;} return 10;", 10);
+test_function!(block_2, "int a;int b; if(1){a=10;b = 5;} return a+b;", 15);
