@@ -245,7 +245,7 @@ impl ParseArena {
             tok_seq = tok_seq.next();
 
             let rhs;
-            (tok_seq, rhs) = self.parse_equality(tok_seq)?;
+            (tok_seq, rhs) = self.parse_assign(tok_seq)?;
 
             Ok((
                 tok_seq,
