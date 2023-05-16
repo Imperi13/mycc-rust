@@ -142,19 +142,27 @@ pub struct ParseArena {
 }
 
 impl ParseArena {
-    fn push_obj(&mut self, obj_name: String) -> Rc<RefCell<Obj>> {
-        if self.objs.contains_key(&obj_name) {
-            panic!("push_obj");
+    fn insert_obj(&mut self, obj_name: &str) -> Rc<RefCell<Obj>> {
+        if self.objs.contains_key(obj_name) {
+            panic!("insert_obj");
         }
 
         let obj_id = self.objs.len();
         let obj = Rc::new(RefCell::new(Obj {
             id: obj_id,
-            name: obj_name.clone(),
+            name: String::from(obj_name),
         }));
 
-        self.objs.insert(obj_name, obj.clone());
+        self.objs.insert(String::from(obj_name), obj.clone());
         obj
+    }
+
+    fn get_obj(&self, obj_name: &str) -> Rc<RefCell<Obj>> {
+        if !self.objs.contains_key(obj_name) {
+            panic!("get_obj");
+        }
+
+        self.objs.get(obj_name).unwrap().clone()
     }
 
     fn parse_stmt(
@@ -189,7 +197,7 @@ impl ParseArena {
                     .expect_punct(PunctKind::SemiColon)
                     .ok_or(ParseError {})?;
 
-                let obj = self.push_obj(var_name.clone());
+                let obj = self.insert_obj(var_name);
                 Ok((
                     tok_seq,
                     Rc::new(RefCell::new(ASTStmtNode::Declaration(obj))),
@@ -401,6 +409,9 @@ impl ParseArena {
                 .ok_or(ParseError {})?;
 
             Ok((tok_seq, ret))
+        } else if let TokenKind::TokenIdent(ref var_name) = tok_seq.get_token() {
+            let obj = self.get_obj(var_name);
+            Ok((tok_seq.next(), Rc::new(RefCell::new(ASTExprNode::Var(obj)))))
         } else {
             Err(ParseError {})
         }

@@ -4,6 +4,7 @@ use super::parse::ASTStmt;
 use super::parse::ASTStmtNode;
 use super::parse::BinaryOpKind;
 use super::parse::BinaryOpNode;
+use super::parse::Obj;
 use super::parse::UnaryOpKind;
 use super::parse::UnaryOpNode;
 use inkwell::builder::Builder;
@@ -12,6 +13,8 @@ use inkwell::module::Module;
 use inkwell::types::IntType;
 use inkwell::values::FunctionValue;
 use inkwell::values::IntValue;
+use inkwell::values::PointerValue;
+use std::collections::HashMap;
 use std::path::Path;
 
 struct BuiltinType<'a> {
@@ -23,13 +26,45 @@ struct CodegenArena<'a> {
     module: Module<'a>,
     builder: Builder<'a>,
     types: BuiltinType<'a>,
+
     current_func: Option<FunctionValue<'a>>,
+    objs_ptr: HashMap<usize, PointerValue<'a>>,
 }
 
 impl CodegenArena<'_> {
     pub fn print_to_file(&self, filepath: &str) {
         let path = Path::new(filepath);
         self.module.print_to_file(path).unwrap();
+    }
+
+    pub fn alloc_local_obj<'a>(&'a mut self, obj: &Obj) -> PointerValue<'a> {
+        if self.objs_ptr.contains_key(&obj.id) {
+            panic!("already exists obj");
+        }
+
+        let builder = self.context.create_builder();
+
+        let func = self.current_func.unwrap();
+
+        let entry = func.get_first_basic_block().unwrap();
+
+        match entry.get_first_instruction() {
+            Some(first_instr) => builder.position_before(&first_instr),
+            None => builder.position_at_end(entry),
+        }
+
+        let ptr = builder.build_alloca(self.types.int_type, &obj.name);
+
+        self.objs_ptr.insert(obj.id, ptr);
+        ptr
+    }
+
+    pub fn get_local_obj(&self, obj: &Obj) -> PointerValue {
+        if !self.objs_ptr.contains_key(&obj.id) {
+            panic!("not found obj")
+        }
+
+        self.objs_ptr.get(&obj.id).unwrap().clone()
     }
 
     pub fn codegen_func(&mut self, ast: Vec<ASTStmt>) {
@@ -45,25 +80,21 @@ impl CodegenArena<'_> {
         self.current_func = None;
     }
 
-    pub fn codegen_stmt(&self, ast: ASTStmt) {
+    pub fn codegen_addr(&self, ast: ASTExpr) -> PointerValue {
+        match *ast.head.borrow() {
+            ASTExprNode::Var(ref obj) => self.get_local_obj(&*obj.borrow()),
+            _ => panic!(),
+        }
+    }
+
+    pub fn codegen_stmt(&mut self, ast: ASTStmt) {
         match *ast.head.borrow() {
             ASTStmtNode::Return(ref expr) => {
                 let val = self.codegen_expr(expr.clone());
                 self.builder.build_return(Some(&val));
             }
             ASTStmtNode::Declaration(ref obj) => {
-                let builder = self.context.create_builder();
-
-                let func = self.current_func.unwrap();
-
-                let entry = func.get_first_basic_block().unwrap();
-
-                match entry.get_first_instruction() {
-                    Some(first_instr) => builder.position_before(&first_instr),
-                    None => builder.position_at_end(entry),
-                }
-
-                builder.build_alloca(self.context.f64_type(), &*obj.borrow().name);
+                self.alloc_local_obj(&*obj.borrow());
             }
         }
     }
@@ -73,8 +104,9 @@ impl CodegenArena<'_> {
             ASTExprNode::BinaryOp(ref binary_node) => self.codegen_binary_op(binary_node),
             ASTExprNode::UnaryOp(ref unary_node) => self.codegen_unary_op(unary_node),
             ASTExprNode::Number(num) => self.types.int_type.const_int(num as u64, false),
-            ASTExprNode::Var(ref obj) => {
-                unimplemented!()
+            ASTExprNode::Var(_) => {
+                let ptr = self.codegen_addr(ast.clone());
+                self.builder.build_load(ptr, "var").into_int_value()
             }
         }
     }
@@ -230,6 +262,7 @@ pub fn codegen_all(ast: Vec<ASTStmt>, output_path: &str) {
         builder,
         types,
         current_func: None,
+        objs_ptr: HashMap::new(),
     };
 
     arena.codegen_func(ast);
