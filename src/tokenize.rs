@@ -13,6 +13,7 @@ pub enum PunctKind {
     OpenParenthesis,
     CloseParenthesis,
     SemiColon,
+    Assign,
     Equal,
     NotEqual,
     Less,
@@ -218,6 +219,7 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
         "(" => Some((PunctKind::OpenParenthesis, &code[1..])),
         ")" => Some((PunctKind::CloseParenthesis, &code[1..])),
         ";" => Some((PunctKind::SemiColon, &code[1..])),
+        "=" => Some((PunctKind::Assign, &code[1..])),
         _ => None,
     }
 }

@@ -113,6 +113,13 @@ impl CodegenArena<'_> {
 
     pub fn codegen_binary_op(&self, binary_node: &BinaryOpNode) -> IntValue {
         match binary_node.kind {
+            BinaryOpKind::Assign => {
+                let lhs_ptr = self.codegen_addr(binary_node.lhs.clone());
+                let rhs = self.codegen_expr(binary_node.rhs.clone());
+
+                self.builder.build_store(lhs_ptr, rhs);
+                rhs
+            }
             BinaryOpKind::Add => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());

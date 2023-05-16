@@ -12,6 +12,7 @@ pub struct ParseError;
 
 #[derive(Debug)]
 pub enum BinaryOpKind {
+    Assign,
     Add,
     Sub,
     Mul,
@@ -214,7 +215,33 @@ impl ParseArena {
         &self,
         tok_seq: TokenList,
     ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
-        self.parse_equality(tok_seq)
+        self.parse_assign(tok_seq)
+    }
+
+    fn parse_assign(
+        &self,
+        mut tok_seq: TokenList,
+    ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
+        let lhs;
+        (tok_seq, lhs) = self.parse_equality(tok_seq)?;
+
+        if tok_seq.expect_punct(PunctKind::Assign).is_some() {
+            tok_seq = tok_seq.next();
+
+            let rhs;
+            (tok_seq, rhs) = self.parse_equality(tok_seq)?;
+
+            Ok((
+                tok_seq,
+                Rc::new(RefCell::new(ASTExprNode::BinaryOp(BinaryOpNode {
+                    lhs: ASTExpr { head: lhs },
+                    rhs: ASTExpr { head: rhs },
+                    kind: BinaryOpKind::Assign,
+                }))),
+            ))
+        } else {
+            Ok((tok_seq, lhs))
+        }
     }
 
     fn parse_equality(
