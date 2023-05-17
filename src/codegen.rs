@@ -1,5 +1,7 @@
 use super::parse::ASTExpr;
 use super::parse::ASTExprNode;
+use super::parse::ASTGlobal;
+use super::parse::ASTGlobalNode;
 use super::parse::ASTStmt;
 use super::parse::ASTStmtNode;
 use super::parse::BinaryOpKind;
@@ -67,14 +69,18 @@ impl CodegenArena<'_> {
         self.objs_ptr.get(&obj.id).unwrap().clone()
     }
 
-    pub fn codegen_func(&mut self, ast: Vec<ASTStmt>) {
+    pub fn codegen_func(&mut self, func: ASTGlobal) {
+        let ASTGlobalNode::Function(ref obj, ref stmts) = *func.head.borrow();
+
         let main_fn_type = self.types.int_type.fn_type(&[], false);
-        let main_fn = self.module.add_function("main", main_fn_type, None);
+        let main_fn = self
+            .module
+            .add_function(&*obj.borrow().name, main_fn_type, None);
         let basic_block = self.context.append_basic_block(main_fn, "entry");
 
         self.current_func = Some(main_fn);
         self.builder.position_at_end(basic_block);
-        for stmt in ast.iter() {
+        for stmt in stmts.iter() {
             self.codegen_stmt(stmt.clone());
         }
         self.current_func = None;
@@ -352,7 +358,7 @@ impl CodegenArena<'_> {
     }
 }
 
-pub fn codegen_all(ast: Vec<ASTStmt>, output_path: &str) {
+pub fn codegen_all(funcs: Vec<ASTGlobal>, output_path: &str) {
     let context = Context::create();
     let module = context.create_module("main");
     let builder = context.create_builder();
@@ -369,7 +375,9 @@ pub fn codegen_all(ast: Vec<ASTStmt>, output_path: &str) {
         objs_ptr: HashMap::new(),
     };
 
-    arena.codegen_func(ast);
+    for func in funcs.iter() {
+        arena.codegen_func(func.clone());
+    }
 
     arena.print_to_file(output_path);
 }

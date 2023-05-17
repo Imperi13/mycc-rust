@@ -170,7 +170,37 @@ impl fmt::Debug for ASTStmt {
     }
 }
 
-pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTStmt> {
+pub enum ASTGlobalNode {
+    Function(Rc<RefCell<Obj>>, Vec<ASTStmt>),
+}
+
+#[derive(Clone)]
+pub struct ASTGlobal {
+    pub head: Rc<RefCell<ASTGlobalNode>>,
+}
+
+impl ASTGlobal {
+    pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
+        match *self.head.borrow() {
+            ASTGlobalNode::Function(ref obj, ref stmts) => {
+                writeln!(f, "{}Function {}", indent, &*obj.borrow().name)?;
+                for (i, stmt) in stmts.iter().enumerate() {
+                    writeln!(f, "{} {}th stmt:", indent, i)?;
+                    stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl fmt::Debug for ASTGlobal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_with_indent(f, "")
+    }
+}
+
+pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTGlobal> {
     let mut ret = Vec::new();
     let mut arena = ParseArena {
         objs: HashMap::new(),
@@ -178,9 +208,9 @@ pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTStmt> {
 
     while !tok_seq.is_empty() {
         let node;
-        (tok_seq, node) = arena.parse_stmt(tok_seq).unwrap();
+        (tok_seq, node) = arena.parse_global(tok_seq).unwrap();
 
-        ret.push(ASTStmt { head: node });
+        ret.push(ASTGlobal { head: node });
     }
 
     ret
@@ -217,6 +247,51 @@ impl ParseArena {
         }
 
         self.objs.get(obj_name).unwrap().clone()
+    }
+
+    fn parse_global(
+        &mut self,
+        mut tok_seq: TokenList,
+    ) -> Result<(TokenList, Rc<RefCell<ASTGlobalNode>>), ParseError> {
+        tok_seq = tok_seq
+            .expect_keyword(KeywordKind::Int)
+            .ok_or(ParseError {})?;
+
+        let func_name = match tok_seq.get_token() {
+            TokenKind::TokenIdent(ident) => ident,
+            _ => return Err(ParseError {}),
+        };
+
+        tok_seq = tok_seq.next();
+
+        tok_seq = tok_seq
+            .expect_punct(PunctKind::OpenParenthesis)
+            .ok_or(ParseError {})?;
+        tok_seq = tok_seq
+            .expect_punct(PunctKind::CloseParenthesis)
+            .ok_or(ParseError {})?;
+
+        let obj = self.insert_obj(&func_name);
+        let mut stmts = Vec::new();
+
+        tok_seq = tok_seq
+            .expect_punct(PunctKind::OpenBrace)
+            .ok_or(ParseError {})?;
+
+        while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
+            let stmt;
+            (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+            stmts.push(ASTStmt { head: stmt });
+        }
+
+        tok_seq = tok_seq
+            .expect_punct(PunctKind::CloseBrace)
+            .ok_or(ParseError {})?;
+
+        Ok((
+            tok_seq,
+            Rc::new(RefCell::new(ASTGlobalNode::Function(obj, stmts))),
+        ))
     }
 
     fn parse_stmt(
