@@ -45,6 +45,7 @@ pub struct UnaryOpNode {
 pub enum ASTExprNode {
     BinaryOp(BinaryOpNode),
     UnaryOp(UnaryOpNode),
+    FuncCall(ASTExpr),
     Number(i64),
     Var(Rc<RefCell<Obj>>),
 }
@@ -71,11 +72,16 @@ impl ASTExpr {
                 writeln!(f, "{}expr:", indent)?;
                 unary_node.expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
+            ASTExprNode::FuncCall(ref func_expr) => {
+                writeln!(f, "{}FuncCall", indent)?;
+                writeln!(f, "{}func_expr:", indent)?;
+                func_expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
             ASTExprNode::Number(num) => {
                 writeln!(f, "{}Number {}", indent, num)
             }
             ASTExprNode::Var(ref obj) => {
-                writeln!(f, "{}Number {}", indent, &*obj.borrow().name)
+                writeln!(f, "{}Var {}", indent, &*obj.borrow().name)
             }
         }
     }
@@ -680,7 +686,31 @@ impl ParseArena {
 
             Ok((tok_seq, node))
         } else {
-            self.parse_primary(tok_seq)
+            self.parse_postfix(tok_seq)
+        }
+    }
+
+    fn parse_postfix(
+        &self,
+        mut tok_seq: TokenList,
+    ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
+        let expr;
+        (tok_seq, expr) = self.parse_primary(tok_seq)?;
+
+        if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenParenthesis)
+                .ok_or(ParseError {})?;
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseParenthesis)
+                .ok_or(ParseError {})?;
+
+            Ok((
+                tok_seq,
+                Rc::new(RefCell::new(ASTExprNode::FuncCall(ASTExpr { head: expr }))),
+            ))
+        } else {
+            Ok((tok_seq, expr))
         }
     }
 

@@ -80,6 +80,10 @@ impl CodegenArena<'_> {
         let basic_block = self.context.append_basic_block(main_fn, "entry");
 
         self.current_func = Some(main_fn);
+        self.objs_ptr.insert(
+            (*obj).borrow().id,
+            main_fn.as_global_value().as_pointer_value(),
+        );
         self.builder.position_at_end(basic_block);
         for stmt in stmts.iter() {
             self.codegen_stmt(stmt.clone());
@@ -207,6 +211,15 @@ impl CodegenArena<'_> {
         match *ast.head.borrow() {
             ASTExprNode::BinaryOp(ref binary_node) => self.codegen_binary_op(binary_node),
             ASTExprNode::UnaryOp(ref unary_node) => self.codegen_unary_op(unary_node),
+            ASTExprNode::FuncCall(ref func_expr) => {
+                let func_ptr = self.codegen_expr(func_expr.clone()).into_pointer_value();
+                let fn_type = self.types.int_type.fn_type(&[], false);
+                self.builder
+                    .build_indirect_call(fn_type, func_ptr, &[], "func_call")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+            }
             ASTExprNode::Number(num) => {
                 BasicValueEnum::IntValue(self.types.int_type.const_int(num as u64, false))
             }
