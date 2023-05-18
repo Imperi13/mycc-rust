@@ -216,9 +216,16 @@ pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTGlobal> {
     ret
 }
 
+#[derive(Clone)]
+pub enum Type {
+    Int,
+    Func,
+}
+
 pub struct Obj {
     pub id: usize,
     pub name: String,
+    pub obj_type: Type,
 }
 
 pub struct ParseArena {
@@ -226,7 +233,7 @@ pub struct ParseArena {
 }
 
 impl ParseArena {
-    fn insert_obj(&mut self, obj_name: &str) -> Rc<RefCell<Obj>> {
+    fn insert_obj(&mut self, obj_name: &str, obj_type: Type) -> Rc<RefCell<Obj>> {
         if self.objs.contains_key(obj_name) {
             panic!("insert_obj");
         }
@@ -235,6 +242,7 @@ impl ParseArena {
         let obj = Rc::new(RefCell::new(Obj {
             id: obj_id,
             name: String::from(obj_name),
+            obj_type,
         }));
 
         self.objs.insert(String::from(obj_name), obj.clone());
@@ -271,7 +279,7 @@ impl ParseArena {
             .expect_punct(PunctKind::CloseParenthesis)
             .ok_or(ParseError {})?;
 
-        let obj = self.insert_obj(&func_name);
+        let obj = self.insert_obj(&func_name, Type::Func);
         let mut stmts = Vec::new();
 
         tok_seq = tok_seq
@@ -326,7 +334,7 @@ impl ParseArena {
                     .expect_punct(PunctKind::SemiColon)
                     .ok_or(ParseError {})?;
 
-                let obj = self.insert_obj(var_name);
+                let obj = self.insert_obj(var_name, Type::Int);
                 Ok((
                     tok_seq,
                     Rc::new(RefCell::new(ASTStmtNode::Declaration(obj))),

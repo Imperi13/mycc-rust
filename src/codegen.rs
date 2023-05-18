@@ -7,6 +7,7 @@ use super::parse::ASTStmtNode;
 use super::parse::BinaryOpKind;
 use super::parse::BinaryOpNode;
 use super::parse::Obj;
+use super::parse::Type;
 use super::parse::UnaryOpKind;
 use super::parse::UnaryOpNode;
 use inkwell::builder::Builder;
@@ -209,9 +210,13 @@ impl CodegenArena<'_> {
             ASTExprNode::Number(num) => {
                 BasicValueEnum::IntValue(self.types.int_type.const_int(num as u64, false))
             }
-            ASTExprNode::Var(_) => {
+            ASTExprNode::Var(ref obj) => {
                 let ptr = self.codegen_addr(ast.clone());
-                self.builder.build_load(ptr, "var")
+                if matches!((*obj).borrow().obj_type, Type::Func) {
+                    BasicValueEnum::PointerValue(ptr)
+                } else {
+                    self.builder.build_load(ptr, "var")
+                }
             }
         }
     }
