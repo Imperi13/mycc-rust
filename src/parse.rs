@@ -225,6 +225,7 @@ pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTGlobal> {
 pub enum TypeNode {
     Int,
     Func,
+    Ptr(Type),
 }
 
 #[derive(Clone)]
@@ -245,6 +246,10 @@ impl Type {
 
     pub fn is_int_type(&self) -> bool {
         matches!(*self.head, TypeNode::Int)
+    }
+
+    pub fn is_ptr_type(&self) -> bool {
+        matches!(*self.head, TypeNode::Ptr(_))
     }
 }
 
