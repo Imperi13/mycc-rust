@@ -13,8 +13,8 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::IntType;
+use inkwell::values::BasicValueEnum;
 use inkwell::values::FunctionValue;
-use inkwell::values::IntValue;
 use inkwell::values::PointerValue;
 use std::collections::HashMap;
 use std::path::Path;
@@ -97,7 +97,7 @@ impl CodegenArena<'_> {
         match *ast.head.borrow() {
             ASTStmtNode::Return(ref expr) => {
                 let val = self.codegen_expr(expr.clone());
-                self.builder.build_return(Some(&val));
+                self.builder.build_return(Some(&val.into_int_value()));
             }
             ASTStmtNode::Declaration(ref obj) => {
                 self.alloc_local_obj(&*obj.borrow());
@@ -117,7 +117,7 @@ impl CodegenArena<'_> {
                 let cond = self.codegen_expr(cond.clone());
                 let cond = self.builder.build_int_compare(
                     inkwell::IntPredicate::NE,
-                    cond,
+                    cond.into_int_value(),
                     zero,
                     "if_cond",
                 );
@@ -155,7 +155,7 @@ impl CodegenArena<'_> {
                 let cond = self.codegen_expr(cond.clone());
                 let cond = self.builder.build_int_compare(
                     inkwell::IntPredicate::NE,
-                    cond,
+                    cond.into_int_value(),
                     zero,
                     "if_cond",
                 );
@@ -184,7 +184,7 @@ impl CodegenArena<'_> {
                 let cond = self.codegen_expr(cond.clone());
                 let cond = self.builder.build_int_compare(
                     inkwell::IntPredicate::NE,
-                    cond,
+                    cond.into_int_value(),
                     zero,
                     "if_cond",
                 );
@@ -202,19 +202,21 @@ impl CodegenArena<'_> {
         }
     }
 
-    pub fn codegen_expr(&self, ast: ASTExpr) -> IntValue {
+    pub fn codegen_expr(&self, ast: ASTExpr) -> BasicValueEnum {
         match *ast.head.borrow() {
             ASTExprNode::BinaryOp(ref binary_node) => self.codegen_binary_op(binary_node),
             ASTExprNode::UnaryOp(ref unary_node) => self.codegen_unary_op(unary_node),
-            ASTExprNode::Number(num) => self.types.int_type.const_int(num as u64, false),
+            ASTExprNode::Number(num) => {
+                BasicValueEnum::IntValue(self.types.int_type.const_int(num as u64, false))
+            }
             ASTExprNode::Var(_) => {
                 let ptr = self.codegen_addr(ast.clone());
-                self.builder.build_load(ptr, "var").into_int_value()
+                self.builder.build_load(ptr, "var")
             }
         }
     }
 
-    pub fn codegen_binary_op(&self, binary_node: &BinaryOpNode) -> IntValue {
+    pub fn codegen_binary_op(&self, binary_node: &BinaryOpNode) -> BasicValueEnum {
         match binary_node.kind {
             BinaryOpKind::Assign => {
                 let lhs_ptr = self.codegen_addr(binary_node.lhs.clone());
@@ -226,133 +228,149 @@ impl CodegenArena<'_> {
             BinaryOpKind::Add => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
-                self.builder.build_int_add(lhs, rhs, "add node")
+                BasicValueEnum::IntValue(self.builder.build_int_add(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "add node",
+                ))
             }
             BinaryOpKind::Sub => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
-                self.builder.build_int_sub(lhs, rhs, "sub node")
+                BasicValueEnum::IntValue(self.builder.build_int_sub(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "sub node",
+                ))
             }
             BinaryOpKind::Mul => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
-                self.builder.build_int_mul(lhs, rhs, "mul node")
+                BasicValueEnum::IntValue(self.builder.build_int_mul(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "mul node",
+                ))
             }
             BinaryOpKind::Div => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
-                self.builder.build_int_signed_div(lhs, rhs, "div node")
+                BasicValueEnum::IntValue(self.builder.build_int_signed_div(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "div node",
+                ))
             }
             BinaryOpKind::Equal => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::EQ,
-                    lhs,
-                    rhs,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
                     "equal node",
                 );
-                self.builder.build_int_cast_sign_flag(
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
                     self.types.int_type,
                     false,
                     "cast to i64",
-                )
+                ))
             }
             BinaryOpKind::NotEqual => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::NE,
-                    lhs,
-                    rhs,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
                     "equal node",
                 );
 
-                self.builder.build_int_cast_sign_flag(
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
                     self.types.int_type,
                     false,
                     "cast to i64",
-                )
+                ))
             }
             BinaryOpKind::Less => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::SLT,
-                    lhs,
-                    rhs,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
                     "equal node",
                 );
 
-                self.builder.build_int_cast_sign_flag(
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
                     self.types.int_type,
                     false,
                     "cast to i64",
-                )
+                ))
             }
             BinaryOpKind::LessEqual => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::SLE,
-                    lhs,
-                    rhs,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
                     "equal node",
                 );
 
-                self.builder.build_int_cast_sign_flag(
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
                     self.types.int_type,
                     false,
                     "cast to i64",
-                )
+                ))
             }
             BinaryOpKind::Greater => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::SGT,
-                    lhs,
-                    rhs,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
                     "equal node",
                 );
 
-                self.builder.build_int_cast_sign_flag(
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
                     self.types.int_type,
                     false,
                     "cast to i64",
-                )
+                ))
             }
             BinaryOpKind::GreaterEqual => {
                 let lhs = self.codegen_expr(binary_node.lhs.clone());
                 let rhs = self.codegen_expr(binary_node.rhs.clone());
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::SGE,
-                    lhs,
-                    rhs,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
                     "equal node",
                 );
 
-                self.builder.build_int_cast_sign_flag(
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
                     self.types.int_type,
                     false,
                     "cast to i64",
-                )
+                ))
             }
         }
     }
 
-    pub fn codegen_unary_op(&self, unary_node: &UnaryOpNode) -> IntValue {
+    pub fn codegen_unary_op(&self, unary_node: &UnaryOpNode) -> BasicValueEnum {
         match unary_node.kind {
             UnaryOpKind::Plus => self.codegen_expr(unary_node.expr.clone()),
             UnaryOpKind::Minus => {
                 let expr = self.codegen_expr(unary_node.expr.clone());
-                self.builder.build_int_neg(expr, "neg")
+                BasicValueEnum::IntValue(self.builder.build_int_neg(expr.into_int_value(), "neg"))
             }
         }
     }
