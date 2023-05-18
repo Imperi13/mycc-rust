@@ -126,3 +126,4 @@ test_function!(
 
 test_function!(func_1,"int empty(){return 1;} int main(){return 2;}",2);
 test_function!(func_2,"int ten(){return 10;} int main(){return ten();}",10);
+test_function!(func_3,"int one(){return 1;} int two(){return 2;} int three(){return 3;} int main(){return one() + two() * three();}",7);
