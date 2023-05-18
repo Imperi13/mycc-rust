@@ -222,10 +222,30 @@ pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTGlobal> {
     ret
 }
 
-#[derive(Clone)]
-pub enum Type {
+pub enum TypeNode {
     Int,
     Func,
+}
+
+#[derive(Clone)]
+pub struct Type {
+    pub head: Rc<TypeNode>,
+}
+
+impl Type {
+    pub fn new(kind: TypeNode) -> Type {
+        Type {
+            head: Rc::new(kind),
+        }
+    }
+
+    pub fn is_function_type(&self) -> bool {
+        matches!(*self.head, TypeNode::Func)
+    }
+
+    pub fn is_int_type(&self) -> bool {
+        matches!(*self.head, TypeNode::Int)
+    }
 }
 
 pub struct Obj {
@@ -285,7 +305,7 @@ impl ParseArena {
             .expect_punct(PunctKind::CloseParenthesis)
             .ok_or(ParseError {})?;
 
-        let obj = self.insert_obj(&func_name, Type::Func);
+        let obj = self.insert_obj(&func_name, Type::new(TypeNode::Func));
         let mut stmts = Vec::new();
 
         tok_seq = tok_seq
@@ -340,7 +360,7 @@ impl ParseArena {
                     .expect_punct(PunctKind::SemiColon)
                     .ok_or(ParseError {})?;
 
-                let obj = self.insert_obj(var_name, Type::Int);
+                let obj = self.insert_obj(var_name, Type::new(TypeNode::Int));
                 Ok((
                     tok_seq,
                     Rc::new(RefCell::new(ASTStmtNode::Declaration(obj))),
