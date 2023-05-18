@@ -49,6 +49,12 @@ pub struct ASTExpr {
 }
 
 impl ASTExpr {
+    pub fn new(node: ASTExprNode) -> ASTExpr {
+        ASTExpr {
+            head: Rc::new(RefCell::new(node)),
+        }
+    }
+
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
         match *self.head.borrow() {
             ASTExprNode::BinaryOp(ref binary_node) => {
@@ -102,6 +108,12 @@ pub struct ASTStmt {
 }
 
 impl ASTStmt {
+    pub fn new(node: ASTStmtNode) -> ASTStmt {
+        ASTStmt {
+            head: Rc::new(RefCell::new(node)),
+        }
+    }
+
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
         match *self.head.borrow() {
             ASTStmtNode::Return(ref expr) => {
@@ -179,6 +191,12 @@ pub struct ASTGlobal {
 }
 
 impl ASTGlobal {
+    pub fn new(node: ASTGlobalNode) -> ASTGlobal {
+        ASTGlobal {
+            head: Rc::new(RefCell::new(node)),
+        }
+    }
+
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
         match *self.head.borrow() {
             ASTGlobalNode::Function(ref obj, ref stmts) => {
