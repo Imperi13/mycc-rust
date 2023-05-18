@@ -10,6 +10,8 @@ pub enum PunctKind {
     Minus,
     Asterisk,
     Slash,
+    OpenBrace,
+    CloseBrace,
     OpenParenthesis,
     CloseParenthesis,
     SemiColon,
@@ -26,6 +28,10 @@ pub enum PunctKind {
 pub enum KeywordKind {
     Return,
     Int,
+    If,
+    Else,
+    While,
+    For,
 }
 
 #[derive(Debug, Clone)]
@@ -216,6 +222,8 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
         "/" => Some((PunctKind::Slash, &code[1..])),
         "<" => Some((PunctKind::Less, &code[1..])),
         ">" => Some((PunctKind::Greater, &code[1..])),
+        "{" => Some((PunctKind::OpenBrace, &code[1..])),
+        "}" => Some((PunctKind::CloseBrace, &code[1..])),
         "(" => Some((PunctKind::OpenParenthesis, &code[1..])),
         ")" => Some((PunctKind::CloseParenthesis, &code[1..])),
         ";" => Some((PunctKind::SemiColon, &code[1..])),
@@ -232,9 +240,31 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
         }
     }
 
+    if code.len() >= 5 {
+        match &code[..5] {
+            "while" => return Some((KeywordKind::While, &code[5..])),
+            _ => (),
+        }
+    }
+
+    if code.len() >= 4 {
+        match &code[..4] {
+            "else" => return Some((KeywordKind::Else, &code[4..])),
+            _ => (),
+        }
+    }
+
     if code.len() >= 3 {
         match &code[..3] {
             "int" => return Some((KeywordKind::Int, &code[3..])),
+            "for" => return Some((KeywordKind::For, &code[3..])),
+            _ => (),
+        }
+    }
+
+    if code.len() >= 2 {
+        match &code[..2] {
+            "if" => return Some((KeywordKind::If, &code[2..])),
             _ => (),
         }
     }
