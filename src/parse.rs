@@ -12,6 +12,8 @@ use crate::tokenize::KeywordKind;
 use crate::tokenize::PunctKind;
 use crate::tokenize::TokenKind;
 use crate::tokenize::TokenList;
+use crate::types::Type;
+use crate::types::TypeNode;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -33,37 +35,6 @@ pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTGlobal> {
     }
 
     ret
-}
-
-pub enum TypeNode {
-    Int,
-    Func,
-    Ptr(Type),
-}
-
-#[derive(Clone)]
-pub struct Type {
-    pub head: Rc<TypeNode>,
-}
-
-impl Type {
-    pub fn new(kind: TypeNode) -> Type {
-        Type {
-            head: Rc::new(kind),
-        }
-    }
-
-    pub fn is_function_type(&self) -> bool {
-        matches!(*self.head, TypeNode::Func)
-    }
-
-    pub fn is_int_type(&self) -> bool {
-        matches!(*self.head, TypeNode::Int)
-    }
-
-    pub fn is_ptr_type(&self) -> bool {
-        matches!(*self.head, TypeNode::Ptr(_))
-    }
 }
 
 pub struct Obj {
