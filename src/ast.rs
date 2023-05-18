@@ -30,6 +30,8 @@ pub struct BinaryOpNode {
 pub enum UnaryOpKind {
     Plus,
     Minus,
+    Addr,
+    Deref,
 }
 
 #[derive(Clone)]

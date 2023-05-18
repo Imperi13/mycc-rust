@@ -390,6 +390,15 @@ impl CodegenArena<'_> {
                 let expr = self.codegen_expr(unary_node.expr.clone());
                 BasicValueEnum::IntValue(self.builder.build_int_neg(expr.into_int_value(), "neg"))
             }
+            UnaryOpKind::Addr => {
+                BasicValueEnum::PointerValue(self.codegen_addr(unary_node.expr.clone()))
+            }
+            UnaryOpKind::Deref => {
+                let ptr = self
+                    .codegen_expr(unary_node.expr.clone())
+                    .into_pointer_value();
+                self.builder.build_load(self.types.int_type, ptr, "var")
+            }
         }
     }
 }

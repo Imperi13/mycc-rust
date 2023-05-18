@@ -24,6 +24,19 @@ impl Type {
         }
     }
 
+    pub fn new_ptr_type(ptr_to: Type) -> Type {
+        Type {
+            head: Rc::new(TypeNode::Ptr(ptr_to)),
+        }
+    }
+
+    pub fn get_ptr_to(&self) -> Result<Type, ()> {
+        match &*self.head {
+            TypeNode::Ptr(ptr_to) => Ok(ptr_to.clone()),
+            _ => Err(()),
+        }
+    }
+
     pub fn get_fn_type_node(&self) -> Result<FunctionTypeNode, ()> {
         match &*self.head {
             TypeNode::Func(node) => Ok(node.clone()),
