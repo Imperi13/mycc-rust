@@ -1,6 +1,7 @@
 mod codegen;
 mod parse;
 mod tokenize;
+mod ast;
 
 use codegen::codegen_all;
 use parse::parse_all;
