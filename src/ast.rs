@@ -1,4 +1,5 @@
 use crate::parse::Obj;
+use crate::types::Type;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -49,12 +50,14 @@ pub enum ASTExprNode {
 #[derive(Clone)]
 pub struct ASTExpr {
     head: Rc<RefCell<ASTExprNode>>,
+    pub expr_type: Type,
 }
 
 impl ASTExpr {
-    pub fn new(node: ASTExprNode) -> ASTExpr {
+    pub fn new(node: ASTExprNode, expr_type: Type) -> ASTExpr {
         ASTExpr {
             head: Rc::new(RefCell::new(node)),
+            expr_type,
         }
     }
 

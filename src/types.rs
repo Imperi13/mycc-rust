@@ -1,9 +1,14 @@
 use std::rc::Rc;
 
 #[derive(Clone)]
+pub struct FunctionTypeNode {
+    pub return_type: Type,
+}
+
+#[derive(Clone)]
 pub enum TypeNode {
     Int,
-    Func,
+    Func(FunctionTypeNode),
     Ptr(Type),
 }
 
@@ -19,12 +24,15 @@ impl Type {
         }
     }
 
-    pub fn get_node(&self) -> TypeNode {
-        (*self.head).clone()
+    pub fn get_fn_type_node(&self) -> Result<FunctionTypeNode, ()> {
+        match &*self.head {
+            TypeNode::Func(node) => Ok(node.clone()),
+            _ => Err(()),
+        }
     }
 
     pub fn is_function_type(&self) -> bool {
-        matches!(*self.head, TypeNode::Func)
+        matches!(*self.head, TypeNode::Func(_))
     }
 
     pub fn is_int_type(&self) -> bool {

@@ -12,6 +12,7 @@ use crate::tokenize::KeywordKind;
 use crate::tokenize::PunctKind;
 use crate::tokenize::TokenKind;
 use crate::tokenize::TokenList;
+use crate::types::FunctionTypeNode;
 use crate::types::Type;
 use crate::types::TypeNode;
 use std::cell::RefCell;
@@ -94,7 +95,11 @@ impl ParseArena {
             .expect_punct(PunctKind::CloseParenthesis)
             .ok_or(ParseError {})?;
 
-        let obj = self.insert_obj(&func_name, Type::new(TypeNode::Func));
+        let return_type = Type::new(TypeNode::Int);
+        let obj = self.insert_obj(
+            &func_name,
+            Type::new(TypeNode::Func(FunctionTypeNode { return_type })),
+        );
         let mut stmts = Vec::new();
 
         tok_seq = tok_seq
@@ -275,14 +280,18 @@ impl ParseArena {
 
             let rhs;
             (tok_seq, rhs) = self.parse_assign(tok_seq)?;
+            let expr_type = lhs.expr_type.clone();
 
             Ok((
                 tok_seq,
-                ASTExpr::new(ASTExprNode::BinaryOp(BinaryOpNode {
-                    lhs,
-                    rhs,
-                    kind: BinaryOpKind::Assign,
-                })),
+                ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode {
+                        lhs,
+                        rhs,
+                        kind: BinaryOpKind::Assign,
+                    }),
+                    expr_type,
+                ),
             ))
         } else {
             Ok((tok_seq, lhs))
@@ -306,7 +315,12 @@ impl ParseArena {
                 let rhs;
                 (tok_seq, rhs) = self.parse_relational(tok_seq)?;
 
-                lhs = ASTExpr::new(ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }));
+                let expr_type = lhs.expr_type.clone();
+
+                lhs = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    expr_type,
+                );
             } else {
                 break;
             }
@@ -334,7 +348,12 @@ impl ParseArena {
                 let rhs;
                 (tok_seq, rhs) = self.parse_add(tok_seq)?;
 
-                lhs = ASTExpr::new(ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }));
+                let expr_type = lhs.expr_type.clone();
+
+                lhs = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    expr_type,
+                );
             } else {
                 break;
             }
@@ -360,7 +379,12 @@ impl ParseArena {
                 let rhs;
                 (tok_seq, rhs) = self.parse_mul(tok_seq)?;
 
-                lhs = ASTExpr::new(ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }));
+                let expr_type = lhs.expr_type.clone();
+
+                lhs = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    expr_type,
+                );
             } else {
                 break;
             }
@@ -385,8 +409,12 @@ impl ParseArena {
 
                 let rhs;
                 (tok_seq, rhs) = self.parse_unary(tok_seq)?;
+                let expr_type = lhs.expr_type.clone();
 
-                lhs = ASTExpr::new(ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }));
+                lhs = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    expr_type,
+                );
             } else {
                 break;
             }
@@ -400,11 +428,15 @@ impl ParseArena {
             tok_seq = tok_seq.expect_punct(PunctKind::Plus).ok_or(ParseError {})?;
             let expr;
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
+            let expr_type = expr.expr_type.clone();
 
-            let node = ASTExpr::new(ASTExprNode::UnaryOp(UnaryOpNode {
-                expr,
-                kind: UnaryOpKind::Plus,
-            }));
+            let node = ASTExpr::new(
+                ASTExprNode::UnaryOp(UnaryOpNode {
+                    expr,
+                    kind: UnaryOpKind::Plus,
+                }),
+                expr_type,
+            );
 
             Ok((tok_seq, node))
         } else if tok_seq.expect_punct(PunctKind::Minus).is_some() {
@@ -413,11 +445,15 @@ impl ParseArena {
                 .ok_or(ParseError {})?;
             let expr;
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
+            let expr_type = expr.expr_type.clone();
 
-            let node = ASTExpr::new(ASTExprNode::UnaryOp(UnaryOpNode {
-                expr,
-                kind: UnaryOpKind::Minus,
-            }));
+            let node = ASTExpr::new(
+                ASTExprNode::UnaryOp(UnaryOpNode {
+                    expr,
+                    kind: UnaryOpKind::Minus,
+                }),
+                expr_type,
+            );
 
             Ok((tok_seq, node))
         } else {
@@ -437,7 +473,12 @@ impl ParseArena {
                 .expect_punct(PunctKind::CloseParenthesis)
                 .ok_or(ParseError {})?;
 
-            Ok((tok_seq, ASTExpr::new(ASTExprNode::FuncCall(expr))))
+            let func_type = expr.expr_type.get_fn_type_node().unwrap();
+
+            Ok((
+                tok_seq,
+                ASTExpr::new(ASTExprNode::FuncCall(expr), func_type.return_type),
+            ))
         } else {
             Ok((tok_seq, expr))
         }
@@ -449,7 +490,10 @@ impl ParseArena {
         }
 
         if let TokenKind::TokenNumber(num) = tok_seq.get_token() {
-            Ok((tok_seq.next(), ASTExpr::new(ASTExprNode::Number(num))))
+            Ok((
+                tok_seq.next(),
+                ASTExpr::new(ASTExprNode::Number(num), Type::new(TypeNode::Int)),
+            ))
         } else if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::OpenParenthesis)
@@ -464,7 +508,11 @@ impl ParseArena {
             Ok((tok_seq, ret))
         } else if let TokenKind::TokenIdent(ref var_name) = tok_seq.get_token() {
             let obj = self.get_obj(var_name);
-            Ok((tok_seq.next(), ASTExpr::new(ASTExprNode::Var(obj))))
+            let expr_type = (*obj).borrow().obj_type.clone();
+            Ok((
+                tok_seq.next(),
+                ASTExpr::new(ASTExprNode::Var(obj), expr_type),
+            ))
         } else {
             Err(ParseError {})
         }
