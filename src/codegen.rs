@@ -9,6 +9,7 @@ use crate::ast::BinaryOpNode;
 use crate::ast::UnaryOpKind;
 use crate::ast::UnaryOpNode;
 use crate::parse::Obj;
+
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -70,7 +71,7 @@ impl CodegenArena<'_> {
     }
 
     pub fn codegen_func(&mut self, func: ASTGlobal) {
-        let ASTGlobalNode::Function(ref obj, ref stmts) = *func.head.borrow();
+        let ASTGlobalNode::Function(ref obj, ref stmts) = func.get_node();
 
         let main_fn_type = self.types.int_type.fn_type(&[], false);
         let main_fn = self
@@ -91,14 +92,14 @@ impl CodegenArena<'_> {
     }
 
     pub fn codegen_addr(&self, ast: ASTExpr) -> PointerValue {
-        match *ast.head.borrow() {
-            ASTExprNode::Var(ref obj) => self.get_local_obj(&*obj.borrow()),
+        match ast.get_node() {
+            ASTExprNode::Var(obj) => self.get_local_obj(&*obj.borrow()),
             _ => panic!(),
         }
     }
 
     pub fn codegen_stmt(&mut self, ast: ASTStmt) {
-        match *ast.head.borrow() {
+        match ast.get_node() {
             ASTStmtNode::Return(ref expr) => {
                 let val = self.codegen_expr(expr.clone());
                 self.builder.build_return(Some(&val.into_int_value()));
@@ -207,7 +208,7 @@ impl CodegenArena<'_> {
     }
 
     pub fn codegen_expr(&self, ast: ASTExpr) -> BasicValueEnum {
-        match *ast.head.borrow() {
+        match ast.get_node() {
             ASTExprNode::BinaryOp(ref binary_node) => self.codegen_binary_op(binary_node),
             ASTExprNode::UnaryOp(ref unary_node) => self.codegen_unary_op(unary_node),
             ASTExprNode::FuncCall(ref func_expr) => {

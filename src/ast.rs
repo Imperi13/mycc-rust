@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum BinaryOpKind {
     Assign,
     Add,
@@ -18,23 +18,26 @@ pub enum BinaryOpKind {
     GreaterEqual,
 }
 
+#[derive(Clone)]
 pub struct BinaryOpNode {
     pub lhs: ASTExpr,
     pub rhs: ASTExpr,
     pub kind: BinaryOpKind,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum UnaryOpKind {
     Plus,
     Minus,
 }
 
+#[derive(Clone)]
 pub struct UnaryOpNode {
     pub expr: ASTExpr,
     pub kind: UnaryOpKind,
 }
 
+#[derive(Clone)]
 pub enum ASTExprNode {
     BinaryOp(BinaryOpNode),
     UnaryOp(UnaryOpNode),
@@ -45,7 +48,7 @@ pub enum ASTExprNode {
 
 #[derive(Clone)]
 pub struct ASTExpr {
-    pub head: Rc<RefCell<ASTExprNode>>,
+    head: Rc<RefCell<ASTExprNode>>,
 }
 
 impl ASTExpr {
@@ -53,6 +56,10 @@ impl ASTExpr {
         ASTExpr {
             head: Rc::new(RefCell::new(node)),
         }
+    }
+
+    pub fn get_node(&self) -> ASTExprNode {
+        (*self.head).borrow().clone()
     }
 
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
@@ -92,6 +99,7 @@ impl fmt::Debug for ASTExpr {
     }
 }
 
+#[derive(Clone)]
 pub enum ASTStmtNode {
     Return(ASTExpr),
     Declaration(Rc<RefCell<Obj>>),
@@ -104,7 +112,7 @@ pub enum ASTStmtNode {
 
 #[derive(Clone)]
 pub struct ASTStmt {
-    pub head: Rc<RefCell<ASTStmtNode>>,
+    head: Rc<RefCell<ASTStmtNode>>,
 }
 
 impl ASTStmt {
@@ -112,6 +120,10 @@ impl ASTStmt {
         ASTStmt {
             head: Rc::new(RefCell::new(node)),
         }
+    }
+
+    pub fn get_node(&self) -> ASTStmtNode {
+        (*self.head).borrow().clone()
     }
 
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
@@ -181,13 +193,14 @@ impl fmt::Debug for ASTStmt {
     }
 }
 
+#[derive(Clone)]
 pub enum ASTGlobalNode {
     Function(Rc<RefCell<Obj>>, Vec<ASTStmt>),
 }
 
 #[derive(Clone)]
 pub struct ASTGlobal {
-    pub head: Rc<RefCell<ASTGlobalNode>>,
+    head: Rc<RefCell<ASTGlobalNode>>,
 }
 
 impl ASTGlobal {
@@ -195,6 +208,10 @@ impl ASTGlobal {
         ASTGlobal {
             head: Rc::new(RefCell::new(node)),
         }
+    }
+
+    pub fn get_node(&self) -> ASTGlobalNode {
+        (*self.head).borrow().clone()
     }
 
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
