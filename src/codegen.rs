@@ -215,7 +215,7 @@ impl CodegenArena<'_> {
                 if matches!((*obj).borrow().obj_type, Type::Func) {
                     BasicValueEnum::PointerValue(ptr)
                 } else {
-                    self.builder.build_load(ptr, "var")
+                    self.builder.build_load(self.types.int_type, ptr, "var")
                 }
             }
         }
