@@ -78,6 +78,36 @@ impl CodegenArena<'_> {
         self.module.print_to_file(path).unwrap();
     }
 
+    pub fn convert_from_c_type(&self, c_type: Type) -> AnyTypeEnum {
+        match c_type.get_node() {
+            TypeNode::Int => self.context.i32_type().into(),
+            TypeNode::Ptr(c_ptr_to) => {
+                let ptr_to = self.convert_from_c_type(c_ptr_to);
+                match ptr_to.clone() {
+                    AnyTypeEnum::VoidType(_) => panic!(),
+                    AnyTypeEnum::FunctionType(fn_type) => {
+                        fn_type.ptr_type(AddressSpace::default()).into()
+                    }
+                    _ => BasicTypeEnum::try_from(ptr_to)
+                        .unwrap()
+                        .ptr_type(AddressSpace::default())
+                        .into(),
+                }
+            }
+            TypeNode::Func(func_node) => {
+                let return_type = self.convert_from_c_type(func_node.return_type);
+                match return_type.clone() {
+                    AnyTypeEnum::FunctionType(_) => panic!(),
+                    AnyTypeEnum::VoidType(void_type) => void_type.fn_type(&[], false).into(),
+                    _ => BasicTypeEnum::try_from(return_type)
+                        .unwrap()
+                        .fn_type(&[], false)
+                        .into(),
+                }
+            }
+        }
+    }
+
     pub fn alloc_local_obj(&mut self, obj: &Obj) -> PointerValue {
         if self.objs_ptr.contains_key(&obj.id) {
             panic!("already exists obj");
