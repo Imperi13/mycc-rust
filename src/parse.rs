@@ -73,6 +73,27 @@ impl ParseArena {
         self.objs.get(obj_name).unwrap().clone()
     }
 
+    fn parse_declarator(
+        mut tok_seq: TokenList,
+        decl_spec_type: Type,
+    ) -> Result<(TokenList, String, Type), ParseError> {
+        let mut ret_type = decl_spec_type;
+
+        while tok_seq.expect_punct(PunctKind::Asterisk).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Asterisk)
+                .ok_or(ParseError {})?;
+            ret_type = Type::new_ptr_type(ret_type);
+        }
+
+        if let TokenKind::TokenIdent(var_name) = tok_seq.get_token() {
+            tok_seq = tok_seq.next();
+            Ok((tok_seq, var_name, ret_type))
+        } else {
+            Err(ParseError {})
+        }
+    }
+
     fn parse_global(
         &mut self,
         mut tok_seq: TokenList,
@@ -138,18 +159,17 @@ impl ParseArena {
                 .expect_keyword(KeywordKind::Int)
                 .ok_or(ParseError {})?;
 
-            if let TokenKind::TokenIdent(ref var_name) = tok_seq.get_token() {
-                tok_seq = tok_seq.next();
+            let var_name;
+            let var_type;
+            (tok_seq, var_name, var_type) =
+                ParseArena::parse_declarator(tok_seq, Type::new(TypeNode::Int))?;
 
-                tok_seq = tok_seq
-                    .expect_punct(PunctKind::SemiColon)
-                    .ok_or(ParseError {})?;
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::SemiColon)
+                .ok_or(ParseError {})?;
 
-                let obj = self.insert_obj(var_name, Type::new(TypeNode::Int));
-                Ok((tok_seq, ASTStmt::new(ASTStmtNode::Declaration(obj))))
-            } else {
-                Err(ParseError {})
-            }
+            let obj = self.insert_obj(&var_name, var_type);
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Declaration(obj))))
         } else if tok_seq.expect_keyword(KeywordKind::If).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::If)

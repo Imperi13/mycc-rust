@@ -78,7 +78,7 @@ impl CodegenArena<'_> {
         self.module.print_to_file(path).unwrap();
     }
 
-    pub fn alloc_local_obj<'a>(&'a mut self, obj: &Obj) -> PointerValue<'a> {
+    pub fn alloc_local_obj(&mut self, obj: &Obj) -> PointerValue {
         if self.objs_ptr.contains_key(&obj.id) {
             panic!("already exists obj");
         }
@@ -132,6 +132,10 @@ impl CodegenArena<'_> {
     pub fn codegen_addr(&self, ast: ASTExpr) -> PointerValue {
         match ast.get_node() {
             ASTExprNode::Var(obj) => self.get_local_obj(&*obj.borrow()),
+            ASTExprNode::UnaryOp(unary_node) => match unary_node.kind {
+                UnaryOpKind::Deref => self.codegen_expr(unary_node.expr).into_pointer_value(),
+                _ => panic!(),
+            },
             _ => panic!(),
         }
     }
