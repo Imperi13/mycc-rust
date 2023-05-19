@@ -9,19 +9,57 @@ use crate::ast::BinaryOpNode;
 use crate::ast::UnaryOpKind;
 use crate::ast::UnaryOpNode;
 use crate::parse::Obj;
+use crate::types::Type;
+use crate::types::TypeNode;
 
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
+use inkwell::types::AnyTypeEnum;
+use inkwell::types::BasicType;
+use inkwell::types::BasicTypeEnum;
 use inkwell::types::IntType;
 use inkwell::values::BasicValueEnum;
 use inkwell::values::FunctionValue;
 use inkwell::values::PointerValue;
+use inkwell::AddressSpace;
 use std::collections::HashMap;
 use std::path::Path;
 
 struct BuiltinType<'a> {
     pub int_type: IntType<'a>,
+}
+
+impl<'a> BuiltinType<'a> {
+    pub fn convert(&self, c_type: Type) -> AnyTypeEnum {
+        match c_type.get_node() {
+            TypeNode::Int => self.int_type.into(),
+            TypeNode::Ptr(c_ptr_to) => {
+                let ptr_to = self.convert(c_ptr_to);
+                match ptr_to.clone() {
+                    AnyTypeEnum::VoidType(_) => panic!(),
+                    AnyTypeEnum::FunctionType(fn_type) => {
+                        fn_type.ptr_type(AddressSpace::default()).into()
+                    }
+                    _ => BasicTypeEnum::try_from(ptr_to)
+                        .unwrap()
+                        .ptr_type(AddressSpace::default())
+                        .into(),
+                }
+            }
+            TypeNode::Func(func_node) => {
+                let return_type = self.convert(func_node.return_type);
+                match return_type.clone() {
+                    AnyTypeEnum::FunctionType(_) => panic!(),
+                    AnyTypeEnum::VoidType(void_type) => void_type.fn_type(&[], false).into(),
+                    _ => BasicTypeEnum::try_from(return_type)
+                        .unwrap()
+                        .fn_type(&[], false)
+                        .into(),
+                }
+            }
+        }
+    }
 }
 
 struct CodegenArena<'a> {
@@ -225,10 +263,13 @@ impl CodegenArena<'_> {
             }
             ASTExprNode::Var(ref obj) => {
                 let ptr = self.codegen_addr(ast.clone());
-                if (*obj).borrow().obj_type.is_function_type() {
+                let obj_type = (*obj).borrow().obj_type.clone();
+                if obj_type.is_function_type() {
                     BasicValueEnum::PointerValue(ptr)
                 } else {
-                    self.builder.build_load(self.types.int_type, ptr, "var")
+                    let llvm_type = self.types.convert(obj_type);
+                    self.builder
+                        .build_load(BasicTypeEnum::try_from(llvm_type).unwrap(), ptr, "var")
                 }
             }
         }
