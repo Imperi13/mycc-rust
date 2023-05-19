@@ -62,27 +62,27 @@ impl<'a> BuiltinType<'a> {
     }
 }
 
-struct CodegenArena<'a> {
-    context: &'a Context,
-    module: Module<'a>,
-    builder: Builder<'a>,
-    types: BuiltinType<'a>,
+struct CodegenArena<'ctx> {
+    context: &'ctx Context,
+    module: Module<'ctx>,
+    builder: Builder<'ctx>,
+    types: BuiltinType<'ctx>,
 
-    current_func: Option<FunctionValue<'a>>,
-    objs_ptr: HashMap<usize, PointerValue<'a>>,
+    current_func: Option<FunctionValue<'ctx>>,
+    objs_ptr: HashMap<usize, PointerValue<'ctx>>,
 }
 
-impl CodegenArena<'_> {
+impl<'ctx> CodegenArena<'ctx> {
     pub fn print_to_file(&self, filepath: &str) {
         let path = Path::new(filepath);
         self.module.print_to_file(path).unwrap();
     }
 
-    pub fn convert_from_c_type(&self, c_type: Type) -> AnyTypeEnum {
+    pub fn convert_asm_type<'a>(&'a self, c_type: Type) -> AnyTypeEnum<'ctx> {
         match c_type.get_node() {
             TypeNode::Int => self.context.i32_type().into(),
             TypeNode::Ptr(c_ptr_to) => {
-                let ptr_to = self.convert_from_c_type(c_ptr_to);
+                let ptr_to = self.convert_asm_type(c_ptr_to);
                 match ptr_to.clone() {
                     AnyTypeEnum::VoidType(_) => panic!(),
                     AnyTypeEnum::FunctionType(fn_type) => {
@@ -95,7 +95,7 @@ impl CodegenArena<'_> {
                 }
             }
             TypeNode::Func(func_node) => {
-                let return_type = self.convert_from_c_type(func_node.return_type);
+                let return_type = self.convert_asm_type(func_node.return_type);
                 match return_type.clone() {
                     AnyTypeEnum::FunctionType(_) => panic!(),
                     AnyTypeEnum::VoidType(void_type) => void_type.fn_type(&[], false).into(),
@@ -108,7 +108,7 @@ impl CodegenArena<'_> {
         }
     }
 
-    pub fn alloc_local_obj(&mut self, obj: &Obj) -> PointerValue {
+    pub fn alloc_local_obj<'a>(&'a mut self, obj: &Obj) -> PointerValue<'ctx> {
         if self.objs_ptr.contains_key(&obj.id) {
             panic!("already exists obj");
         }
@@ -124,7 +124,8 @@ impl CodegenArena<'_> {
             None => builder.position_at_end(entry),
         }
 
-        let ptr = builder.build_alloca(self.types.int_type, &obj.name);
+        let asm_type = self.convert_asm_type(obj.obj_type.clone());
+        let ptr = builder.build_alloca(BasicTypeEnum::try_from(asm_type).unwrap(), &obj.name);
 
         self.objs_ptr.insert(obj.id, ptr);
         ptr
