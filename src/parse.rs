@@ -1,204 +1,26 @@
-use super::tokenize::KeywordKind;
-use super::tokenize::PunctKind;
-use super::tokenize::TokenKind;
-use super::tokenize::TokenList;
+use crate::ast::ASTExpr;
+use crate::ast::ASTExprNode;
+use crate::ast::ASTGlobal;
+use crate::ast::ASTGlobalNode;
+use crate::ast::ASTStmt;
+use crate::ast::ASTStmtNode;
+use crate::ast::BinaryOpKind;
+use crate::ast::BinaryOpNode;
+use crate::ast::UnaryOpKind;
+use crate::ast::UnaryOpNode;
+use crate::tokenize::KeywordKind;
+use crate::tokenize::PunctKind;
+use crate::tokenize::TokenKind;
+use crate::tokenize::TokenList;
+use crate::types::FunctionTypeNode;
+use crate::types::Type;
+use crate::types::TypeNode;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct ParseError;
-
-#[derive(Debug)]
-pub enum BinaryOpKind {
-    Assign,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Equal,
-    NotEqual,
-    Less,
-    LessEqual,
-    Greater,
-    GreaterEqual,
-}
-
-pub struct BinaryOpNode {
-    pub lhs: ASTExpr,
-    pub rhs: ASTExpr,
-    pub kind: BinaryOpKind,
-}
-
-#[derive(Debug)]
-pub enum UnaryOpKind {
-    Plus,
-    Minus,
-}
-
-pub struct UnaryOpNode {
-    pub expr: ASTExpr,
-    pub kind: UnaryOpKind,
-}
-
-pub enum ASTExprNode {
-    BinaryOp(BinaryOpNode),
-    UnaryOp(UnaryOpNode),
-    Number(i64),
-    Var(Rc<RefCell<Obj>>),
-}
-
-#[derive(Clone)]
-pub struct ASTExpr {
-    pub head: Rc<RefCell<ASTExprNode>>,
-}
-
-impl ASTExpr {
-    pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
-        match *self.head.borrow() {
-            ASTExprNode::BinaryOp(ref binary_node) => {
-                writeln!(f, "{}BinaryOp {:?}", indent, binary_node.kind)?;
-                writeln!(f, "{}lhs:", indent)?;
-                binary_node
-                    .lhs
-                    .fmt_with_indent(f, &format!("{}\t", indent))?;
-                writeln!(f, "{}rhs:", indent)?;
-                binary_node.rhs.fmt_with_indent(f, &format!("{}\t", indent))
-            }
-            ASTExprNode::UnaryOp(ref unary_node) => {
-                writeln!(f, "{}UnaryOp {:?}", indent, unary_node.kind)?;
-                writeln!(f, "{}expr:", indent)?;
-                unary_node.expr.fmt_with_indent(f, &format!("{}\t", indent))
-            }
-            ASTExprNode::Number(num) => {
-                writeln!(f, "{}Number {}", indent, num)
-            }
-            ASTExprNode::Var(ref obj) => {
-                writeln!(f, "{}Number {}", indent, &*obj.borrow().name)
-            }
-        }
-    }
-}
-
-impl fmt::Debug for ASTExpr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fmt_with_indent(f, "")
-    }
-}
-
-pub enum ASTStmtNode {
-    Return(ASTExpr),
-    Declaration(Rc<RefCell<Obj>>),
-    ExprStmt(ASTExpr),
-    Block(Vec<ASTStmt>),
-    If(ASTExpr, ASTStmt, Option<ASTStmt>),
-    While(ASTExpr, ASTStmt),
-    For(ASTExpr, ASTExpr, ASTExpr, ASTStmt),
-}
-
-#[derive(Clone)]
-pub struct ASTStmt {
-    pub head: Rc<RefCell<ASTStmtNode>>,
-}
-
-impl ASTStmt {
-    pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
-        match *self.head.borrow() {
-            ASTStmtNode::Return(ref expr) => {
-                writeln!(f, "{}Return", indent)?;
-                writeln!(f, "{}expr:", indent)?;
-                expr.fmt_with_indent(f, &format!("{}\t", indent))
-            }
-            ASTStmtNode::Declaration(ref obj) => {
-                writeln!(f, "{}Declaration :{}", indent, &*obj.borrow().name)
-            }
-            ASTStmtNode::ExprStmt(ref expr) => {
-                writeln!(f, "{}ExprStmt", indent)?;
-                writeln!(f, "{}expr:", indent)?;
-                expr.fmt_with_indent(f, &format!("{}\t", indent))
-            }
-            ASTStmtNode::Block(ref stmts) => {
-                writeln!(f, "{}Block", indent)?;
-                for (i, stmt) in stmts.iter().enumerate() {
-                    writeln!(f, "{} {}th expr:", indent, i)?;
-                    stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
-                }
-                Ok(())
-            }
-            ASTStmtNode::If(ref cond, ref if_stmt, ref else_stmt) => {
-                writeln!(f, "{}If", indent)?;
-                writeln!(f, "{}cond:", indent)?;
-                cond.fmt_with_indent(f, &format!("{}\t", indent))?;
-                writeln!(f, "{}if_stmt:", indent)?;
-                if_stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
-
-                if else_stmt.is_some() {
-                    let else_stmt = else_stmt.clone().unwrap();
-
-                    writeln!(f, "{}else_stmt:", indent)?;
-                    else_stmt.fmt_with_indent(f, &format!("{}\t", indent))
-                } else {
-                    Ok(())
-                }
-            }
-            ASTStmtNode::While(ref cond, ref stmt) => {
-                writeln!(f, "{}While", indent)?;
-                writeln!(f, "{}cond:", indent)?;
-                cond.fmt_with_indent(f, &format!("{}\t", indent))?;
-                writeln!(f, "{}stmt:", indent)?;
-                stmt.fmt_with_indent(f, &format!("{}\t", indent))
-            }
-            ASTStmtNode::For(ref start, ref cond, ref step, ref stmt) => {
-                writeln!(f, "{}For", indent)?;
-                writeln!(f, "{}start:", indent)?;
-                start.fmt_with_indent(f, &format!("{}\t", indent))?;
-                writeln!(f, "{}cond:", indent)?;
-                cond.fmt_with_indent(f, &format!("{}\t", indent))?;
-                writeln!(f, "{}step:", indent)?;
-                step.fmt_with_indent(f, &format!("{}\t", indent))?;
-                writeln!(f, "{}stmt:", indent)?;
-                stmt.fmt_with_indent(f, &format!("{}\t", indent))
-            }
-        }
-    }
-}
-
-impl fmt::Debug for ASTStmt {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fmt_with_indent(f, "")
-    }
-}
-
-pub enum ASTGlobalNode {
-    Function(Rc<RefCell<Obj>>, Vec<ASTStmt>),
-}
-
-#[derive(Clone)]
-pub struct ASTGlobal {
-    pub head: Rc<RefCell<ASTGlobalNode>>,
-}
-
-impl ASTGlobal {
-    pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
-        match *self.head.borrow() {
-            ASTGlobalNode::Function(ref obj, ref stmts) => {
-                writeln!(f, "{}Function {}", indent, &*obj.borrow().name)?;
-                for (i, stmt) in stmts.iter().enumerate() {
-                    writeln!(f, "{} {}th stmt:", indent, i)?;
-                    stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
-                }
-                Ok(())
-            }
-        }
-    }
-}
-
-impl fmt::Debug for ASTGlobal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fmt_with_indent(f, "")
-    }
-}
 
 pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTGlobal> {
     let mut ret = Vec::new();
@@ -210,16 +32,10 @@ pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTGlobal> {
         let node;
         (tok_seq, node) = arena.parse_global(tok_seq).unwrap();
 
-        ret.push(ASTGlobal { head: node });
+        ret.push(node);
     }
 
     ret
-}
-
-#[derive(Clone)]
-pub enum Type {
-    Int,
-    Func,
 }
 
 pub struct Obj {
@@ -257,10 +73,31 @@ impl ParseArena {
         self.objs.get(obj_name).unwrap().clone()
     }
 
+    fn parse_declarator(
+        mut tok_seq: TokenList,
+        decl_spec_type: Type,
+    ) -> Result<(TokenList, String, Type), ParseError> {
+        let mut ret_type = decl_spec_type;
+
+        while tok_seq.expect_punct(PunctKind::Asterisk).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Asterisk)
+                .ok_or(ParseError {})?;
+            ret_type = Type::new_ptr_type(ret_type);
+        }
+
+        if let TokenKind::TokenIdent(var_name) = tok_seq.get_token() {
+            tok_seq = tok_seq.next();
+            Ok((tok_seq, var_name, ret_type))
+        } else {
+            Err(ParseError {})
+        }
+    }
+
     fn parse_global(
         &mut self,
         mut tok_seq: TokenList,
-    ) -> Result<(TokenList, Rc<RefCell<ASTGlobalNode>>), ParseError> {
+    ) -> Result<(TokenList, ASTGlobal), ParseError> {
         tok_seq = tok_seq
             .expect_keyword(KeywordKind::Int)
             .ok_or(ParseError {})?;
@@ -279,7 +116,11 @@ impl ParseArena {
             .expect_punct(PunctKind::CloseParenthesis)
             .ok_or(ParseError {})?;
 
-        let obj = self.insert_obj(&func_name, Type::Func);
+        let return_type = Type::new(TypeNode::Int);
+        let obj = self.insert_obj(
+            &func_name,
+            Type::new(TypeNode::Func(FunctionTypeNode { return_type })),
+        );
         let mut stmts = Vec::new();
 
         tok_seq = tok_seq
@@ -289,23 +130,17 @@ impl ParseArena {
         while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
-            stmts.push(ASTStmt { head: stmt });
+            stmts.push(stmt);
         }
 
         tok_seq = tok_seq
             .expect_punct(PunctKind::CloseBrace)
             .ok_or(ParseError {})?;
 
-        Ok((
-            tok_seq,
-            Rc::new(RefCell::new(ASTGlobalNode::Function(obj, stmts))),
-        ))
+        Ok((tok_seq, ASTGlobal::new(ASTGlobalNode::Function(obj, stmts))))
     }
 
-    fn parse_stmt(
-        &mut self,
-        mut tok_seq: TokenList,
-    ) -> Result<(TokenList, Rc<RefCell<ASTStmtNode>>), ParseError> {
+    fn parse_stmt(&mut self, mut tok_seq: TokenList) -> Result<(TokenList, ASTStmt), ParseError> {
         if tok_seq.expect_keyword(KeywordKind::Return).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Return)
@@ -318,30 +153,23 @@ impl ParseArena {
                 .expect_punct(PunctKind::SemiColon)
                 .ok_or(ParseError {})?;
 
-            Ok((
-                tok_seq,
-                Rc::new(RefCell::new(ASTStmtNode::Return(ASTExpr { head: expr }))),
-            ))
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(expr))))
         } else if tok_seq.expect_keyword(KeywordKind::Int).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Int)
                 .ok_or(ParseError {})?;
 
-            if let TokenKind::TokenIdent(ref var_name) = tok_seq.get_token() {
-                tok_seq = tok_seq.next();
+            let var_name;
+            let var_type;
+            (tok_seq, var_name, var_type) =
+                ParseArena::parse_declarator(tok_seq, Type::new(TypeNode::Int))?;
 
-                tok_seq = tok_seq
-                    .expect_punct(PunctKind::SemiColon)
-                    .ok_or(ParseError {})?;
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::SemiColon)
+                .ok_or(ParseError {})?;
 
-                let obj = self.insert_obj(var_name, Type::Int);
-                Ok((
-                    tok_seq,
-                    Rc::new(RefCell::new(ASTStmtNode::Declaration(obj))),
-                ))
-            } else {
-                Err(ParseError {})
-            }
+            let obj = self.insert_obj(&var_name, var_type);
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Declaration(obj))))
         } else if tok_seq.expect_keyword(KeywordKind::If).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::If)
@@ -371,21 +199,10 @@ impl ParseArena {
 
                 Ok((
                     tok_seq,
-                    Rc::new(RefCell::new(ASTStmtNode::If(
-                        ASTExpr { head: cond },
-                        ASTStmt { head: if_stmt },
-                        Some(ASTStmt { head: else_stmt }),
-                    ))),
+                    ASTStmt::new(ASTStmtNode::If(cond, if_stmt, Some(else_stmt))),
                 ))
             } else {
-                Ok((
-                    tok_seq,
-                    Rc::new(RefCell::new(ASTStmtNode::If(
-                        ASTExpr { head: cond },
-                        ASTStmt { head: if_stmt },
-                        None,
-                    ))),
-                ))
+                Ok((tok_seq, ASTStmt::new(ASTStmtNode::If(cond, if_stmt, None))))
             }
         } else if tok_seq.expect_keyword(KeywordKind::While).is_some() {
             tok_seq = tok_seq
@@ -405,13 +222,7 @@ impl ParseArena {
 
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
-            Ok((
-                tok_seq,
-                Rc::new(RefCell::new(ASTStmtNode::While(
-                    ASTExpr { head: cond },
-                    ASTStmt { head: stmt },
-                ))),
-            ))
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::While(cond, stmt))))
         } else if tok_seq.expect_keyword(KeywordKind::For).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::For)
@@ -444,12 +255,7 @@ impl ParseArena {
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
             Ok((
                 tok_seq,
-                Rc::new(RefCell::new(ASTStmtNode::For(
-                    ASTExpr { head: start },
-                    ASTExpr { head: cond },
-                    ASTExpr { head: step },
-                    ASTStmt { head: stmt },
-                ))),
+                ASTStmt::new(ASTStmtNode::For(start, cond, step, stmt)),
             ))
         } else if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
             tok_seq = tok_seq
@@ -461,14 +267,14 @@ impl ParseArena {
             while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
                 let stmt;
                 (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
-                stmts.push(ASTStmt { head: stmt });
+                stmts.push(stmt);
             }
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseBrace)
                 .ok_or(ParseError {})?;
 
-            Ok((tok_seq, Rc::new(RefCell::new(ASTStmtNode::Block(stmts)))))
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Block(stmts))))
         } else {
             let expr;
             (tok_seq, expr) = self.parse_expr(tok_seq)?;
@@ -477,24 +283,15 @@ impl ParseArena {
                 .expect_punct(PunctKind::SemiColon)
                 .ok_or(ParseError {})?;
 
-            Ok((
-                tok_seq,
-                Rc::new(RefCell::new(ASTStmtNode::ExprStmt(ASTExpr { head: expr }))),
-            ))
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::ExprStmt(expr))))
         }
     }
 
-    fn parse_expr(
-        &self,
-        tok_seq: TokenList,
-    ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
+    fn parse_expr(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         self.parse_assign(tok_seq)
     }
 
-    fn parse_assign(
-        &self,
-        mut tok_seq: TokenList,
-    ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
+    fn parse_assign(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         let lhs;
         (tok_seq, lhs) = self.parse_equality(tok_seq)?;
 
@@ -503,24 +300,25 @@ impl ParseArena {
 
             let rhs;
             (tok_seq, rhs) = self.parse_assign(tok_seq)?;
+            let expr_type = lhs.expr_type.clone();
 
             Ok((
                 tok_seq,
-                Rc::new(RefCell::new(ASTExprNode::BinaryOp(BinaryOpNode {
-                    lhs: ASTExpr { head: lhs },
-                    rhs: ASTExpr { head: rhs },
-                    kind: BinaryOpKind::Assign,
-                }))),
+                ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode {
+                        lhs,
+                        rhs,
+                        kind: BinaryOpKind::Assign,
+                    }),
+                    expr_type,
+                ),
             ))
         } else {
             Ok((tok_seq, lhs))
         }
     }
 
-    fn parse_equality(
-        &self,
-        mut tok_seq: TokenList,
-    ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
+    fn parse_equality(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         let mut lhs;
         (tok_seq, lhs) = self.parse_relational(tok_seq)?;
 
@@ -537,11 +335,12 @@ impl ParseArena {
                 let rhs;
                 (tok_seq, rhs) = self.parse_relational(tok_seq)?;
 
-                lhs = Rc::new(RefCell::new(ASTExprNode::BinaryOp(BinaryOpNode {
-                    lhs: ASTExpr { head: lhs },
-                    rhs: ASTExpr { head: rhs },
-                    kind,
-                })));
+                let expr_type = lhs.expr_type.clone();
+
+                lhs = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    expr_type,
+                );
             } else {
                 break;
             }
@@ -550,10 +349,7 @@ impl ParseArena {
         Ok((tok_seq, lhs))
     }
 
-    fn parse_relational(
-        &self,
-        mut tok_seq: TokenList,
-    ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
+    fn parse_relational(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         let mut lhs;
         (tok_seq, lhs) = self.parse_add(tok_seq)?;
 
@@ -572,11 +368,12 @@ impl ParseArena {
                 let rhs;
                 (tok_seq, rhs) = self.parse_add(tok_seq)?;
 
-                lhs = Rc::new(RefCell::new(ASTExprNode::BinaryOp(BinaryOpNode {
-                    lhs: ASTExpr { head: lhs },
-                    rhs: ASTExpr { head: rhs },
-                    kind,
-                })));
+                let expr_type = lhs.expr_type.clone();
+
+                lhs = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    expr_type,
+                );
             } else {
                 break;
             }
@@ -585,10 +382,7 @@ impl ParseArena {
         Ok((tok_seq, lhs))
     }
 
-    fn parse_add(
-        &self,
-        mut tok_seq: TokenList,
-    ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
+    fn parse_add(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         let mut lhs;
         (tok_seq, lhs) = self.parse_mul(tok_seq)?;
 
@@ -605,11 +399,12 @@ impl ParseArena {
                 let rhs;
                 (tok_seq, rhs) = self.parse_mul(tok_seq)?;
 
-                lhs = Rc::new(RefCell::new(ASTExprNode::BinaryOp(BinaryOpNode {
-                    lhs: ASTExpr { head: lhs },
-                    rhs: ASTExpr { head: rhs },
-                    kind,
-                })));
+                let expr_type = lhs.expr_type.clone();
+
+                lhs = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    expr_type,
+                );
             } else {
                 break;
             }
@@ -618,10 +413,7 @@ impl ParseArena {
         Ok((tok_seq, lhs))
     }
 
-    fn parse_mul(
-        &self,
-        mut tok_seq: TokenList,
-    ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
+    fn parse_mul(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         let mut lhs;
         (tok_seq, lhs) = self.parse_unary(tok_seq)?;
 
@@ -637,12 +429,12 @@ impl ParseArena {
 
                 let rhs;
                 (tok_seq, rhs) = self.parse_unary(tok_seq)?;
+                let expr_type = lhs.expr_type.clone();
 
-                lhs = Rc::new(RefCell::new(ASTExprNode::BinaryOp(BinaryOpNode {
-                    lhs: ASTExpr { head: lhs },
-                    rhs: ASTExpr { head: rhs },
-                    kind,
-                })));
+                lhs = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    expr_type,
+                );
             } else {
                 break;
             }
@@ -651,43 +443,104 @@ impl ParseArena {
         Ok((tok_seq, lhs))
     }
 
-    fn parse_unary(
-        &self,
-        mut tok_seq: TokenList,
-    ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
+    fn parse_unary(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         if tok_seq.expect_punct(PunctKind::Plus).is_some() {
             tok_seq = tok_seq.expect_punct(PunctKind::Plus).ok_or(ParseError {})?;
-            let head;
-            (tok_seq, head) = self.parse_unary(tok_seq)?;
+            let expr;
+            (tok_seq, expr) = self.parse_unary(tok_seq)?;
+            let expr_type = expr.expr_type.clone();
 
-            let node = Rc::new(RefCell::new(ASTExprNode::UnaryOp(UnaryOpNode {
-                expr: ASTExpr { head },
-                kind: UnaryOpKind::Plus,
-            })));
+            let node = ASTExpr::new(
+                ASTExprNode::UnaryOp(UnaryOpNode {
+                    expr,
+                    kind: UnaryOpKind::Plus,
+                }),
+                expr_type,
+            );
 
             Ok((tok_seq, node))
         } else if tok_seq.expect_punct(PunctKind::Minus).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Minus)
                 .ok_or(ParseError {})?;
-            let head;
-            (tok_seq, head) = self.parse_unary(tok_seq)?;
+            let expr;
+            (tok_seq, expr) = self.parse_unary(tok_seq)?;
+            let expr_type = expr.expr_type.clone();
 
-            let node = Rc::new(RefCell::new(ASTExprNode::UnaryOp(UnaryOpNode {
-                expr: ASTExpr { head },
-                kind: UnaryOpKind::Minus,
-            })));
+            let node = ASTExpr::new(
+                ASTExprNode::UnaryOp(UnaryOpNode {
+                    expr,
+                    kind: UnaryOpKind::Minus,
+                }),
+                expr_type,
+            );
+
+            Ok((tok_seq, node))
+        } else if tok_seq.expect_punct(PunctKind::Ampersand).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Ampersand)
+                .ok_or(ParseError {})?;
+
+            let expr;
+            (tok_seq, expr) = self.parse_unary(tok_seq)?;
+            let expr_type = expr.expr_type.clone();
+
+            let node = ASTExpr::new(
+                ASTExprNode::UnaryOp(UnaryOpNode {
+                    expr,
+                    kind: UnaryOpKind::Addr,
+                }),
+                Type::new_ptr_type(expr_type),
+            );
+
+            Ok((tok_seq, node))
+        } else if tok_seq.expect_punct(PunctKind::Asterisk).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Asterisk)
+                .ok_or(ParseError {})?;
+
+            let expr;
+            (tok_seq, expr) = self.parse_unary(tok_seq)?;
+            let expr_type = expr.expr_type.clone();
+
+            let node = ASTExpr::new(
+                ASTExprNode::UnaryOp(UnaryOpNode {
+                    expr,
+                    kind: UnaryOpKind::Deref,
+                }),
+                expr_type.get_ptr_to().unwrap(),
+            );
 
             Ok((tok_seq, node))
         } else {
-            self.parse_primary(tok_seq)
+            self.parse_postfix(tok_seq)
         }
     }
 
-    fn parse_primary(
-        &self,
-        mut tok_seq: TokenList,
-    ) -> Result<(TokenList, Rc<RefCell<ASTExprNode>>), ParseError> {
+    fn parse_postfix(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        let expr;
+        (tok_seq, expr) = self.parse_primary(tok_seq)?;
+
+        if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenParenthesis)
+                .ok_or(ParseError {})?;
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseParenthesis)
+                .ok_or(ParseError {})?;
+
+            let func_type = expr.expr_type.get_fn_type_node().unwrap();
+
+            Ok((
+                tok_seq,
+                ASTExpr::new(ASTExprNode::FuncCall(expr), func_type.return_type),
+            ))
+        } else {
+            Ok((tok_seq, expr))
+        }
+    }
+
+    fn parse_primary(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         if tok_seq.is_empty() {
             return Err(ParseError {});
         }
@@ -695,7 +548,7 @@ impl ParseArena {
         if let TokenKind::TokenNumber(num) = tok_seq.get_token() {
             Ok((
                 tok_seq.next(),
-                Rc::new(RefCell::new(ASTExprNode::Number(num))),
+                ASTExpr::new(ASTExprNode::Number(num), Type::new(TypeNode::Int)),
             ))
         } else if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
             tok_seq = tok_seq
@@ -711,7 +564,11 @@ impl ParseArena {
             Ok((tok_seq, ret))
         } else if let TokenKind::TokenIdent(ref var_name) = tok_seq.get_token() {
             let obj = self.get_obj(var_name);
-            Ok((tok_seq.next(), Rc::new(RefCell::new(ASTExprNode::Var(obj)))))
+            let expr_type = (*obj).borrow().obj_type.clone();
+            Ok((
+                tok_seq.next(),
+                ASTExpr::new(ASTExprNode::Var(obj), expr_type),
+            ))
         } else {
             Err(ParseError {})
         }

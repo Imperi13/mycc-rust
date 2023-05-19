@@ -7,7 +7,7 @@ pub fn compile(code_str: &str, path: &str) {
 }
 
 pub fn exec_code(path: &str) -> i32 {
-    let status = Command::new("lli-12")
+    let status = Command::new("lli-15")
         .arg(path)
         .status()
         .expect("failed to execute lli");
