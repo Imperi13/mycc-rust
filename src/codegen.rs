@@ -281,10 +281,10 @@ impl CodegenArena<'_> {
 
     pub fn codegen_expr(&self, ast: ASTExpr) -> BasicValueEnum {
         match ast.get_node() {
-            ASTExprNode::BinaryOp(ref binary_node) => self.codegen_binary_op(binary_node),
-            ASTExprNode::UnaryOp(ref unary_node) => self.codegen_unary_op(unary_node),
-            ASTExprNode::FuncCall(ref func_expr) => {
-                let func_ptr = self.codegen_expr(func_expr.clone()).into_pointer_value();
+            ASTExprNode::BinaryOp(binary_node) => self.codegen_binary_op(binary_node),
+            ASTExprNode::UnaryOp(unary_node) => self.codegen_unary_op(unary_node),
+            ASTExprNode::FuncCall(func_expr) => {
+                let func_ptr = self.codegen_expr(func_expr).into_pointer_value();
                 let fn_type = self.types.int_type.fn_type(&[], false);
                 self.builder
                     .build_indirect_call(fn_type, func_ptr, &[], "func_call")
@@ -295,7 +295,7 @@ impl CodegenArena<'_> {
             ASTExprNode::Number(num) => {
                 BasicValueEnum::IntValue(self.types.int_type.const_int(num as u64, false))
             }
-            ASTExprNode::Var(ref obj) => {
+            ASTExprNode::Var(obj) => {
                 let ptr = self.codegen_addr(ast.clone());
                 let obj_type = (*obj).borrow().obj_type.clone();
                 if obj_type.is_function_type() {
@@ -309,18 +309,18 @@ impl CodegenArena<'_> {
         }
     }
 
-    pub fn codegen_binary_op(&self, binary_node: &BinaryOpNode) -> BasicValueEnum {
+    pub fn codegen_binary_op(&self, binary_node: BinaryOpNode) -> BasicValueEnum {
         match binary_node.kind {
             BinaryOpKind::Assign => {
-                let lhs_ptr = self.codegen_addr(binary_node.lhs.clone());
-                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let lhs_ptr = self.codegen_addr(binary_node.lhs);
+                let rhs = self.codegen_expr(binary_node.rhs);
 
                 self.builder.build_store(lhs_ptr, rhs);
                 rhs
             }
             BinaryOpKind::Add => {
-                let lhs = self.codegen_expr(binary_node.lhs.clone());
-                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let lhs = self.codegen_expr(binary_node.lhs);
+                let rhs = self.codegen_expr(binary_node.rhs);
                 BasicValueEnum::IntValue(self.builder.build_int_add(
                     lhs.into_int_value(),
                     rhs.into_int_value(),
@@ -328,8 +328,8 @@ impl CodegenArena<'_> {
                 ))
             }
             BinaryOpKind::Sub => {
-                let lhs = self.codegen_expr(binary_node.lhs.clone());
-                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let lhs = self.codegen_expr(binary_node.lhs);
+                let rhs = self.codegen_expr(binary_node.rhs);
                 BasicValueEnum::IntValue(self.builder.build_int_sub(
                     lhs.into_int_value(),
                     rhs.into_int_value(),
@@ -337,8 +337,8 @@ impl CodegenArena<'_> {
                 ))
             }
             BinaryOpKind::Mul => {
-                let lhs = self.codegen_expr(binary_node.lhs.clone());
-                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let lhs = self.codegen_expr(binary_node.lhs);
+                let rhs = self.codegen_expr(binary_node.rhs);
                 BasicValueEnum::IntValue(self.builder.build_int_mul(
                     lhs.into_int_value(),
                     rhs.into_int_value(),
@@ -346,8 +346,8 @@ impl CodegenArena<'_> {
                 ))
             }
             BinaryOpKind::Div => {
-                let lhs = self.codegen_expr(binary_node.lhs.clone());
-                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let lhs = self.codegen_expr(binary_node.lhs);
+                let rhs = self.codegen_expr(binary_node.rhs);
                 BasicValueEnum::IntValue(self.builder.build_int_signed_div(
                     lhs.into_int_value(),
                     rhs.into_int_value(),
@@ -355,8 +355,8 @@ impl CodegenArena<'_> {
                 ))
             }
             BinaryOpKind::Equal => {
-                let lhs = self.codegen_expr(binary_node.lhs.clone());
-                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let lhs = self.codegen_expr(binary_node.lhs);
+                let rhs = self.codegen_expr(binary_node.rhs);
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::EQ,
                     lhs.into_int_value(),
@@ -371,8 +371,8 @@ impl CodegenArena<'_> {
                 ))
             }
             BinaryOpKind::NotEqual => {
-                let lhs = self.codegen_expr(binary_node.lhs.clone());
-                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let lhs = self.codegen_expr(binary_node.lhs);
+                let rhs = self.codegen_expr(binary_node.rhs);
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::NE,
                     lhs.into_int_value(),
@@ -388,8 +388,8 @@ impl CodegenArena<'_> {
                 ))
             }
             BinaryOpKind::Less => {
-                let lhs = self.codegen_expr(binary_node.lhs.clone());
-                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let lhs = self.codegen_expr(binary_node.lhs);
+                let rhs = self.codegen_expr(binary_node.rhs);
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::SLT,
                     lhs.into_int_value(),
@@ -405,8 +405,8 @@ impl CodegenArena<'_> {
                 ))
             }
             BinaryOpKind::LessEqual => {
-                let lhs = self.codegen_expr(binary_node.lhs.clone());
-                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let lhs = self.codegen_expr(binary_node.lhs);
+                let rhs = self.codegen_expr(binary_node.rhs);
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::SLE,
                     lhs.into_int_value(),
@@ -422,8 +422,8 @@ impl CodegenArena<'_> {
                 ))
             }
             BinaryOpKind::Greater => {
-                let lhs = self.codegen_expr(binary_node.lhs.clone());
-                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let lhs = self.codegen_expr(binary_node.lhs);
+                let rhs = self.codegen_expr(binary_node.rhs);
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::SGT,
                     lhs.into_int_value(),
@@ -439,8 +439,8 @@ impl CodegenArena<'_> {
                 ))
             }
             BinaryOpKind::GreaterEqual => {
-                let lhs = self.codegen_expr(binary_node.lhs.clone());
-                let rhs = self.codegen_expr(binary_node.rhs.clone());
+                let lhs = self.codegen_expr(binary_node.lhs);
+                let rhs = self.codegen_expr(binary_node.rhs);
                 let cmp = self.builder.build_int_compare(
                     inkwell::IntPredicate::SGE,
                     lhs.into_int_value(),
@@ -458,20 +458,16 @@ impl CodegenArena<'_> {
         }
     }
 
-    pub fn codegen_unary_op(&self, unary_node: &UnaryOpNode) -> BasicValueEnum {
+    pub fn codegen_unary_op(&self, unary_node: UnaryOpNode) -> BasicValueEnum {
         match unary_node.kind {
-            UnaryOpKind::Plus => self.codegen_expr(unary_node.expr.clone()),
+            UnaryOpKind::Plus => self.codegen_expr(unary_node.expr),
             UnaryOpKind::Minus => {
-                let expr = self.codegen_expr(unary_node.expr.clone());
+                let expr = self.codegen_expr(unary_node.expr);
                 BasicValueEnum::IntValue(self.builder.build_int_neg(expr.into_int_value(), "neg"))
             }
-            UnaryOpKind::Addr => {
-                BasicValueEnum::PointerValue(self.codegen_addr(unary_node.expr.clone()))
-            }
+            UnaryOpKind::Addr => BasicValueEnum::PointerValue(self.codegen_addr(unary_node.expr)),
             UnaryOpKind::Deref => {
-                let ptr = self
-                    .codegen_expr(unary_node.expr.clone())
-                    .into_pointer_value();
+                let ptr = self.codegen_expr(unary_node.expr).into_pointer_value();
                 self.builder.build_load(self.types.int_type, ptr, "var")
             }
         }
