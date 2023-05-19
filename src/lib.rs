@@ -18,5 +18,5 @@ pub fn compile(code: &str, output_path: &str) {
     let ast = parse_all(tok_seq);
     eprintln!("AST\n{:?}", ast);
 
-    codegen_all(ast, output_path);
+    codegen_all(&ast, output_path);
 }
