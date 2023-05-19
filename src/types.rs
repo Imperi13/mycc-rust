@@ -30,6 +30,10 @@ impl Type {
         }
     }
 
+    pub fn get_node(&self) -> TypeNode {
+        (*self.head).clone()
+    }
+
     pub fn get_ptr_to(&self) -> Result<Type, ()> {
         match &*self.head {
             TypeNode::Ptr(ptr_to) => Ok(ptr_to.clone()),
