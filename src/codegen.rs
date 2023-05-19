@@ -18,7 +18,6 @@ use inkwell::module::Module;
 use inkwell::types::AnyTypeEnum;
 use inkwell::types::BasicType;
 use inkwell::types::BasicTypeEnum;
-use inkwell::types::IntType;
 use inkwell::values::BasicValueEnum;
 use inkwell::values::FunctionValue;
 use inkwell::values::PointerValue;
@@ -26,47 +25,10 @@ use inkwell::AddressSpace;
 use std::collections::HashMap;
 use std::path::Path;
 
-struct BuiltinType<'a> {
-    pub int_type: IntType<'a>,
-}
-
-impl<'a> BuiltinType<'a> {
-    pub fn convert(&self, c_type: Type) -> AnyTypeEnum {
-        match c_type.get_node() {
-            TypeNode::Int => self.int_type.into(),
-            TypeNode::Ptr(c_ptr_to) => {
-                let ptr_to = self.convert(c_ptr_to);
-                match ptr_to.clone() {
-                    AnyTypeEnum::VoidType(_) => panic!(),
-                    AnyTypeEnum::FunctionType(fn_type) => {
-                        fn_type.ptr_type(AddressSpace::default()).into()
-                    }
-                    _ => BasicTypeEnum::try_from(ptr_to)
-                        .unwrap()
-                        .ptr_type(AddressSpace::default())
-                        .into(),
-                }
-            }
-            TypeNode::Func(func_node) => {
-                let return_type = self.convert(func_node.return_type);
-                match return_type.clone() {
-                    AnyTypeEnum::FunctionType(_) => panic!(),
-                    AnyTypeEnum::VoidType(void_type) => void_type.fn_type(&[], false).into(),
-                    _ => BasicTypeEnum::try_from(return_type)
-                        .unwrap()
-                        .fn_type(&[], false)
-                        .into(),
-                }
-            }
-        }
-    }
-}
-
 struct CodegenArena<'ctx> {
     context: &'ctx Context,
     module: Module<'ctx>,
     builder: Builder<'ctx>,
-    types: BuiltinType<'ctx>,
 
     current_func: Option<FunctionValue<'ctx>>,
     objs_ptr: HashMap<usize, PointerValue<'ctx>>,
@@ -78,11 +40,11 @@ impl<'ctx> CodegenArena<'ctx> {
         self.module.print_to_file(path).unwrap();
     }
 
-    pub fn convert_asm_type<'a>(&'a self, c_type: Type) -> AnyTypeEnum<'ctx> {
+    pub fn convert_llvm_anytype<'a>(&'a self, c_type: Type) -> AnyTypeEnum<'ctx> {
         match c_type.get_node() {
             TypeNode::Int => self.context.i32_type().into(),
             TypeNode::Ptr(c_ptr_to) => {
-                let ptr_to = self.convert_asm_type(c_ptr_to);
+                let ptr_to = self.convert_llvm_anytype(c_ptr_to);
                 match ptr_to.clone() {
                     AnyTypeEnum::VoidType(_) => panic!(),
                     AnyTypeEnum::FunctionType(fn_type) => {
@@ -95,7 +57,7 @@ impl<'ctx> CodegenArena<'ctx> {
                 }
             }
             TypeNode::Func(func_node) => {
-                let return_type = self.convert_asm_type(func_node.return_type);
+                let return_type = self.convert_llvm_anytype(func_node.return_type);
                 match return_type.clone() {
                     AnyTypeEnum::FunctionType(_) => panic!(),
                     AnyTypeEnum::VoidType(void_type) => void_type.fn_type(&[], false).into(),
@@ -106,6 +68,10 @@ impl<'ctx> CodegenArena<'ctx> {
                 }
             }
         }
+    }
+
+    pub fn convert_llvm_basictype<'a>(&'a self, c_type: Type) -> BasicTypeEnum<'ctx> {
+        self.convert_llvm_anytype(c_type).try_into().unwrap()
     }
 
     pub fn alloc_local_obj<'a>(&'a mut self, obj: &Obj) -> PointerValue<'ctx> {
@@ -124,8 +90,8 @@ impl<'ctx> CodegenArena<'ctx> {
             None => builder.position_at_end(entry),
         }
 
-        let asm_type = self.convert_asm_type(obj.obj_type.clone());
-        let ptr = builder.build_alloca(BasicTypeEnum::try_from(asm_type).unwrap(), &obj.name);
+        let asm_type = self.convert_llvm_basictype(obj.obj_type.clone());
+        let ptr = builder.build_alloca(asm_type, &obj.name);
 
         self.objs_ptr.insert(obj.id, ptr);
         ptr
@@ -142,7 +108,10 @@ impl<'ctx> CodegenArena<'ctx> {
     pub fn codegen_func(&mut self, func: ASTGlobal) {
         let ASTGlobalNode::Function(ref obj, ref stmts) = func.get_node();
 
-        let main_fn_type = self.types.int_type.fn_type(&[], false);
+        let main_fn_type = self
+            .convert_llvm_anytype((*obj.borrow()).obj_type.clone())
+            .try_into()
+            .unwrap();
         let main_fn = self
             .module
             .add_function(&*obj.borrow().name, main_fn_type, None);
@@ -190,7 +159,10 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             ASTStmtNode::If(ref cond, ref if_stmt, ref else_stmt) => {
                 let func = self.current_func.unwrap();
-                let zero = self.types.int_type.const_int(0, false);
+                let zero = self
+                    .convert_llvm_basictype(cond.expr_type.clone())
+                    .into_int_type()
+                    .const_int(0, false);
 
                 let cond = self.codegen_expr(cond.clone());
                 let cond = self.builder.build_int_compare(
@@ -222,7 +194,10 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             ASTStmtNode::While(ref cond, ref stmt) => {
                 let func = self.current_func.unwrap();
-                let zero = self.types.int_type.const_int(0, false);
+                let zero = self
+                    .convert_llvm_basictype(cond.expr_type.clone())
+                    .into_int_type()
+                    .const_int(0, false);
 
                 let cond_bb = self.context.append_basic_block(func, "cond");
                 let loop_bb = self.context.append_basic_block(func, "loop");
@@ -249,7 +224,10 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             ASTStmtNode::For(ref start, ref cond, ref step, ref stmt) => {
                 let func = self.current_func.unwrap();
-                let zero = self.types.int_type.const_int(0, false);
+                let zero = self
+                    .convert_llvm_basictype(cond.expr_type.clone())
+                    .into_int_type()
+                    .const_int(0, false);
 
                 let cond_bb = self.context.append_basic_block(func, "cond");
                 let loop_bb = self.context.append_basic_block(func, "loop");
@@ -282,35 +260,40 @@ impl<'ctx> CodegenArena<'ctx> {
 
     pub fn codegen_expr(&self, ast: ASTExpr) -> BasicValueEnum {
         match ast.get_node() {
-            ASTExprNode::BinaryOp(binary_node) => self.codegen_binary_op(binary_node),
-            ASTExprNode::UnaryOp(unary_node) => self.codegen_unary_op(unary_node),
+            ASTExprNode::BinaryOp(binary_node) => {
+                self.codegen_binary_op(binary_node, ast.expr_type)
+            }
+            ASTExprNode::UnaryOp(unary_node) => self.codegen_unary_op(unary_node, ast.expr_type),
             ASTExprNode::FuncCall(func_expr) => {
-                let func_ptr = self.codegen_expr(func_expr).into_pointer_value();
-                let fn_type = self.types.int_type.fn_type(&[], false);
+                let func_ptr = self.codegen_expr(func_expr.clone()).into_pointer_value();
+                let fn_type = self
+                    .convert_llvm_anytype(func_expr.expr_type)
+                    .into_function_type();
                 self.builder
                     .build_indirect_call(fn_type, func_ptr, &[], "func_call")
                     .try_as_basic_value()
                     .left()
                     .unwrap()
             }
-            ASTExprNode::Number(num) => {
-                BasicValueEnum::IntValue(self.types.int_type.const_int(num as u64, false))
-            }
+            ASTExprNode::Number(num) => BasicValueEnum::IntValue(
+                self.convert_llvm_basictype(ast.expr_type)
+                    .into_int_type()
+                    .const_int(num as u64, false),
+            ),
             ASTExprNode::Var(obj) => {
                 let ptr = self.codegen_addr(ast.clone());
                 let obj_type = (*obj).borrow().obj_type.clone();
                 if obj_type.is_function_type() {
                     BasicValueEnum::PointerValue(ptr)
                 } else {
-                    let llvm_type = self.types.convert(obj_type);
-                    self.builder
-                        .build_load(BasicTypeEnum::try_from(llvm_type).unwrap(), ptr, "var")
+                    let llvm_type = self.convert_llvm_basictype(obj_type);
+                    self.builder.build_load(llvm_type, ptr, "var")
                 }
             }
         }
     }
 
-    pub fn codegen_binary_op(&self, binary_node: BinaryOpNode) -> BasicValueEnum {
+    pub fn codegen_binary_op(&self, binary_node: BinaryOpNode, expr_type: Type) -> BasicValueEnum {
         match binary_node.kind {
             BinaryOpKind::Assign => {
                 let lhs_ptr = self.codegen_addr(binary_node.lhs);
@@ -366,7 +349,7 @@ impl<'ctx> CodegenArena<'ctx> {
                 );
                 BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.types.int_type,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
                     false,
                     "cast to i64",
                 ))
@@ -383,7 +366,7 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.types.int_type,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
                     false,
                     "cast to i64",
                 ))
@@ -400,7 +383,7 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.types.int_type,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
                     false,
                     "cast to i64",
                 ))
@@ -417,7 +400,7 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.types.int_type,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
                     false,
                     "cast to i64",
                 ))
@@ -434,7 +417,7 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.types.int_type,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
                     false,
                     "cast to i64",
                 ))
@@ -451,7 +434,7 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
                     cmp,
-                    self.types.int_type,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
                     false,
                     "cast to i64",
                 ))
@@ -459,7 +442,7 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    pub fn codegen_unary_op(&self, unary_node: UnaryOpNode) -> BasicValueEnum {
+    pub fn codegen_unary_op(&self, unary_node: UnaryOpNode, expr_type: Type) -> BasicValueEnum {
         match unary_node.kind {
             UnaryOpKind::Plus => self.codegen_expr(unary_node.expr),
             UnaryOpKind::Minus => {
@@ -468,8 +451,9 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             UnaryOpKind::Addr => BasicValueEnum::PointerValue(self.codegen_addr(unary_node.expr)),
             UnaryOpKind::Deref => {
+                let llvm_type = self.convert_llvm_basictype(expr_type);
                 let ptr = self.codegen_expr(unary_node.expr).into_pointer_value();
-                self.builder.build_load(self.types.int_type, ptr, "var")
+                self.builder.build_load(llvm_type, ptr, "var")
             }
         }
     }
@@ -479,15 +463,11 @@ pub fn codegen_all(funcs: Vec<ASTGlobal>, output_path: &str) {
     let context = Context::create();
     let module = context.create_module("main");
     let builder = context.create_builder();
-    let types = BuiltinType {
-        int_type: context.i32_type(),
-    };
 
     let mut arena = CodegenArena {
         context: &context,
         module,
         builder,
-        types,
         current_func: None,
         objs_ptr: HashMap::new(),
     };
