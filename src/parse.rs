@@ -20,9 +20,12 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-pub struct ParseError;
+pub enum ParseError {
+    SyntaxError,
+    SemanticError,
+}
 
-pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTGlobal> {
+pub fn parse_all(mut tok_seq: TokenList) -> Result<Vec<ASTGlobal>, ParseError> {
     let mut ret = Vec::new();
     let mut arena = ParseArena {
         objs: HashMap::new(),
@@ -30,12 +33,12 @@ pub fn parse_all(mut tok_seq: TokenList) -> Vec<ASTGlobal> {
 
     while !tok_seq.is_empty() {
         let node;
-        (tok_seq, node) = arena.parse_global(tok_seq).unwrap();
+        (tok_seq, node) = arena.parse_global(tok_seq)?;
 
         ret.push(node);
     }
 
-    ret
+    Ok(ret)
 }
 
 pub struct Obj {
@@ -49,9 +52,9 @@ pub struct ParseArena {
 }
 
 impl ParseArena {
-    fn insert_obj(&mut self, obj_name: &str, obj_type: Type) -> Rc<RefCell<Obj>> {
+    fn insert_obj(&mut self, obj_name: &str, obj_type: Type) -> Result<Rc<RefCell<Obj>>, ()> {
         if self.objs.contains_key(obj_name) {
-            panic!("insert_obj");
+            return Err(());
         }
 
         let obj_id = self.objs.len();
@@ -62,15 +65,15 @@ impl ParseArena {
         }));
 
         self.objs.insert(String::from(obj_name), obj.clone());
-        obj
+        Ok(obj)
     }
 
-    fn get_obj(&self, obj_name: &str) -> Rc<RefCell<Obj>> {
+    fn get_obj(&self, obj_name: &str) -> Result<Rc<RefCell<Obj>>, ()> {
         if !self.objs.contains_key(obj_name) {
-            panic!("get_obj");
+            return Err(());
         }
 
-        self.objs.get(obj_name).unwrap().clone()
+        Ok(self.objs.get(obj_name).unwrap().clone())
     }
 
     fn parse_declarator(
@@ -82,7 +85,7 @@ impl ParseArena {
         while tok_seq.expect_punct(PunctKind::Asterisk).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Asterisk)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
             ret_type = Type::new_ptr_type(ret_type);
         }
 
@@ -90,7 +93,7 @@ impl ParseArena {
             tok_seq = tok_seq.next();
             Ok((tok_seq, var_name, ret_type))
         } else {
-            Err(ParseError {})
+            Err(ParseError::SyntaxError)
         }
     }
 
@@ -100,32 +103,34 @@ impl ParseArena {
     ) -> Result<(TokenList, ASTGlobal), ParseError> {
         tok_seq = tok_seq
             .expect_keyword(KeywordKind::Int)
-            .ok_or(ParseError {})?;
+            .ok_or(ParseError::SyntaxError)?;
 
         let func_name = match tok_seq.get_token() {
             TokenKind::TokenIdent(ident) => ident,
-            _ => return Err(ParseError {}),
+            _ => return Err(ParseError::SyntaxError),
         };
 
         tok_seq = tok_seq.next();
 
         tok_seq = tok_seq
             .expect_punct(PunctKind::OpenParenthesis)
-            .ok_or(ParseError {})?;
+            .ok_or(ParseError::SyntaxError)?;
         tok_seq = tok_seq
             .expect_punct(PunctKind::CloseParenthesis)
-            .ok_or(ParseError {})?;
+            .ok_or(ParseError::SyntaxError)?;
 
         let return_type = Type::new(TypeNode::Int);
-        let obj = self.insert_obj(
-            &func_name,
-            Type::new(TypeNode::Func(FunctionTypeNode { return_type })),
-        );
+        let obj = self
+            .insert_obj(
+                &func_name,
+                Type::new(TypeNode::Func(FunctionTypeNode { return_type })),
+            )
+            .map_err(|()| ParseError::SemanticError)?;
         let mut stmts = Vec::new();
 
         tok_seq = tok_seq
             .expect_punct(PunctKind::OpenBrace)
-            .ok_or(ParseError {})?;
+            .ok_or(ParseError::SyntaxError)?;
 
         while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
             let stmt;
@@ -135,7 +140,7 @@ impl ParseArena {
 
         tok_seq = tok_seq
             .expect_punct(PunctKind::CloseBrace)
-            .ok_or(ParseError {})?;
+            .ok_or(ParseError::SyntaxError)?;
 
         Ok((tok_seq, ASTGlobal::new(ASTGlobalNode::Function(obj, stmts))))
     }
@@ -144,20 +149,20 @@ impl ParseArena {
         if tok_seq.expect_keyword(KeywordKind::Return).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Return)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let expr;
             (tok_seq, expr) = self.parse_expr(tok_seq)?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::SemiColon)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(expr))))
         } else if tok_seq.expect_keyword(KeywordKind::Int).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Int)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let var_name;
             let var_type;
@@ -166,25 +171,27 @@ impl ParseArena {
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::SemiColon)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
-            let obj = self.insert_obj(&var_name, var_type);
+            let obj = self
+                .insert_obj(&var_name, var_type)
+                .map_err(|()| ParseError::SemanticError)?;
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::Declaration(obj))))
         } else if tok_seq.expect_keyword(KeywordKind::If).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::If)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::OpenParenthesis)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let cond;
             (tok_seq, cond) = self.parse_expr(tok_seq)?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let if_stmt;
             (tok_seq, if_stmt) = self.parse_stmt(tok_seq)?;
@@ -192,7 +199,7 @@ impl ParseArena {
             if tok_seq.expect_keyword(KeywordKind::Else).is_some() {
                 tok_seq = tok_seq
                     .expect_keyword(KeywordKind::Else)
-                    .ok_or(ParseError {})?;
+                    .ok_or(ParseError::SyntaxError)?;
 
                 let else_stmt;
                 (tok_seq, else_stmt) = self.parse_stmt(tok_seq)?;
@@ -207,18 +214,18 @@ impl ParseArena {
         } else if tok_seq.expect_keyword(KeywordKind::While).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::While)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::OpenParenthesis)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let cond;
             (tok_seq, cond) = self.parse_expr(tok_seq)?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
@@ -226,30 +233,30 @@ impl ParseArena {
         } else if tok_seq.expect_keyword(KeywordKind::For).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::For)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::OpenParenthesis)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let start;
             (tok_seq, start) = self.parse_expr(tok_seq)?;
             tok_seq = tok_seq
                 .expect_punct(PunctKind::SemiColon)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let cond;
             (tok_seq, cond) = self.parse_expr(tok_seq)?;
             tok_seq = tok_seq
                 .expect_punct(PunctKind::SemiColon)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let step;
             (tok_seq, step) = self.parse_expr(tok_seq)?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
@@ -260,7 +267,7 @@ impl ParseArena {
         } else if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::OpenBrace)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let mut stmts = Vec::new();
 
@@ -272,7 +279,7 @@ impl ParseArena {
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseBrace)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::Block(stmts))))
         } else {
@@ -281,7 +288,7 @@ impl ParseArena {
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::SemiColon)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::ExprStmt(expr))))
         }
@@ -445,7 +452,9 @@ impl ParseArena {
 
     fn parse_unary(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         if tok_seq.expect_punct(PunctKind::Plus).is_some() {
-            tok_seq = tok_seq.expect_punct(PunctKind::Plus).ok_or(ParseError {})?;
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Plus)
+                .ok_or(ParseError::SyntaxError)?;
             let expr;
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
             let expr_type = expr.expr_type.clone();
@@ -462,7 +471,7 @@ impl ParseArena {
         } else if tok_seq.expect_punct(PunctKind::Minus).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Minus)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
             let expr;
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
             let expr_type = expr.expr_type.clone();
@@ -479,7 +488,7 @@ impl ParseArena {
         } else if tok_seq.expect_punct(PunctKind::Ampersand).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Ampersand)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let expr;
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
@@ -497,7 +506,7 @@ impl ParseArena {
         } else if tok_seq.expect_punct(PunctKind::Asterisk).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Asterisk)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let expr;
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
@@ -524,10 +533,10 @@ impl ParseArena {
         if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::OpenParenthesis)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             let func_type = expr.expr_type.get_fn_type_node().unwrap();
 
@@ -542,7 +551,7 @@ impl ParseArena {
 
     fn parse_primary(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         if tok_seq.is_empty() {
-            return Err(ParseError {});
+            return Err(ParseError::SyntaxError);
         }
 
         if let TokenKind::TokenNumber(num) = tok_seq.get_token() {
@@ -553,24 +562,26 @@ impl ParseArena {
         } else if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::OpenParenthesis)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
             let ret;
             (tok_seq, ret) = self.parse_expr(tok_seq)?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
-                .ok_or(ParseError {})?;
+                .ok_or(ParseError::SyntaxError)?;
 
             Ok((tok_seq, ret))
         } else if let TokenKind::TokenIdent(ref var_name) = tok_seq.get_token() {
-            let obj = self.get_obj(var_name);
+            let obj = self
+                .get_obj(var_name)
+                .map_err(|()| ParseError::SemanticError)?;
             let expr_type = (*obj).borrow().obj_type.clone();
             Ok((
                 tok_seq.next(),
                 ASTExpr::new(ASTExprNode::Var(obj), expr_type),
             ))
         } else {
-            Err(ParseError {})
+            Err(ParseError::SyntaxError)
         }
     }
 }

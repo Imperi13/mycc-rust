@@ -1,7 +1,7 @@
+mod ast;
 mod codegen;
 mod parse;
 mod tokenize;
-mod ast;
 mod types;
 
 use codegen::codegen_all;
@@ -15,7 +15,7 @@ pub fn compile(code: &str, output_path: &str) {
     tok_seq.remove_newline();
     eprintln!("TokenList without newline\n{:?}", tok_seq);
 
-    let ast = parse_all(tok_seq);
+    let ast = parse_all(tok_seq).unwrap();
     eprintln!("AST\n{:?}", ast);
 
     codegen_all(&ast, output_path);
