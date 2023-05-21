@@ -117,6 +117,22 @@ impl ParseArena {
                 var_name,
                 Type::new_array_type(ret_type, len as u32),
             ))
+        } else if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenParenthesis)
+                .ok_or(ParseError::SyntaxError)?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseParenthesis)
+                .ok_or(ParseError::SyntaxError)?;
+
+            Ok((
+                tok_seq,
+                var_name,
+                Type::new_fn_type(FunctionTypeNode {
+                    return_type: ret_type,
+                }),
+            ))
         } else {
             Ok((tok_seq, var_name, ret_type))
         }
@@ -130,26 +146,14 @@ impl ParseArena {
             .expect_keyword(KeywordKind::Int)
             .ok_or(ParseError::SyntaxError)?;
 
-        let func_name = match tok_seq.get_token() {
-            TokenKind::TokenIdent(ident) => ident,
-            _ => return Err(ParseError::SyntaxError),
-        };
+        let obj_type;
+        let obj_name;
 
-        tok_seq = tok_seq.next();
+        (tok_seq, obj_name, obj_type) =
+            ParseArena::parse_declarator(tok_seq, Type::new(TypeNode::Int))?;
 
-        tok_seq = tok_seq
-            .expect_punct(PunctKind::OpenParenthesis)
-            .ok_or(ParseError::SyntaxError)?;
-        tok_seq = tok_seq
-            .expect_punct(PunctKind::CloseParenthesis)
-            .ok_or(ParseError::SyntaxError)?;
-
-        let return_type = Type::new(TypeNode::Int);
         let obj = self
-            .insert_obj(
-                &func_name,
-                Type::new(TypeNode::Func(FunctionTypeNode { return_type })),
-            )
+            .insert_obj(&obj_name, obj_type)
             .map_err(|()| ParseError::SemanticError)?;
         let mut stmts = Vec::new();
 

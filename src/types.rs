@@ -25,6 +25,10 @@ impl Type {
         }
     }
 
+    pub fn new_fn_type(fn_type_node: FunctionTypeNode) -> Type {
+        Type::new(TypeNode::Func(fn_type_node))
+    }
+
     pub fn new_ptr_type(ptr_to: Type) -> Type {
         Type {
             head: Rc::new(TypeNode::Ptr(ptr_to)),
@@ -50,7 +54,7 @@ impl Type {
 
     pub fn get_array_to(&self) -> Result<Type, ()> {
         match &*self.head {
-            TypeNode::Array(array_to,_) => Ok(array_to.clone()),
+            TypeNode::Array(array_to, _) => Ok(array_to.clone()),
             _ => Err(()),
         }
     }
