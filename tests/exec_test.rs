@@ -142,6 +142,12 @@ test_function!(
 
 test_function!(
     ptr_4,
+    "int main(){int **a;int *b;int c;c = 0;a = &b;*a = &c;**a = 34;return c;}",
+    34
+);
+
+test_function!(
+    ptr_5,
     "int main(){int *a;int b;a = &b;a = a+1;return 10;}",
     10
 );
