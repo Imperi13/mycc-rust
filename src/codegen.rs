@@ -1,7 +1,6 @@
 use crate::ast::ASTExpr;
 use crate::ast::ASTExprNode;
 use crate::ast::ASTGlobal;
-use crate::ast::ASTGlobalNode;
 use crate::ast::ASTStmt;
 use crate::ast::ASTStmtNode;
 use crate::ast::BinaryOpKind;
@@ -123,7 +122,7 @@ impl<'ctx> CodegenArena<'ctx> {
     }
 
     pub fn codegen_func(&mut self, func: &ASTGlobal) {
-        let ASTGlobalNode::Function(ref obj, ref stmts) = func.get_node();
+        let ASTGlobal::Function(ref obj, ref stmts) = func;
 
         let main_fn_type = self
             .convert_llvm_anytype(&(*obj.borrow()).obj_type)

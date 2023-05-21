@@ -211,29 +211,14 @@ impl fmt::Debug for ASTStmt {
 }
 
 #[derive(Clone)]
-pub enum ASTGlobalNode {
+pub enum ASTGlobal {
     Function(Rc<RefCell<Obj>>, Vec<ASTStmt>),
 }
 
-#[derive(Clone)]
-pub struct ASTGlobal {
-    head: Rc<RefCell<ASTGlobalNode>>,
-}
-
 impl ASTGlobal {
-    pub fn new(node: ASTGlobalNode) -> ASTGlobal {
-        ASTGlobal {
-            head: Rc::new(RefCell::new(node)),
-        }
-    }
-
-    pub fn get_node(&self) -> ASTGlobalNode {
-        (*self.head).borrow().clone()
-    }
-
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
-        match *self.head.borrow() {
-            ASTGlobalNode::Function(ref obj, ref stmts) => {
+        match self {
+            ASTGlobal::Function(ref obj, ref stmts) => {
                 writeln!(f, "{}Function {}", indent, &*obj.borrow().name)?;
                 for (i, stmt) in stmts.iter().enumerate() {
                     writeln!(f, "{} {}th stmt:", indent, i)?;

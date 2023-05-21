@@ -1,7 +1,6 @@
 use crate::ast::ASTExpr;
 use crate::ast::ASTExprNode;
 use crate::ast::ASTGlobal;
-use crate::ast::ASTGlobalNode;
 use crate::ast::ASTStmt;
 use crate::ast::ASTStmtNode;
 use crate::ast::BinaryOpKind;
@@ -171,7 +170,7 @@ impl ParseArena {
             .expect_punct(PunctKind::CloseBrace)
             .ok_or(ParseError::SyntaxError)?;
 
-        Ok((tok_seq, ASTGlobal::new(ASTGlobalNode::Function(obj, stmts))))
+        Ok((tok_seq, ASTGlobal::Function(obj, stmts)))
     }
 
     fn parse_stmt(&mut self, mut tok_seq: TokenList) -> Result<(TokenList, ASTStmt), ParseError> {
