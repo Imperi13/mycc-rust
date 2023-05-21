@@ -159,6 +159,17 @@ test_function!(
     14
 );
 
-test_function!(array_1,"int main(){int a[10];return 10;}",10);
-test_function!(array_2,"int main(){int a[10];a[5] = 33;return a[5]+7;}",40);
+test_function!(array_1, "int main(){int a[10];return 10;}", 10);
+test_function!(
+    array_2,
+    "int main(){int a[10];a[5] = 33;return a[5]+7;}",
+    40
+);
 
+test_function!(global_var_1, "int a;int main(){return 10;}", 10);
+test_function!(global_var_2, "int a;int main(){a=37;return a+3;}", 40);
+test_function!(
+    global_var_3,
+    "int *a;int b;int main(){b=0;a = &b;*a = 25;return b+5;}",
+    30
+);
