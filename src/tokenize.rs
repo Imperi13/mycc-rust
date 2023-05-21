@@ -33,6 +33,8 @@ pub enum KeywordKind {
     Else,
     While,
     For,
+    Sizeof,
+    Alignof,
 }
 
 #[derive(Debug, Clone)]
@@ -235,9 +237,17 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
 }
 
 fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
+    if code.len() >= 8 {
+        match &code[..8] {
+            "_Alignof" => return Some((KeywordKind::Alignof, &code[8..])),
+            _ => (),
+        }
+    }
+
     if code.len() >= 6 {
         match &code[..6] {
             "return" => return Some((KeywordKind::Return, &code[6..])),
+            "sizeof" => return Some((KeywordKind::Sizeof, &code[6..])),
             _ => (),
         }
     }

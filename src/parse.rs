@@ -481,7 +481,43 @@ impl ParseArena {
     }
 
     fn parse_unary(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
-        if tok_seq.expect_punct(PunctKind::Plus).is_some() {
+        if tok_seq.expect_keyword(KeywordKind::Sizeof).is_some() {
+            tok_seq = tok_seq
+                .expect_keyword(KeywordKind::Sizeof)
+                .ok_or(ParseError::SyntaxError)?;
+
+            let expr;
+            (tok_seq, expr) = self.parse_unary(tok_seq)?;
+            let expr_type = expr.expr_type.clone();
+
+            let node = ASTExpr::new(
+                ASTExprNode::UnaryOp(UnaryOpNode {
+                    expr,
+                    kind: UnaryOpKind::Sizeof,
+                }),
+                expr_type,
+            );
+
+            Ok((tok_seq, node))
+        } else if tok_seq.expect_keyword(KeywordKind::Alignof).is_some() {
+            tok_seq = tok_seq
+                .expect_keyword(KeywordKind::Alignof)
+                .ok_or(ParseError::SyntaxError)?;
+
+            let expr;
+            (tok_seq, expr) = self.parse_unary(tok_seq)?;
+            let expr_type = expr.expr_type.clone();
+
+            let node = ASTExpr::new(
+                ASTExprNode::UnaryOp(UnaryOpNode {
+                    expr,
+                    kind: UnaryOpKind::Alignof,
+                }),
+                expr_type,
+            );
+
+            Ok((tok_seq, node))
+        } else if tok_seq.expect_punct(PunctKind::Plus).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Plus)
                 .ok_or(ParseError::SyntaxError)?;

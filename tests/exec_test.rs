@@ -145,3 +145,10 @@ test_function!(
     "int main(){int *a;int b;a = &b;a = a+1;return 10;}",
     10
 );
+
+test_function!(sizeof_1, "int main(){return sizeof(1);}", 4);
+test_function!(
+    sizeof_2,
+    "int main(){int a;a=10;return sizeof(a=20) + a;}",
+    14
+);

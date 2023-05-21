@@ -479,6 +479,34 @@ impl<'ctx> CodegenArena<'ctx> {
 
     pub fn codegen_unary_op(&self, unary_node: &UnaryOpNode, expr_type: &Type) -> BasicValueEnum {
         match unary_node.kind {
+            UnaryOpKind::Sizeof => {
+                let size_val = self
+                    .convert_llvm_basictype(expr_type)
+                    .size_of()
+                    .unwrap()
+                    .into();
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
+                    size_val,
+                    self.context.i32_type(),
+                    false,
+                    "cast to i32",
+                ))
+            }
+            UnaryOpKind::Alignof => {
+                let llvm_type = self.convert_llvm_basictype(expr_type);
+                let align_val = match llvm_type {
+                    BasicTypeEnum::IntType(ty) => ty.get_alignment().into(),
+                    BasicTypeEnum::PointerType(ty) => ty.get_alignment().into(),
+                    _ => unimplemented!(),
+                };
+
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
+                    align_val,
+                    self.context.i32_type(),
+                    false,
+                    "cast to i32",
+                ))
+            }
             UnaryOpKind::Plus => self.codegen_expr(&unary_node.expr),
             UnaryOpKind::Minus => {
                 let expr = self.codegen_expr(&unary_node.expr);
