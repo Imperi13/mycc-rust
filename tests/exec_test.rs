@@ -180,3 +180,7 @@ test_function!(
     "int a;int main(){a=0;int a; a=10;return a;}",
     10
 );
+
+test_function!(char_1, "int main(){char a;return 10;}", 10);
+test_function!(char_2, "int main(){char a;a = 10;return a;}", 10);
+test_function!(char_3, "char a;int main(){a=10;return a;}", 10);
