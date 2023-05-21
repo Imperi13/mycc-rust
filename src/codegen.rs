@@ -309,13 +309,42 @@ impl<'ctx> CodegenArena<'ctx> {
                 rhs
             }
             BinaryOpKind::Add => {
+                let lhs_type = &binary_node.lhs.expr_type;
+                let rhs_type = &binary_node.rhs.expr_type;
                 let lhs = self.codegen_expr(&binary_node.lhs);
                 let rhs = self.codegen_expr(&binary_node.rhs);
-                BasicValueEnum::IntValue(self.builder.build_int_add(
-                    lhs.into_int_value(),
-                    rhs.into_int_value(),
-                    "add node",
-                ))
+
+                if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                    BasicValueEnum::IntValue(self.builder.build_int_add(
+                        lhs.into_int_value(),
+                        rhs.into_int_value(),
+                        "add node",
+                    ))
+                } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
+                    unsafe {
+                        self.builder
+                            .build_gep(
+                                self.convert_llvm_basictype(lhs_type),
+                                lhs.into_pointer_value(),
+                                &[rhs.into_int_value()],
+                                "ptr_add",
+                            )
+                            .into()
+                    }
+                } else if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                    unsafe {
+                        self.builder
+                            .build_gep(
+                                self.convert_llvm_basictype(rhs_type),
+                                rhs.into_pointer_value(),
+                                &[lhs.into_int_value()],
+                                "ptr_add",
+                            )
+                            .into()
+                    }
+                } else {
+                    unreachable!()
+                }
             }
             BinaryOpKind::Sub => {
                 let lhs = self.codegen_expr(&binary_node.lhs);

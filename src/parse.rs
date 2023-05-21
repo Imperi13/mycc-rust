@@ -419,14 +419,24 @@ impl ParseArena {
                 let lhs_type = lhs.expr_type.clone();
                 let rhs_type = rhs.expr_type.clone();
 
-                if !lhs_type.is_int_type() || !rhs_type.is_int_type() {
+                if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                    lhs = ASTExpr::new(
+                        ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                        lhs_type,
+                    );
+                } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
+                    lhs = ASTExpr::new(
+                        ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                        lhs_type,
+                    );
+                } else if lhs_type.is_int_type() && rhs_type.is_ptr_type() {
+                    lhs = ASTExpr::new(
+                        ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                        rhs_type,
+                    );
+                } else {
                     return Err(ParseError::SemanticError);
                 }
-
-                lhs = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
-                    lhs_type,
-                );
             } else {
                 break;
             }

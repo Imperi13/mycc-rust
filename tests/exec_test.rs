@@ -139,3 +139,9 @@ test_function!(
     "int main(){int *a;int b;b = 10;a = &b;*a = 55;return b;}",
     55
 );
+
+test_function!(
+    ptr_4,
+    "int main(){int *a;int b;a = &b;a = a+1;return 10;}",
+    10
+);
