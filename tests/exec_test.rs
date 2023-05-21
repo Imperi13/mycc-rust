@@ -173,3 +173,10 @@ test_function!(
     "int *a;int b;int main(){b=0;a = &b;*a = 25;return b+5;}",
     30
 );
+
+test_function!(shadowing_1, "int a;int main(){int a;return 33;}", 33);
+test_function!(
+    shadowing_2,
+    "int a;int main(){a=0;int a; a=10;return a;}",
+    10
+);
