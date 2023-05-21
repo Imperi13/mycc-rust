@@ -27,7 +27,9 @@ pub enum ParseError {
 pub fn parse_all(mut tok_seq: TokenList) -> Result<Vec<ASTGlobal>, ParseError> {
     let mut ret = Vec::new();
     let mut arena = ParseArena {
-        objs: HashMap::new(),
+        obj_id: 0,
+        global_objs: HashMap::new(),
+        local_objs: HashMap::new(),
     };
 
     while !tok_seq.is_empty() {
@@ -47,32 +49,60 @@ pub struct Obj {
 }
 
 pub struct ParseArena {
-    objs: HashMap<String, Rc<RefCell<Obj>>>,
+    obj_id: usize,
+    global_objs: HashMap<String, Rc<RefCell<Obj>>>,
+    local_objs: HashMap<String, Rc<RefCell<Obj>>>,
 }
 
 impl ParseArena {
-    fn insert_obj(&mut self, obj_name: &str, obj_type: Type) -> Result<Rc<RefCell<Obj>>, ()> {
-        if self.objs.contains_key(obj_name) {
+    fn insert_global_obj(
+        &mut self,
+        obj_name: &str,
+        obj_type: Type,
+    ) -> Result<Rc<RefCell<Obj>>, ()> {
+        if self.global_objs.contains_key(obj_name) {
             return Err(());
         }
 
-        let obj_id = self.objs.len();
         let obj = Rc::new(RefCell::new(Obj {
-            id: obj_id,
+            id: self.obj_id,
             name: String::from(obj_name),
             obj_type,
         }));
 
-        self.objs.insert(String::from(obj_name), obj.clone());
+        self.global_objs.insert(String::from(obj_name), obj.clone());
+        self.obj_id += 1;
+
+        Ok(obj)
+    }
+
+    fn insert_local_obj(&mut self, obj_name: &str, obj_type: Type) -> Result<Rc<RefCell<Obj>>, ()> {
+        if self.local_objs.contains_key(obj_name) {
+            return Err(());
+        }
+
+        let obj = Rc::new(RefCell::new(Obj {
+            id: self.obj_id,
+            name: String::from(obj_name),
+            obj_type,
+        }));
+
+        self.local_objs.insert(String::from(obj_name), obj.clone());
+        self.obj_id += 1;
+
         Ok(obj)
     }
 
     fn get_obj(&self, obj_name: &str) -> Result<Rc<RefCell<Obj>>, ()> {
-        if !self.objs.contains_key(obj_name) {
-            return Err(());
+        if self.local_objs.contains_key(obj_name) {
+            return Ok(self.local_objs.get(obj_name).unwrap().clone());
         }
 
-        Ok(self.objs.get(obj_name).unwrap().clone())
+        if self.global_objs.contains_key(obj_name) {
+            return Ok(self.global_objs.get(obj_name).unwrap().clone());
+        }
+
+        Err(())
     }
 
     fn parse_declarator(
@@ -157,9 +187,12 @@ impl ParseArena {
                 .ok_or(ParseError::SyntaxError)?;
 
             let obj = self
-                .insert_obj(&obj_name, obj_type)
+                .insert_global_obj(&obj_name, obj_type)
                 .map_err(|()| ParseError::SemanticError)?;
+
+            // prepare parsing stmts
             let mut stmts = Vec::new();
+            self.local_objs = HashMap::new();
 
             while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
                 let stmt;
@@ -178,7 +211,7 @@ impl ParseArena {
                 .ok_or(ParseError::SyntaxError)?;
 
             let obj = self
-                .insert_obj(&obj_name, obj_type)
+                .insert_global_obj(&obj_name, obj_type)
                 .map_err(|()| ParseError::SemanticError)?;
 
             Ok((tok_seq, ASTGlobal::Variable(obj)))
@@ -216,7 +249,7 @@ impl ParseArena {
                 .ok_or(ParseError::SyntaxError)?;
 
             let obj = self
-                .insert_obj(&var_name, var_type)
+                .insert_local_obj(&var_name, var_type)
                 .map_err(|()| ParseError::SemanticError)?;
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::Declaration(obj))))
         } else if tok_seq.expect_keyword(KeywordKind::If).is_some() {
