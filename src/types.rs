@@ -8,6 +8,7 @@ pub struct FunctionTypeNode {
 #[derive(Clone)]
 pub enum TypeNode {
     Int,
+    Char,
     Func(FunctionTypeNode),
     Ptr(Type),
     Array(Type, u32),

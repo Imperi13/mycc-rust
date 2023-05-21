@@ -31,6 +31,7 @@ pub enum PunctKind {
 pub enum KeywordKind {
     Return,
     Int,
+    Char,
     If,
     Else,
     While,
@@ -266,6 +267,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
     if code.len() >= 4 {
         match &code[..4] {
             "else" => return Some((KeywordKind::Else, &code[4..])),
+            "char" => return Some((KeywordKind::Char, &code[4..])),
             _ => (),
         }
     }

@@ -43,6 +43,7 @@ impl<'ctx> CodegenArena<'ctx> {
     pub fn convert_llvm_anytype<'a>(&'a self, c_type: &Type) -> AnyTypeEnum<'ctx> {
         match c_type.get_node() {
             TypeNode::Int => self.context.i32_type().into(),
+            TypeNode::Char => self.context.i8_type().into(),
             TypeNode::Ptr(ref c_ptr_to) => {
                 let ptr_to = self.convert_llvm_anytype(c_ptr_to);
                 match ptr_to.clone() {

@@ -105,6 +105,21 @@ impl ParseArena {
         Err(())
     }
 
+    fn is_type_token(&self, tok_seq: TokenList) -> bool {
+        let TokenKind::TokenKeyword(keyword) = tok_seq.get_token() else {return false;};
+        matches!(keyword, KeywordKind::Int) || matches!(keyword, KeywordKind::Char)
+    }
+
+    fn parse_decl_spec(&self, tok_seq: TokenList) -> Result<(TokenList, Type), ParseError> {
+        let TokenKind::TokenKeyword(keyword) = tok_seq.get_token() else {return Err(ParseError::SyntaxError);};
+
+        match keyword {
+            KeywordKind::Int => Ok((tok_seq.next(), Type::new(TypeNode::Int))),
+            KeywordKind::Char => Ok((tok_seq.next(), Type::new(TypeNode::Char))),
+            _ => Err(ParseError::SyntaxError),
+        }
+    }
+
     fn parse_declarator(
         mut tok_seq: TokenList,
         decl_spec_type: Type,
@@ -171,15 +186,13 @@ impl ParseArena {
         &mut self,
         mut tok_seq: TokenList,
     ) -> Result<(TokenList, ASTGlobal), ParseError> {
-        tok_seq = tok_seq
-            .expect_keyword(KeywordKind::Int)
-            .ok_or(ParseError::SyntaxError)?;
+        let decl_type;
+        (tok_seq, decl_type) = self.parse_decl_spec(tok_seq)?;
 
         let obj_type;
         let obj_name;
 
-        (tok_seq, obj_name, obj_type) =
-            ParseArena::parse_declarator(tok_seq, Type::new(TypeNode::Int))?;
+        (tok_seq, obj_name, obj_type) = ParseArena::parse_declarator(tok_seq, decl_type)?;
 
         if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
             tok_seq = tok_seq
@@ -234,15 +247,13 @@ impl ParseArena {
                 .ok_or(ParseError::SyntaxError)?;
 
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(expr))))
-        } else if tok_seq.expect_keyword(KeywordKind::Int).is_some() {
-            tok_seq = tok_seq
-                .expect_keyword(KeywordKind::Int)
-                .ok_or(ParseError::SyntaxError)?;
+        } else if self.is_type_token(tok_seq.clone()) {
+            let decl_type;
+            (tok_seq, decl_type) = self.parse_decl_spec(tok_seq)?;
 
             let var_name;
             let var_type;
-            (tok_seq, var_name, var_type) =
-                ParseArena::parse_declarator(tok_seq, Type::new(TypeNode::Int))?;
+            (tok_seq, var_name, var_type) = ParseArena::parse_declarator(tok_seq, decl_type)?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::SemiColon)
