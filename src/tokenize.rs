@@ -15,6 +15,8 @@ pub enum PunctKind {
     CloseBrace,
     OpenParenthesis,
     CloseParenthesis,
+    OpenSquareBracket,
+    CloseSquareBracket,
     SemiColon,
     Assign,
     Equal,
@@ -39,7 +41,7 @@ pub enum KeywordKind {
 
 #[derive(Debug, Clone)]
 pub enum TokenKind {
-    TokenNumber(i64),
+    TokenNumber(u64),
     TokenPunct(PunctKind),
     TokenKeyword(KeywordKind),
     TokenIdent(String),
@@ -170,7 +172,7 @@ impl fmt::Debug for TokenList {
     }
 }
 
-fn tokenize_num(code: &str) -> (i64, &str) {
+fn tokenize_num(code: &str) -> (u64, &str) {
     let mut index: usize = 0;
 
     loop {
@@ -184,7 +186,7 @@ fn tokenize_num(code: &str) -> (i64, &str) {
 
     let (byte_index, _) = code.char_indices().nth(index).unwrap();
     (
-        i64::from_str_radix(&code[..byte_index], 10).unwrap(),
+        u64::from_str_radix(&code[..byte_index], 10).unwrap(),
         &code[byte_index..],
     )
 }
@@ -230,6 +232,8 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
         "}" => Some((PunctKind::CloseBrace, &code[1..])),
         "(" => Some((PunctKind::OpenParenthesis, &code[1..])),
         ")" => Some((PunctKind::CloseParenthesis, &code[1..])),
+        "[" => Some((PunctKind::OpenSquareBracket, &code[1..])),
+        "]" => Some((PunctKind::CloseSquareBracket, &code[1..])),
         ";" => Some((PunctKind::SemiColon, &code[1..])),
         "=" => Some((PunctKind::Assign, &code[1..])),
         _ => None,
@@ -297,7 +301,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
         }
 
         if ch.is_digit(10) {
-            let num: i64;
+            let num: u64;
             (num, code) = tokenize_num(code);
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {

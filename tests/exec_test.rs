@@ -152,3 +152,7 @@ test_function!(
     "int main(){int a;a=10;return sizeof(a=20) + a;}",
     14
 );
+
+test_function!(array_1,"int main(){int a[10];return 10;}",10);
+test_function!(array_2,"int main(){int a[10];a[5] = 33;return a[5]+7;}",40);
+

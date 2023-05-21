@@ -12,6 +12,7 @@ use crate::parse::Obj;
 use crate::types::Type;
 use crate::types::TypeNode;
 
+use inkwell::attributes::AttributeLoc;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -67,6 +68,10 @@ impl<'ctx> CodegenArena<'ctx> {
                         .into(),
                 }
             }
+            TypeNode::Array(ref c_array_to, len) => {
+                let array_to = self.convert_llvm_basictype(c_array_to);
+                array_to.array_type(len).into()
+            }
         }
     }
 
@@ -90,8 +95,20 @@ impl<'ctx> CodegenArena<'ctx> {
             None => builder.position_at_end(entry),
         }
 
-        let asm_type = self.convert_llvm_basictype(&obj.obj_type);
-        let ptr = builder.build_alloca(asm_type, &obj.name);
+        let ptr = match obj.obj_type.get_node() {
+            TypeNode::Array(ref array_to, len) => {
+                let asm_type = self.convert_llvm_basictype(array_to);
+                builder.build_array_alloca(
+                    asm_type,
+                    self.context.i32_type().const_int(len as u64, false),
+                    &obj.name,
+                )
+            }
+            _ => {
+                let asm_type = self.convert_llvm_basictype(&obj.obj_type);
+                builder.build_alloca(asm_type, &obj.name)
+            }
+        };
 
         self.objs_ptr.insert(obj.id, ptr);
         ptr
@@ -115,6 +132,9 @@ impl<'ctx> CodegenArena<'ctx> {
         let main_fn = self
             .module
             .add_function(&*obj.borrow().name, main_fn_type, None);
+        let frame_pointer_attribute = self.context.create_string_attribute("frame-pointer", "all");
+        main_fn.add_attribute(AttributeLoc::Function, frame_pointer_attribute);
+
         let basic_block = self.context.append_basic_block(main_fn, "entry");
 
         self.current_func = Some(main_fn);
@@ -266,6 +286,7 @@ impl<'ctx> CodegenArena<'ctx> {
             ASTExprNode::UnaryOp(ref unary_node) => {
                 self.codegen_unary_op(unary_node, &ast.expr_type)
             }
+            ASTExprNode::Cast(ref _ty, ref expr) => self.codegen_expr(expr),
             ASTExprNode::FuncCall(ref func_expr) => {
                 let func_ptr = self.codegen_expr(func_expr).into_pointer_value();
                 let fn_type = self
@@ -285,7 +306,7 @@ impl<'ctx> CodegenArena<'ctx> {
             ASTExprNode::Var(ref obj) => {
                 let ptr = self.codegen_addr(ast);
                 let obj_type = &(*obj).borrow().obj_type;
-                if obj_type.is_function_type() {
+                if obj_type.is_function_type() || obj_type.is_array_type() {
                     BasicValueEnum::PointerValue(ptr)
                 } else {
                     let llvm_type = self.convert_llvm_basictype(&obj_type);

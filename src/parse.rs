@@ -89,11 +89,36 @@ impl ParseArena {
             ret_type = Type::new_ptr_type(ret_type);
         }
 
-        if let TokenKind::TokenIdent(var_name) = tok_seq.get_token() {
+        let var_name = match tok_seq.get_token() {
+            TokenKind::TokenIdent(var_name) => var_name,
+            _ => return Err(ParseError::SyntaxError),
+        };
+
+        tok_seq = tok_seq.next();
+
+        if tok_seq.expect_punct(PunctKind::OpenSquareBracket).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenSquareBracket)
+                .ok_or(ParseError::SyntaxError)?;
+
+            let len = match tok_seq.get_token() {
+                TokenKind::TokenNumber(len) => len,
+                _ => return Err(ParseError::SyntaxError),
+            };
+
             tok_seq = tok_seq.next();
-            Ok((tok_seq, var_name, ret_type))
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseSquareBracket)
+                .ok_or(ParseError::SyntaxError)?;
+
+            Ok((
+                tok_seq,
+                var_name,
+                Type::new_array_type(ret_type, len as u32),
+            ))
         } else {
-            Err(ParseError::SyntaxError)
+            Ok((tok_seq, var_name, ret_type))
         }
     }
 
@@ -622,6 +647,55 @@ impl ParseArena {
             Ok((
                 tok_seq,
                 ASTExpr::new(ASTExprNode::FuncCall(expr), func_type.return_type),
+            ))
+        } else if tok_seq.expect_punct(PunctKind::OpenSquareBracket).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenSquareBracket)
+                .ok_or(ParseError::SyntaxError)?;
+
+            let index;
+            (tok_seq, index) = self.parse_expr(tok_seq)?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseSquareBracket)
+                .ok_or(ParseError::SyntaxError)?;
+
+            let cast_type = if expr.expr_type.is_ptr_type() {
+                expr.expr_type.clone()
+            } else if expr.expr_type.is_array_type() {
+                Type::new_ptr_type(expr.expr_type.get_array_to().unwrap())
+            } else {
+                return Err(ParseError::SemanticError);
+            };
+
+            let cast = ASTExpr::build_cast_node(cast_type, expr);
+
+            let ptr_type = if cast.expr_type.is_ptr_type() && index.expr_type.is_int_type() {
+                cast.expr_type.clone()
+            } else if cast.expr_type.is_int_type() && index.expr_type.is_ptr_type() {
+                index.expr_type.clone()
+            } else {
+                return Err(ParseError::SemanticError);
+            };
+
+            let plus = ASTExpr::new(
+                ASTExprNode::BinaryOp(BinaryOpNode {
+                    kind: BinaryOpKind::Add,
+                    lhs: cast,
+                    rhs: index,
+                }),
+                ptr_type.clone(),
+            );
+
+            Ok((
+                tok_seq,
+                ASTExpr::new(
+                    ASTExprNode::UnaryOp(UnaryOpNode {
+                        kind: UnaryOpKind::Deref,
+                        expr: plus,
+                    }),
+                    ptr_type.get_ptr_to().unwrap(),
+                ),
             ))
         } else {
             Ok((tok_seq, expr))

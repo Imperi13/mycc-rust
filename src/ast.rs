@@ -46,8 +46,9 @@ pub struct UnaryOpNode {
 pub enum ASTExprNode {
     BinaryOp(BinaryOpNode),
     UnaryOp(UnaryOpNode),
+    Cast(Type, ASTExpr),
     FuncCall(ASTExpr),
-    Number(i64),
+    Number(u64),
     Var(Rc<RefCell<Obj>>),
 }
 
@@ -69,6 +70,10 @@ impl ASTExpr {
         (*self.head).borrow().clone()
     }
 
+    pub fn build_cast_node(cast_to: Type, expr: ASTExpr) -> ASTExpr {
+        ASTExpr::new(ASTExprNode::Cast(cast_to.clone(), expr), cast_to)
+    }
+
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
         match *self.head.borrow() {
             ASTExprNode::BinaryOp(ref binary_node) => {
@@ -84,6 +89,11 @@ impl ASTExpr {
                 writeln!(f, "{}UnaryOp {:?}", indent, unary_node.kind)?;
                 writeln!(f, "{}expr:", indent)?;
                 unary_node.expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTExprNode::Cast(ref _ty, ref expr) => {
+                writeln!(f, "{}Cast", indent)?;
+                writeln!(f, "{}expr:", indent)?;
+                expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
             ASTExprNode::FuncCall(ref func_expr) => {
                 writeln!(f, "{}FuncCall", indent)?;
