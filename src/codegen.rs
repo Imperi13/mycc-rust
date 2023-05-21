@@ -122,7 +122,7 @@ impl<'ctx> CodegenArena<'ctx> {
     }
 
     pub fn codegen_func(&mut self, func: &ASTGlobal) {
-        let ASTGlobal::Function(ref obj, ref stmts) = func;
+        let ASTGlobal::Function(ref obj, ref stmts) = func else{panic!()};
 
         let main_fn_type = self
             .convert_llvm_anytype(&(*obj.borrow()).obj_type)
@@ -146,6 +146,21 @@ impl<'ctx> CodegenArena<'ctx> {
             self.codegen_stmt(stmt);
         }
         self.current_func = None;
+    }
+
+    pub fn codegen_global_variable(&mut self, var_decl: &ASTGlobal) {
+        let ASTGlobal::Variable(ref obj) = var_decl else {panic!()};
+        let llvm_type = self.convert_llvm_basictype(&(*obj.borrow()).obj_type);
+        let global_obj = self.module.add_global(
+            llvm_type,
+            Some(AddressSpace::default()),
+            &(*obj.borrow()).name,
+        );
+
+        global_obj.set_initializer(&llvm_type.const_zero());
+
+        self.objs_ptr
+            .insert((*obj).borrow().id, global_obj.as_pointer_value());
     }
 
     pub fn codegen_addr(&self, ast: &ASTExpr) -> PointerValue {
@@ -542,7 +557,7 @@ impl<'ctx> CodegenArena<'ctx> {
     }
 }
 
-pub fn codegen_all(funcs: &Vec<ASTGlobal>, output_path: &str) {
+pub fn codegen_all(globals: &Vec<ASTGlobal>, output_path: &str) {
     let context = Context::create();
     let module = context.create_module("main");
     let builder = context.create_builder();
@@ -555,8 +570,11 @@ pub fn codegen_all(funcs: &Vec<ASTGlobal>, output_path: &str) {
         objs_ptr: HashMap::new(),
     };
 
-    for func in funcs.iter() {
-        arena.codegen_func(func);
+    for obj in globals.iter() {
+        match obj {
+            ASTGlobal::Function(_, _) => arena.codegen_func(obj),
+            ASTGlobal::Variable(_) => arena.codegen_global_variable(obj),
+        };
     }
 
     arena.print_to_file(output_path);

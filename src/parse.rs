@@ -151,26 +151,40 @@ impl ParseArena {
         (tok_seq, obj_name, obj_type) =
             ParseArena::parse_declarator(tok_seq, Type::new(TypeNode::Int))?;
 
-        let obj = self
-            .insert_obj(&obj_name, obj_type)
-            .map_err(|()| ParseError::SemanticError)?;
-        let mut stmts = Vec::new();
+        if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenBrace)
+                .ok_or(ParseError::SyntaxError)?;
 
-        tok_seq = tok_seq
-            .expect_punct(PunctKind::OpenBrace)
-            .ok_or(ParseError::SyntaxError)?;
+            let obj = self
+                .insert_obj(&obj_name, obj_type)
+                .map_err(|()| ParseError::SemanticError)?;
+            let mut stmts = Vec::new();
 
-        while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
-            let stmt;
-            (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
-            stmts.push(stmt);
+            while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
+                let stmt;
+                (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+                stmts.push(stmt);
+            }
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseBrace)
+                .ok_or(ParseError::SyntaxError)?;
+
+            Ok((tok_seq, ASTGlobal::Function(obj, stmts)))
+        } else if tok_seq.expect_punct(PunctKind::SemiColon).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::SemiColon)
+                .ok_or(ParseError::SyntaxError)?;
+
+            let obj = self
+                .insert_obj(&obj_name, obj_type)
+                .map_err(|()| ParseError::SemanticError)?;
+
+            Ok((tok_seq, ASTGlobal::Variable(obj)))
+        } else {
+            Err(ParseError::SyntaxError)
         }
-
-        tok_seq = tok_seq
-            .expect_punct(PunctKind::CloseBrace)
-            .ok_or(ParseError::SyntaxError)?;
-
-        Ok((tok_seq, ASTGlobal::Function(obj, stmts)))
     }
 
     fn parse_stmt(&mut self, mut tok_seq: TokenList) -> Result<(TokenList, ASTStmt), ParseError> {

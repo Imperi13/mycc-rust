@@ -213,6 +213,7 @@ impl fmt::Debug for ASTStmt {
 #[derive(Clone)]
 pub enum ASTGlobal {
     Function(Rc<RefCell<Obj>>, Vec<ASTStmt>),
+    Variable(Rc<RefCell<Obj>>),
 }
 
 impl ASTGlobal {
@@ -225,6 +226,9 @@ impl ASTGlobal {
                     stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
                 }
                 Ok(())
+            }
+            ASTGlobal::Variable(ref obj) => {
+                writeln!(f, "{}Variable {}", indent, &*obj.borrow().name)
             }
         }
     }
