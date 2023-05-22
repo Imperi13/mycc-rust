@@ -49,6 +49,7 @@ pub enum ASTExprNode {
     Cast(Type, ASTExpr),
     FuncCall(ASTExpr),
     Number(u64),
+    StrLiteral(String),
     Var(Rc<RefCell<Obj>>),
 }
 
@@ -103,6 +104,7 @@ impl ASTExpr {
             ASTExprNode::Number(num) => {
                 writeln!(f, "{}Number {}", indent, num)
             }
+            ASTExprNode::StrLiteral(ref text) => writeln!(f, "{}Number {}", indent, text),
             ASTExprNode::Var(ref obj) => {
                 writeln!(f, "{}Var {}", indent, &*obj.borrow().name)
             }

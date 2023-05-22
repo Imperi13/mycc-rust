@@ -329,6 +329,12 @@ impl<'ctx> CodegenArena<'ctx> {
                     .into_int_type()
                     .const_int(num as u64, false),
             ),
+            ASTExprNode::StrLiteral(ref text) => unsafe {
+                self.builder
+                    .build_global_string(text, "str literal")
+                    .as_pointer_value()
+                    .into()
+            },
             ASTExprNode::Var(ref obj) => {
                 let ptr = self.codegen_addr(ast);
                 let obj_type = &(*obj).borrow().obj_type;

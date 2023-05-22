@@ -192,12 +192,12 @@ test_function!(
 
 test_function!(
     str_literal_1,
-    "int main(){char *str = \"012345\"; return 10;}",
+    "int main(){char *str;str = \"012345\"; return 10;}",
     10
 );
 
 test_function!(
     str_literal_2,
-    "int main(){char *str = \"012345\"; return str[0];}",
-    30
+    "int main(){char *str;str = \"012345\"; return str[0];}",
+    0x30
 );

@@ -805,6 +805,14 @@ impl ParseArena {
                 tok_seq.next(),
                 ASTExpr::new(ASTExprNode::Var(obj), expr_type),
             ))
+        } else if let TokenKind::StrLiteral(ref text) = tok_seq.get_token() {
+            Ok((
+                tok_seq.next(),
+                ASTExpr::new(
+                    ASTExprNode::StrLiteral(text.clone()),
+                    Type::new_ptr_type(Type::new(TypeNode::Char)),
+                ),
+            ))
         } else {
             Err(ParseError::SyntaxError)
         }

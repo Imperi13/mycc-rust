@@ -46,6 +46,7 @@ pub enum TokenKind {
     Punct(PunctKind),
     Keyword(KeywordKind),
     Ident(String),
+    StrLiteral(String),
     Newline,
 }
 
@@ -192,6 +193,23 @@ fn tokenize_num(code: &str) -> (u64, &str) {
     )
 }
 
+fn tokenize_str_literal(code: &str) -> (String, &str) {
+    let mut index: usize = 1;
+    loop {
+        let (_, ch) = code.char_indices().nth(index).unwrap();
+        if ch == '"' {
+            break;
+        } else {
+            index += 1;
+        }
+    }
+
+    let (str_index, _) = code.char_indices().nth(index).unwrap();
+    let (byte_index, _) = code.char_indices().nth(index + 1).unwrap();
+
+    (String::from(&code[1..str_index]), &code[byte_index..])
+}
+
 fn tokenize_ident(code: &str) -> (String, &str) {
     let mut index: usize = 0;
 
@@ -308,6 +326,20 @@ pub fn tokenize(mut code: &str) -> TokenList {
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
                 elem: TokenKind::Number(num),
+                next: new_tok.clone(),
+            });
+
+            cur = new_tok;
+            continue;
+        }
+
+        if ch == '"' {
+            let text;
+            (text, code) = tokenize_str_literal(code);
+
+            let new_tok = Rc::new(RefCell::new(Link::End));
+            *cur.borrow_mut() = Link::More(Node {
+                elem: TokenKind::StrLiteral(text),
                 next: new_tok.clone(),
             });
 
