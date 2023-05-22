@@ -26,12 +26,7 @@ pub enum ParseError {
 
 pub fn parse_all(mut tok_seq: TokenList) -> Result<Vec<ASTGlobal>, ParseError> {
     let mut ret = Vec::new();
-    let mut arena = ParseArena {
-        obj_id: 0,
-        global_objs: HashMap::new(),
-        local_objs: HashMap::new(),
-        return_type: None,
-    };
+    let mut arena = ParseArena::new();
 
     while !tok_seq.is_empty() {
         let node;
@@ -49,7 +44,7 @@ pub struct Obj {
     pub obj_type: Type,
 }
 
-pub struct ParseArena {
+struct ParseArena {
     obj_id: usize,
     global_objs: HashMap<String, Rc<RefCell<Obj>>>,
     local_objs: HashMap<String, Rc<RefCell<Obj>>>,
@@ -57,6 +52,15 @@ pub struct ParseArena {
 }
 
 impl ParseArena {
+    pub fn new() -> ParseArena {
+        ParseArena {
+            obj_id: 0,
+            global_objs: HashMap::new(),
+            local_objs: HashMap::new(),
+            return_type: None,
+        }
+    }
+
     fn insert_global_obj(
         &mut self,
         obj_name: &str,

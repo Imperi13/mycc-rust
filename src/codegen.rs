@@ -25,7 +25,7 @@ use inkwell::AddressSpace;
 use std::collections::HashMap;
 use std::path::Path;
 
-struct CodegenArena<'ctx> {
+pub struct CodegenArena<'ctx> {
     context: &'ctx Context,
     module: Module<'ctx>,
     builder: Builder<'ctx>,
@@ -35,12 +35,35 @@ struct CodegenArena<'ctx> {
 }
 
 impl<'ctx> CodegenArena<'ctx> {
-    pub fn print_to_file(&self, filepath: &str) {
+    pub fn new(context: &Context) -> CodegenArena {
+        let module = context.create_module("main");
+        let builder = context.create_builder();
+        CodegenArena {
+            context,
+            module,
+            builder,
+            current_func: None,
+            objs_ptr: HashMap::new(),
+        }
+    }
+
+    pub fn codegen_all(&mut self, globals: &Vec<ASTGlobal>, output_path: &str) {
+        for obj in globals.iter() {
+            match obj {
+                ASTGlobal::Function(_, _) => self.codegen_func(obj),
+                ASTGlobal::Variable(_) => self.codegen_global_variable(obj),
+            };
+        }
+
+        self.print_to_file(output_path);
+    }
+
+    fn print_to_file(&self, filepath: &str) {
         let path = Path::new(filepath);
         self.module.print_to_file(path).unwrap();
     }
 
-    pub fn convert_llvm_anytype<'a>(&'a self, c_type: &Type) -> AnyTypeEnum<'ctx> {
+    fn convert_llvm_anytype<'a>(&'a self, c_type: &Type) -> AnyTypeEnum<'ctx> {
         match c_type.get_node() {
             TypeNode::Int => self.context.i32_type().into(),
             TypeNode::Char => self.context.i8_type().into(),
@@ -75,11 +98,11 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    pub fn convert_llvm_basictype<'a>(&'a self, c_type: &Type) -> BasicTypeEnum<'ctx> {
+    fn convert_llvm_basictype<'a>(&'a self, c_type: &Type) -> BasicTypeEnum<'ctx> {
         self.convert_llvm_anytype(c_type).try_into().unwrap()
     }
 
-    pub fn alloc_local_obj<'a>(&'a mut self, obj: &Obj) -> PointerValue<'ctx> {
+    fn alloc_local_obj<'a>(&'a mut self, obj: &Obj) -> PointerValue<'ctx> {
         if self.objs_ptr.contains_key(&obj.id) {
             panic!("already exists obj");
         }
@@ -114,7 +137,7 @@ impl<'ctx> CodegenArena<'ctx> {
         ptr
     }
 
-    pub fn get_local_obj(&self, obj: &Obj) -> PointerValue {
+    fn get_local_obj(&self, obj: &Obj) -> PointerValue {
         if !self.objs_ptr.contains_key(&obj.id) {
             panic!("not found obj")
         }
@@ -122,7 +145,7 @@ impl<'ctx> CodegenArena<'ctx> {
         self.objs_ptr.get(&obj.id).unwrap().clone()
     }
 
-    pub fn codegen_func(&mut self, func: &ASTGlobal) {
+    fn codegen_func(&mut self, func: &ASTGlobal) {
         let ASTGlobal::Function(ref obj, ref stmts) = func else{panic!()};
 
         let main_fn_type = self
@@ -149,7 +172,7 @@ impl<'ctx> CodegenArena<'ctx> {
         self.current_func = None;
     }
 
-    pub fn codegen_global_variable(&mut self, var_decl: &ASTGlobal) {
+    fn codegen_global_variable(&mut self, var_decl: &ASTGlobal) {
         let ASTGlobal::Variable(ref obj) = var_decl else {panic!()};
         let llvm_type = self.convert_llvm_basictype(&(*obj.borrow()).obj_type);
         let global_obj = self.module.add_global(
@@ -164,7 +187,7 @@ impl<'ctx> CodegenArena<'ctx> {
             .insert((*obj).borrow().id, global_obj.as_pointer_value());
     }
 
-    pub fn codegen_addr(&self, ast: &ASTExpr) -> PointerValue {
+    fn codegen_addr(&self, ast: &ASTExpr) -> PointerValue {
         match ast.get_node() {
             ASTExprNode::Var(obj) => self.get_local_obj(&*obj.borrow()),
             ASTExprNode::UnaryOp(unary_node) => match unary_node.kind {
@@ -175,7 +198,7 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    pub fn codegen_stmt(&mut self, ast: &ASTStmt) {
+    fn codegen_stmt(&mut self, ast: &ASTStmt) {
         match ast.get_node() {
             ASTStmtNode::Return(ref expr) => {
                 let val = self.codegen_expr(expr);
@@ -293,7 +316,7 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    pub fn codegen_expr(&self, ast: &ASTExpr) -> BasicValueEnum {
+    fn codegen_expr(&self, ast: &ASTExpr) -> BasicValueEnum {
         match ast.get_node() {
             ASTExprNode::BinaryOp(ref binary_node) => {
                 self.codegen_binary_op(binary_node, &ast.expr_type)
@@ -348,11 +371,7 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    pub fn codegen_binary_op(
-        &self,
-        binary_node: &BinaryOpNode,
-        expr_type: &Type,
-    ) -> BasicValueEnum {
+    fn codegen_binary_op(&self, binary_node: &BinaryOpNode, expr_type: &Type) -> BasicValueEnum {
         match binary_node.kind {
             BinaryOpKind::Assign => {
                 let lhs_ptr = self.codegen_addr(&binary_node.lhs);
@@ -530,7 +549,7 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    pub fn codegen_unary_op(&self, unary_node: &UnaryOpNode, expr_type: &Type) -> BasicValueEnum {
+    fn codegen_unary_op(&self, unary_node: &UnaryOpNode, expr_type: &Type) -> BasicValueEnum {
         match unary_node.kind {
             UnaryOpKind::Sizeof => {
                 let size_val = self
@@ -573,27 +592,4 @@ impl<'ctx> CodegenArena<'ctx> {
             }
         }
     }
-}
-
-pub fn codegen_all(globals: &Vec<ASTGlobal>, output_path: &str) {
-    let context = Context::create();
-    let module = context.create_module("main");
-    let builder = context.create_builder();
-
-    let mut arena = CodegenArena {
-        context: &context,
-        module,
-        builder,
-        current_func: None,
-        objs_ptr: HashMap::new(),
-    };
-
-    for obj in globals.iter() {
-        match obj {
-            ASTGlobal::Function(_, _) => arena.codegen_func(obj),
-            ASTGlobal::Variable(_) => arena.codegen_global_variable(obj),
-        };
-    }
-
-    arena.print_to_file(output_path);
 }
