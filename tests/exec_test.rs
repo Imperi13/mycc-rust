@@ -264,3 +264,28 @@ test_function!(
     "int main(){return (0? 234 : 2) + (1? 100 + 72 : 17);}",
     174
 );
+
+test_function!(ex_032, "int main(){3; {5; 7; 11; } return 175^1;}", 174);
+test_function!(
+    ex_034,
+    "int add_(int x, int y){4; return x+y;} int main(){3; return add_(87,87);}",
+    174
+);
+test_function!(
+    ex_035,
+    "int fib(int n){ return n < 2? n : fib(n - 1) + fib(n - 2); } int main(){3; return fib(10);}",
+    55
+);
+test_function!(ex_036,"int tarai(int x,int y,int z){ return x <= y? y : tarai(tarai(x-1, y, z), tarai(y-1, z, x), tarai(z-1, x, y)); } int main(){return tarai(12,6,0);}", 12);
+test_function!(ex_037, "int main() { return (3 && 2 && 5) + 173; }", 174);
+test_function!(
+    ex_038,
+    "int main() { return (3 && 2) + !(3 && 0) + !(0 && 3)+ !(0 && 0) + 170; }",
+    174
+);
+test_function!(ex_039, "int main() { return (3 || 2 || 5) + 173; }", 174);
+test_function!(
+    ex_040,
+    "int main() { return (3 || 2) + (3 || 0) + (0 || 3)+ !(0 || 0) + 170; }",
+    174
+);
