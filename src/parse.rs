@@ -395,8 +395,34 @@ impl ParseArena {
         }
     }
 
-    fn parse_expr(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
-        self.parse_assign(tok_seq)
+    fn parse_expr(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        let mut lhs;
+        (tok_seq, lhs) = self.parse_assign(tok_seq)?;
+
+        while !tok_seq.is_empty() {
+            if let TokenKind::Punct(punct) = tok_seq.get_token() {
+                let kind = match punct {
+                    PunctKind::Comma => BinaryOpKind::Comma,
+                    _ => break,
+                };
+
+                tok_seq = tok_seq.next();
+
+                let rhs;
+                (tok_seq, rhs) = self.parse_assign(tok_seq)?;
+
+                let rhs_type = rhs.expr_type.clone();
+
+                lhs = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    rhs_type,
+                );
+            } else {
+                break;
+            }
+        }
+
+        Ok((tok_seq, lhs))
     }
 
     fn parse_assign(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {

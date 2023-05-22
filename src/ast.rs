@@ -7,6 +7,7 @@ use std::rc::Rc;
 #[derive(Clone, Debug)]
 pub enum BinaryOpKind {
     Assign,
+    Comma,
     Add,
     Sub,
     Mul,

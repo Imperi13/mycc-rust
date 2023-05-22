@@ -380,6 +380,10 @@ impl<'ctx> CodegenArena<'ctx> {
                 self.builder.build_store(lhs_ptr, rhs);
                 rhs
             }
+            BinaryOpKind::Comma => {
+                self.codegen_expr(&binary_node.lhs);
+                self.codegen_expr(&binary_node.rhs)
+            }
             BinaryOpKind::Add => {
                 let lhs_type = &binary_node.lhs.expr_type;
                 let rhs_type = &binary_node.rhs.expr_type;
