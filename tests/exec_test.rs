@@ -184,3 +184,8 @@ test_function!(
 test_function!(char_1, "int main(){char a;return 10;}", 10);
 test_function!(char_2, "int main(){char a;a = 10;return a;}", 10);
 test_function!(char_3, "char a;int main(){a=10;return a;}", 10);
+test_function!(
+    char_4,
+    "int main(){char *a;char b;b=0;a = &b;*a = 33;return b;}",
+    33
+);
