@@ -201,3 +201,14 @@ test_function!(
     "int main(){char *str;str = \"012345\"; return str[0];}",
     0x30
 );
+
+test_function!(ex_1, "int main(){return 123;}", 123);
+test_function!(ex_2, "int main(){return (123);}", 123);
+test_function!(ex_3, "int main(){return ((((123))));}", 123);
+test_function!(ex_4, "int main(){return 123+51;}", 174);
+test_function!(ex_5, "int main(){return 123+56-5;}", 174);
+test_function!(ex_6, "int main(){return 175-(4-3);}", 174);
+test_function!(ex_7, "int main(){return 181-4-3;}", 174);
+test_function!(ex_8, "int main(){return 0x29*3+7*8-5*1;}", 174);
+test_function!(ex_9, "int main(){return 6*(3+7)-5*1;}", 55);
+test_function!(ex_10, "int main(){return 43,6*(3+7)-5*1;}", 55);
