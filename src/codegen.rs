@@ -638,6 +638,23 @@ impl<'ctx> CodegenArena<'ctx> {
                 let ptr = self.codegen_expr(&unary_node.expr).into_pointer_value();
                 self.builder.build_load(llvm_type, ptr, "var")
             }
+            UnaryOpKind::LogicalNot => {
+                let expr = self.codegen_expr(&unary_node.expr);
+                let zero = self
+                    .convert_llvm_basictype(&unary_node.expr.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+
+                let cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    expr.into_int_value(),
+                    zero,
+                    "logical not",
+                );
+                self.builder
+                    .build_int_cast_sign_flag(cond, self.context.i32_type(), false, "cast to i32")
+                    .into()
+            }
         }
     }
 }

@@ -40,6 +40,7 @@ pub enum UnaryOpKind {
     Minus,
     Addr,
     Deref,
+    LogicalNot,
 }
 
 #[derive(Clone)]
