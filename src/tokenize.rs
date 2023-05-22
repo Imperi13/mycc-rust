@@ -42,11 +42,11 @@ pub enum KeywordKind {
 
 #[derive(Debug, Clone)]
 pub enum TokenKind {
-    TokenNumber(u64),
-    TokenPunct(PunctKind),
-    TokenKeyword(KeywordKind),
-    TokenIdent(String),
-    TokenNewline,
+    Number(u64),
+    Punct(PunctKind),
+    Keyword(KeywordKind),
+    Ident(String),
+    Newline,
 }
 
 struct Node {
@@ -82,7 +82,7 @@ impl TokenList {
     pub fn expect_punct(&self, expect_punct: PunctKind) -> Option<TokenList> {
         if let Link::More(ref node) = *self.head.clone().borrow() {
             match &node.elem {
-                TokenKind::TokenPunct(punct) => {
+                TokenKind::Punct(punct) => {
                     if &expect_punct == punct {
                         Some(self.next())
                     } else {
@@ -99,7 +99,7 @@ impl TokenList {
     pub fn expect_keyword(&self, expect_keyword: KeywordKind) -> Option<TokenList> {
         if let Link::More(ref node) = *self.head.clone().borrow() {
             match &node.elem {
-                TokenKind::TokenKeyword(keyword) => {
+                TokenKind::Keyword(keyword) => {
                     if &expect_keyword == keyword {
                         Some(self.next())
                     } else {
@@ -124,14 +124,14 @@ impl TokenList {
     pub fn remove_newline(&mut self) {
         // banpei
         let new_self = Rc::new(RefCell::new(Link::More(Node {
-            elem: TokenKind::TokenNewline,
+            elem: TokenKind::Newline,
             next: self.head.clone(),
         })));
         let mut new_cur = new_self.clone();
         let mut cur = self.head.clone();
 
         while let Link::More(ref node) = *cur.clone().borrow_mut() {
-            if let TokenKind::TokenNewline = node.elem {
+            if let TokenKind::Newline = node.elem {
                 cur = node.next.clone();
             } else {
                 if let Link::More(ref mut new_node) = *new_cur.clone().borrow_mut() {
@@ -307,7 +307,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
             (num, code) = tokenize_num(code);
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenNumber(num),
+                elem: TokenKind::Number(num),
                 next: new_tok.clone(),
             });
 
@@ -321,7 +321,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
 
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenPunct(punct),
+                elem: TokenKind::Punct(punct),
                 next: new_tok.clone(),
             });
 
@@ -335,7 +335,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
 
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenKeyword(keyword),
+                elem: TokenKind::Keyword(keyword),
                 next: new_tok.clone(),
             });
 
@@ -349,7 +349,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
 
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenIdent(ident),
+                elem: TokenKind::Ident(ident),
                 next: new_tok.clone(),
             });
 
@@ -361,7 +361,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
             code = &code[1..];
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenNewline,
+                elem: TokenKind::Newline,
                 next: new_tok.clone(),
             });
 

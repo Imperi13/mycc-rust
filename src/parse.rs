@@ -108,12 +108,12 @@ impl ParseArena {
     }
 
     fn is_type_token(&self, tok_seq: TokenList) -> bool {
-        let TokenKind::TokenKeyword(keyword) = tok_seq.get_token() else {return false;};
+        let TokenKind::Keyword(keyword) = tok_seq.get_token() else {return false;};
         matches!(keyword, KeywordKind::Int) || matches!(keyword, KeywordKind::Char)
     }
 
     fn parse_decl_spec(&self, tok_seq: TokenList) -> Result<(TokenList, Type), ParseError> {
-        let TokenKind::TokenKeyword(keyword) = tok_seq.get_token() else {return Err(ParseError::SyntaxError);};
+        let TokenKind::Keyword(keyword) = tok_seq.get_token() else {return Err(ParseError::SyntaxError);};
 
         match keyword {
             KeywordKind::Int => Ok((tok_seq.next(), Type::new(TypeNode::Int))),
@@ -136,7 +136,7 @@ impl ParseArena {
         }
 
         let var_name = match tok_seq.get_token() {
-            TokenKind::TokenIdent(var_name) => var_name,
+            TokenKind::Ident(var_name) => var_name,
             _ => return Err(ParseError::SyntaxError),
         };
 
@@ -148,7 +148,7 @@ impl ParseArena {
                 .ok_or(ParseError::SyntaxError)?;
 
             let len = match tok_seq.get_token() {
-                TokenKind::TokenNumber(len) => len,
+                TokenKind::Number(len) => len,
                 _ => return Err(ParseError::SyntaxError),
             };
 
@@ -427,7 +427,7 @@ impl ParseArena {
         (tok_seq, lhs) = self.parse_relational(tok_seq)?;
 
         while !tok_seq.is_empty() {
-            if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
+            if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
                     PunctKind::Equal => BinaryOpKind::Equal,
                     PunctKind::NotEqual => BinaryOpKind::NotEqual,
@@ -463,7 +463,7 @@ impl ParseArena {
         (tok_seq, lhs) = self.parse_add(tok_seq)?;
 
         while !tok_seq.is_empty() {
-            if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
+            if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
                     PunctKind::Less => BinaryOpKind::Less,
                     PunctKind::LessEqual => BinaryOpKind::LessEqual,
@@ -501,7 +501,7 @@ impl ParseArena {
         (tok_seq, lhs) = self.parse_mul(tok_seq)?;
 
         while !tok_seq.is_empty() {
-            if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
+            if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
                     PunctKind::Plus => BinaryOpKind::Add,
                     PunctKind::Minus => BinaryOpKind::Sub,
@@ -547,7 +547,7 @@ impl ParseArena {
         (tok_seq, lhs) = self.parse_unary(tok_seq)?;
 
         while !tok_seq.is_empty() {
-            if let TokenKind::TokenPunct(punct) = tok_seq.get_token() {
+            if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
                     PunctKind::Asterisk => BinaryOpKind::Mul,
                     PunctKind::Slash => BinaryOpKind::Div,
@@ -779,7 +779,7 @@ impl ParseArena {
             return Err(ParseError::SyntaxError);
         }
 
-        if let TokenKind::TokenNumber(num) = tok_seq.get_token() {
+        if let TokenKind::Number(num) = tok_seq.get_token() {
             Ok((
                 tok_seq.next(),
                 ASTExpr::new(ASTExprNode::Number(num), Type::new(TypeNode::Int)),
@@ -796,7 +796,7 @@ impl ParseArena {
                 .ok_or(ParseError::SyntaxError)?;
 
             Ok((tok_seq, ret))
-        } else if let TokenKind::TokenIdent(ref var_name) = tok_seq.get_token() {
+        } else if let TokenKind::Ident(ref var_name) = tok_seq.get_token() {
             let obj = self
                 .get_obj(var_name)
                 .map_err(|()| ParseError::SemanticError)?;
