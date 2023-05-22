@@ -502,8 +502,39 @@ impl ParseArena {
         self.parse_bit_and(tok_seq)
     }
 
-    fn parse_bit_and(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
-        self.parse_equality(tok_seq)
+    fn parse_bit_and(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        let mut lhs;
+        (tok_seq, lhs) = self.parse_equality(tok_seq)?;
+
+        while !tok_seq.is_empty() {
+            if let TokenKind::Punct(punct) = tok_seq.get_token() {
+                let kind = match punct {
+                    PunctKind::Ampersand => BinaryOpKind::BitAnd,
+                    _ => break,
+                };
+
+                tok_seq = tok_seq.next();
+
+                let rhs;
+                (tok_seq, rhs) = self.parse_equality(tok_seq)?;
+
+                let lhs_type = lhs.expr_type.clone();
+                let rhs_type = rhs.expr_type.clone();
+
+                if !lhs_type.is_int_type() || !rhs_type.is_int_type() {
+                    return Err(ParseError::SemanticError);
+                }
+
+                lhs = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    lhs_type,
+                );
+            } else {
+                break;
+            }
+        }
+
+        Ok((tok_seq, lhs))
     }
 
     fn parse_equality(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
