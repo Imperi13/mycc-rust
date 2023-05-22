@@ -72,7 +72,7 @@ impl Type {
     }
 
     pub fn is_int_type(&self) -> bool {
-        matches!(*self.head, TypeNode::Int)
+        matches!(*self.head, TypeNode::Int) || matches!(*self.head, TypeNode::Char)
     }
 
     pub fn is_ptr_type(&self) -> bool {

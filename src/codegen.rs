@@ -301,7 +301,18 @@ impl<'ctx> CodegenArena<'ctx> {
             ASTExprNode::UnaryOp(ref unary_node) => {
                 self.codegen_unary_op(unary_node, &ast.expr_type)
             }
-            ASTExprNode::Cast(ref _ty, ref expr) => self.codegen_expr(expr),
+            ASTExprNode::Cast(ref cast_to, ref expr) => {
+                let int_value = self.codegen_expr(expr);
+
+                if expr.expr_type.is_int_type() && cast_to.is_int_type() {
+                    let llvm_type = self.convert_llvm_basictype(cast_to).into_int_type();
+                    self.builder
+                        .build_int_cast(int_value.into_int_value(), llvm_type, "int cast")
+                        .into()
+                } else {
+                    int_value
+                }
+            }
             ASTExprNode::FuncCall(ref func_expr) => {
                 let func_ptr = self.codegen_expr(func_expr).into_pointer_value();
                 let fn_type = self

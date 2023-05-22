@@ -30,6 +30,7 @@ pub fn parse_all(mut tok_seq: TokenList) -> Result<Vec<ASTGlobal>, ParseError> {
         obj_id: 0,
         global_objs: HashMap::new(),
         local_objs: HashMap::new(),
+        return_type: None,
     };
 
     while !tok_seq.is_empty() {
@@ -52,6 +53,7 @@ pub struct ParseArena {
     obj_id: usize,
     global_objs: HashMap<String, Rc<RefCell<Obj>>>,
     local_objs: HashMap<String, Rc<RefCell<Obj>>>,
+    return_type: Option<Type>,
 }
 
 impl ParseArena {
@@ -195,6 +197,9 @@ impl ParseArena {
         (tok_seq, obj_name, obj_type) = ParseArena::parse_declarator(tok_seq, decl_type)?;
 
         if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
+            let TypeNode::Func(func_node) = obj_type.get_node() else {return Err(ParseError::SemanticError);};
+            self.return_type = Some(func_node.return_type);
+
             tok_seq = tok_seq
                 .expect_punct(PunctKind::OpenBrace)
                 .ok_or(ParseError::SyntaxError)?;
@@ -216,6 +221,8 @@ impl ParseArena {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseBrace)
                 .ok_or(ParseError::SyntaxError)?;
+
+            self.return_type = None;
 
             Ok((tok_seq, ASTGlobal::Function(obj, stmts)))
         } else if tok_seq.expect_punct(PunctKind::SemiColon).is_some() {
@@ -246,7 +253,11 @@ impl ParseArena {
                 .expect_punct(PunctKind::SemiColon)
                 .ok_or(ParseError::SyntaxError)?;
 
-            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(expr))))
+            let return_type = self.return_type.clone().unwrap();
+
+            let cast = ASTExpr::build_cast_node(return_type, expr);
+
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(cast))))
         } else if self.is_type_token(tok_seq.clone()) {
             let decl_type;
             (tok_seq, decl_type) = self.parse_decl_spec(tok_seq)?;
