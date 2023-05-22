@@ -174,7 +174,31 @@ impl fmt::Debug for TokenList {
     }
 }
 
+fn parse_base(code: &str) -> (u32, &str) {
+    let (i1, c1) = code.char_indices().nth(0).unwrap();
+    let (i2, c2) = code.char_indices().nth(1).unwrap();
+
+    assert!(c1.is_digit(10));
+
+    if c1 != '0' {
+        (10, code)
+    } else {
+        if c2 == 'x' {
+            let i3 = code.char_indices().nth(2).unwrap().0;
+            (16, &code[i3..])
+        } else if c2 == 'b' {
+            let i3 = code.char_indices().nth(2).unwrap().0;
+            (2, &code[i3..])
+        } else if c2.is_digit(10) {
+            (8, &code[i2..])
+        } else {
+            (8, &code[i1..])
+        }
+    }
+}
+
 fn tokenize_num(code: &str) -> (u64, &str) {
+    let (base, code) = parse_base(code);
     let mut index: usize = 0;
 
     loop {
@@ -188,7 +212,7 @@ fn tokenize_num(code: &str) -> (u64, &str) {
 
     let (byte_index, _) = code.char_indices().nth(index).unwrap();
     (
-        u64::from_str_radix(&code[..byte_index], 10).unwrap(),
+        u64::from_str_radix(&code[..byte_index], base).unwrap(),
         &code[byte_index..],
     )
 }
