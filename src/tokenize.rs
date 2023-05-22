@@ -19,6 +19,7 @@ pub enum PunctKind {
     OpenSquareBracket,
     CloseSquareBracket,
     SemiColon,
+    BitOr,
     Assign,
     Equal,
     NotEqual,
@@ -280,6 +281,7 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
         "[" => Some((PunctKind::OpenSquareBracket, &code[1..])),
         "]" => Some((PunctKind::CloseSquareBracket, &code[1..])),
         ";" => Some((PunctKind::SemiColon, &code[1..])),
+        "|" => Some((PunctKind::BitOr, &code[1..])),
         "=" => Some((PunctKind::Assign, &code[1..])),
         _ => None,
     }

@@ -449,6 +449,13 @@ impl<'ctx> CodegenArena<'ctx> {
                     "div node",
                 ))
             }
+            BinaryOpKind::BitOr => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                self.builder
+                    .build_or(lhs.into_int_value(), rhs.into_int_value(), "or node")
+                    .into()
+            }
             BinaryOpKind::Equal => {
                 let lhs = self.codegen_expr(&binary_node.lhs);
                 let rhs = self.codegen_expr(&binary_node.rhs);
