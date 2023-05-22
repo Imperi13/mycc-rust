@@ -245,3 +245,22 @@ test_function!(
     "int main(){23; 45+37; ((12-1)*75); return -(1-175);}",
     174
 );
+
+test_function!(
+    ex_021,
+    "int main(){23; 45+37; return -(1-175); ((12-1)*75);}",
+    174
+);
+test_function!(
+    ex_022,
+    "int main(){int a; int b; return (a = b = 9, a = 41*3, 55 - (b = 4) + a);}",
+    174
+);
+test_function!(ex_023,"int main(){int a; int b; int c; int d; int _q432; a = b = c = 9; d = 5; a = 41*3; return (c, _q432 = 8, d = 11*5) - (b = 4) + a;}",174);
+test_function!(ex_024, "int main(){return 175^1;}", 174);
+test_function!(ex_025, "int main(){return 2 + (1? 100 + 72 : 17);}", 174);
+test_function!(
+    ex_026,
+    "int main(){return (0? 234 : 2) + (1? 100 + 72 : 17);}",
+    174
+);

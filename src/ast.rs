@@ -14,6 +14,7 @@ pub enum BinaryOpKind {
     Div,
     Mod,
     BitOr,
+    BitXor,
     BitAnd,
     Equal,
     NotEqual,
