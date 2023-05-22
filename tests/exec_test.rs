@@ -189,3 +189,15 @@ test_function!(
     "int main(){char *a;char b;b=0;a = &b;*a = 33;return b;}",
     33
 );
+
+test_function!(
+    str_literal_1,
+    "int main(){char *str = \"012345\"; return 10;}",
+    10
+);
+
+test_function!(
+    str_literal_2,
+    "int main(){char *str = \"012345\"; return str[0];}",
+    30
+);
