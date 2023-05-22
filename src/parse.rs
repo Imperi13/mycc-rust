@@ -427,7 +427,7 @@ impl ParseArena {
 
     fn parse_assign(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         let lhs;
-        (tok_seq, lhs) = self.parse_equality(tok_seq)?;
+        (tok_seq, lhs) = self.parse_conditional(tok_seq)?;
 
         if tok_seq.expect_punct(PunctKind::Assign).is_some() {
             tok_seq = tok_seq.next();
@@ -450,6 +450,29 @@ impl ParseArena {
         } else {
             Ok((tok_seq, lhs))
         }
+    }
+
+    fn parse_conditional(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        self.parse_logical_or(tok_seq)
+    }
+
+    fn parse_logical_or(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        self.parse_logical_and(tok_seq)
+    }
+
+    fn parse_logical_and(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        self.parse_bit_or(tok_seq)
+    }
+
+    fn parse_bit_or(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        self.parse_bit_xor(tok_seq)
+    }
+    fn parse_bit_xor(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        self.parse_bit_and(tok_seq)
+    }
+
+    fn parse_bit_and(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        self.parse_equality(tok_seq)
     }
 
     fn parse_equality(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -490,7 +513,7 @@ impl ParseArena {
 
     fn parse_relational(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         let mut lhs;
-        (tok_seq, lhs) = self.parse_add(tok_seq)?;
+        (tok_seq, lhs) = self.parse_shift(tok_seq)?;
 
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
@@ -505,7 +528,7 @@ impl ParseArena {
                 tok_seq = tok_seq.next();
 
                 let rhs;
-                (tok_seq, rhs) = self.parse_add(tok_seq)?;
+                (tok_seq, rhs) = self.parse_shift(tok_seq)?;
 
                 let lhs_type = lhs.expr_type.clone();
                 let rhs_type = rhs.expr_type.clone();
@@ -524,6 +547,10 @@ impl ParseArena {
         }
 
         Ok((tok_seq, lhs))
+    }
+
+    fn parse_shift(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        self.parse_add(tok_seq)
     }
 
     fn parse_add(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -574,7 +601,7 @@ impl ParseArena {
 
     fn parse_mul(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         let mut lhs;
-        (tok_seq, lhs) = self.parse_unary(tok_seq)?;
+        (tok_seq, lhs) = self.parse_cast(tok_seq)?;
 
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
@@ -587,7 +614,7 @@ impl ParseArena {
                 tok_seq = tok_seq.next();
 
                 let rhs;
-                (tok_seq, rhs) = self.parse_unary(tok_seq)?;
+                (tok_seq, rhs) = self.parse_cast(tok_seq)?;
                 let lhs_type = lhs.expr_type.clone();
                 let rhs_type = rhs.expr_type.clone();
 
@@ -605,6 +632,10 @@ impl ParseArena {
         }
 
         Ok((tok_seq, lhs))
+    }
+
+    fn parse_cast(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        self.parse_unary(tok_seq)
     }
 
     fn parse_unary(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
