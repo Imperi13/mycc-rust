@@ -452,8 +452,40 @@ impl ParseArena {
         }
     }
 
-    fn parse_conditional(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
-        self.parse_logical_or(tok_seq)
+    fn parse_conditional(
+        &self,
+        mut tok_seq: TokenList,
+    ) -> Result<(TokenList, ASTExpr), ParseError> {
+        let cond;
+        (tok_seq, cond) = self.parse_logical_or(tok_seq)?;
+
+        if tok_seq.expect_punct(PunctKind::Question).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Question)
+                .ok_or(ParseError::SyntaxError)?;
+
+            let then_expr;
+            let else_expr;
+            (tok_seq, then_expr) = self.parse_logical_or(tok_seq)?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Colon)
+                .ok_or(ParseError::SyntaxError)?;
+
+            (tok_seq, else_expr) = self.parse_logical_or(tok_seq)?;
+
+            let expr_type = then_expr.expr_type.clone();
+
+            Ok((
+                tok_seq,
+                ASTExpr::new(
+                    ASTExprNode::Conditional(cond, then_expr, else_expr),
+                    expr_type,
+                ),
+            ))
+        } else {
+            Ok((tok_seq, cond))
+        }
     }
 
     fn parse_logical_or(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {

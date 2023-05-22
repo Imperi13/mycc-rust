@@ -215,7 +215,7 @@ impl<'ctx> CodegenArena<'ctx> {
                     self.codegen_stmt(stmt);
                 }
             }
-            ASTStmtNode::If(ref cond, ref if_stmt, ref else_stmt) => {
+            ASTStmtNode::If(ref cond, ref then_stmt, ref else_stmt) => {
                 let func = self.current_func.unwrap();
                 let zero = self
                     .convert_llvm_basictype(&cond.expr_type)
@@ -238,7 +238,7 @@ impl<'ctx> CodegenArena<'ctx> {
                     .build_conditional_branch(cond, then_bb, else_bb);
 
                 self.builder.position_at_end(then_bb);
-                self.codegen_stmt(if_stmt);
+                self.codegen_stmt(then_stmt);
                 self.builder.build_unconditional_branch(after_bb);
 
                 self.builder.position_at_end(else_bb);
@@ -318,6 +318,46 @@ impl<'ctx> CodegenArena<'ctx> {
 
     fn codegen_expr(&self, ast: &ASTExpr) -> BasicValueEnum {
         match ast.get_node() {
+            ASTExprNode::Conditional(ref cond, ref then_expr, ref else_expr) => {
+                let func = self.current_func.unwrap();
+                let zero = self
+                    .convert_llvm_basictype(&cond.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+
+                let cond = self.codegen_expr(cond);
+                let cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond.into_int_value(),
+                    zero,
+                    "if_cond",
+                );
+
+                let then_bb = self.context.append_basic_block(func, "if_then");
+                let else_bb = self.context.append_basic_block(func, "if_else");
+                let after_bb = self.context.append_basic_block(func, "if_after");
+
+                self.builder
+                    .build_conditional_branch(cond, then_bb, else_bb);
+
+                self.builder.position_at_end(then_bb);
+                let then_val = self.codegen_expr(then_expr);
+                self.builder.build_unconditional_branch(after_bb);
+
+                self.builder.position_at_end(else_bb);
+                let else_val = self.codegen_expr(else_expr);
+                self.builder.build_unconditional_branch(after_bb);
+
+                self.builder.position_at_end(after_bb);
+
+                let llvm_type = self.convert_llvm_basictype(&ast.expr_type);
+
+                let phi = self.builder.build_phi(llvm_type, "iftmp");
+
+                phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
+
+                phi.as_basic_value()
+            }
             ASTExprNode::BinaryOp(ref binary_node) => {
                 self.codegen_binary_op(binary_node, &ast.expr_type)
             }

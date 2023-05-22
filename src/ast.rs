@@ -53,6 +53,7 @@ pub struct UnaryOpNode {
 
 #[derive(Clone)]
 pub enum ASTExprNode {
+    Conditional(ASTExpr, ASTExpr, ASTExpr),
     BinaryOp(BinaryOpNode),
     UnaryOp(UnaryOpNode),
     Cast(Type, ASTExpr),
@@ -86,6 +87,15 @@ impl ASTExpr {
 
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
         match *self.head.borrow() {
+            ASTExprNode::Conditional(ref cond, ref then_expr, ref else_expr) => {
+                writeln!(f, "{}Conditional", indent)?;
+                writeln!(f, "{}cond:", indent)?;
+                cond.fmt_with_indent(f, &format!("{}\t", indent))?;
+                writeln!(f, "{}then_expr:", indent)?;
+                then_expr.fmt_with_indent(f, &format!("{}\t", indent))?;
+                writeln!(f, "{}else_expr:", indent)?;
+                else_expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
             ASTExprNode::BinaryOp(ref binary_node) => {
                 writeln!(f, "{}BinaryOp {:?}", indent, binary_node.kind)?;
                 writeln!(f, "{}lhs:", indent)?;
