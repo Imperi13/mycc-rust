@@ -449,6 +449,13 @@ impl<'ctx> CodegenArena<'ctx> {
                     "div node",
                 ))
             }
+            BinaryOpKind::Mod => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                self.builder
+                    .build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "mod node")
+                    .into()
+            }
             BinaryOpKind::BitOr => {
                 let lhs = self.codegen_expr(&binary_node.lhs);
                 let rhs = self.codegen_expr(&binary_node.rhs);

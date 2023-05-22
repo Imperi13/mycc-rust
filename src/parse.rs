@@ -639,6 +639,7 @@ impl ParseArena {
                 let kind = match punct {
                     PunctKind::Asterisk => BinaryOpKind::Mul,
                     PunctKind::Slash => BinaryOpKind::Div,
+                    PunctKind::Percent => BinaryOpKind::Mod,
                     _ => break,
                 };
 

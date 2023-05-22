@@ -10,6 +10,7 @@ pub enum PunctKind {
     Minus,
     Asterisk,
     Slash,
+    Percent,
     Comma,
     Ampersand,
     OpenBrace,
@@ -185,10 +186,10 @@ fn parse_base(code: &str) -> (u32, &str) {
     if c1 != '0' {
         (10, code)
     } else {
-        if c2 == 'x' {
+        if c2 == 'x' || c2 == 'X' {
             let i3 = code.char_indices().nth(2).unwrap().0;
             (16, &code[i3..])
-        } else if c2 == 'b' {
+        } else if c2 == 'b' || c2 == 'B' {
             let i3 = code.char_indices().nth(2).unwrap().0;
             (2, &code[i3..])
         } else if c2.is_digit(10) {
@@ -205,7 +206,7 @@ fn tokenize_num(code: &str) -> (u64, &str) {
 
     loop {
         let (_, ch) = code.char_indices().nth(index).unwrap();
-        if ch.is_digit(10) {
+        if ch.is_digit(base) {
             index += 1;
         } else {
             break;
@@ -270,6 +271,7 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
         "-" => Some((PunctKind::Minus, &code[1..])),
         "*" => Some((PunctKind::Asterisk, &code[1..])),
         "/" => Some((PunctKind::Slash, &code[1..])),
+        "%" => Some((PunctKind::Percent, &code[1..])),
         "," => Some((PunctKind::Comma, &code[1..])),
         "&" => Some((PunctKind::Ampersand, &code[1..])),
         "<" => Some((PunctKind::Less, &code[1..])),
