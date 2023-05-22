@@ -10,12 +10,19 @@ pub enum PunctKind {
     Minus,
     Asterisk,
     Slash,
+    Percent,
+    Comma,
     Ampersand,
+    Exclamation,
+    Tilde,
     OpenBrace,
     CloseBrace,
     OpenParenthesis,
     CloseParenthesis,
+    OpenSquareBracket,
+    CloseSquareBracket,
     SemiColon,
+    BitOr,
     Assign,
     Equal,
     NotEqual,
@@ -23,25 +30,31 @@ pub enum PunctKind {
     LessEqual,
     Greater,
     GreaterEqual,
+    LeftShift,
+    RightShift,
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum KeywordKind {
     Return,
     Int,
+    Char,
     If,
     Else,
     While,
     For,
+    Sizeof,
+    Alignof,
 }
 
 #[derive(Debug, Clone)]
 pub enum TokenKind {
-    TokenNumber(i64),
-    TokenPunct(PunctKind),
-    TokenKeyword(KeywordKind),
-    TokenIdent(String),
-    TokenNewline,
+    Number(u64),
+    Punct(PunctKind),
+    Keyword(KeywordKind),
+    Ident(String),
+    StrLiteral(String),
+    Newline,
 }
 
 struct Node {
@@ -77,7 +90,7 @@ impl TokenList {
     pub fn expect_punct(&self, expect_punct: PunctKind) -> Option<TokenList> {
         if let Link::More(ref node) = *self.head.clone().borrow() {
             match &node.elem {
-                TokenKind::TokenPunct(punct) => {
+                TokenKind::Punct(punct) => {
                     if &expect_punct == punct {
                         Some(self.next())
                     } else {
@@ -94,7 +107,7 @@ impl TokenList {
     pub fn expect_keyword(&self, expect_keyword: KeywordKind) -> Option<TokenList> {
         if let Link::More(ref node) = *self.head.clone().borrow() {
             match &node.elem {
-                TokenKind::TokenKeyword(keyword) => {
+                TokenKind::Keyword(keyword) => {
                     if &expect_keyword == keyword {
                         Some(self.next())
                     } else {
@@ -119,14 +132,14 @@ impl TokenList {
     pub fn remove_newline(&mut self) {
         // banpei
         let new_self = Rc::new(RefCell::new(Link::More(Node {
-            elem: TokenKind::TokenNewline,
+            elem: TokenKind::Newline,
             next: self.head.clone(),
         })));
         let mut new_cur = new_self.clone();
         let mut cur = self.head.clone();
 
         while let Link::More(ref node) = *cur.clone().borrow_mut() {
-            if let TokenKind::TokenNewline = node.elem {
+            if let TokenKind::Newline = node.elem {
                 cur = node.next.clone();
             } else {
                 if let Link::More(ref mut new_node) = *new_cur.clone().borrow_mut() {
@@ -168,12 +181,36 @@ impl fmt::Debug for TokenList {
     }
 }
 
-fn tokenize_num(code: &str) -> (i64, &str) {
+fn parse_base(code: &str) -> (u32, &str) {
+    let (i1, c1) = code.char_indices().nth(0).unwrap();
+    let (i2, c2) = code.char_indices().nth(1).unwrap();
+
+    assert!(c1.is_digit(10));
+
+    if c1 != '0' {
+        (10, code)
+    } else {
+        if c2 == 'x' || c2 == 'X' {
+            let i3 = code.char_indices().nth(2).unwrap().0;
+            (16, &code[i3..])
+        } else if c2 == 'b' || c2 == 'B' {
+            let i3 = code.char_indices().nth(2).unwrap().0;
+            (2, &code[i3..])
+        } else if c2.is_digit(10) {
+            (8, &code[i2..])
+        } else {
+            (8, &code[i1..])
+        }
+    }
+}
+
+fn tokenize_num(code: &str) -> (u64, &str) {
+    let (base, code) = parse_base(code);
     let mut index: usize = 0;
 
     loop {
         let (_, ch) = code.char_indices().nth(index).unwrap();
-        if ch.is_digit(10) {
+        if ch.is_digit(base) {
             index += 1;
         } else {
             break;
@@ -182,9 +219,26 @@ fn tokenize_num(code: &str) -> (i64, &str) {
 
     let (byte_index, _) = code.char_indices().nth(index).unwrap();
     (
-        i64::from_str_radix(&code[..byte_index], 10).unwrap(),
+        u64::from_str_radix(&code[..byte_index], base).unwrap(),
         &code[byte_index..],
     )
+}
+
+fn tokenize_str_literal(code: &str) -> (String, &str) {
+    let mut index: usize = 1;
+    loop {
+        let (_, ch) = code.char_indices().nth(index).unwrap();
+        if ch == '"' {
+            break;
+        } else {
+            index += 1;
+        }
+    }
+
+    let (str_index, _) = code.char_indices().nth(index).unwrap();
+    let (byte_index, _) = code.char_indices().nth(index + 1).unwrap();
+
+    (String::from(&code[1..str_index]), &code[byte_index..])
 }
 
 fn tokenize_ident(code: &str) -> (String, &str) {
@@ -210,6 +264,8 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
             "!=" => return Some((PunctKind::NotEqual, &code[2..])),
             "<=" => return Some((PunctKind::LessEqual, &code[2..])),
             ">=" => return Some((PunctKind::GreaterEqual, &code[2..])),
+            ">>" => return Some((PunctKind::RightShift, &code[2..])),
+            "<<" => return Some((PunctKind::LeftShift, &code[2..])),
             _ => (),
         }
     }
@@ -221,23 +277,38 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
         "-" => Some((PunctKind::Minus, &code[1..])),
         "*" => Some((PunctKind::Asterisk, &code[1..])),
         "/" => Some((PunctKind::Slash, &code[1..])),
+        "%" => Some((PunctKind::Percent, &code[1..])),
+        "," => Some((PunctKind::Comma, &code[1..])),
         "&" => Some((PunctKind::Ampersand, &code[1..])),
+        "!" => Some((PunctKind::Exclamation, &code[1..])),
+        "~" => Some((PunctKind::Tilde, &code[1..])),
         "<" => Some((PunctKind::Less, &code[1..])),
         ">" => Some((PunctKind::Greater, &code[1..])),
         "{" => Some((PunctKind::OpenBrace, &code[1..])),
         "}" => Some((PunctKind::CloseBrace, &code[1..])),
         "(" => Some((PunctKind::OpenParenthesis, &code[1..])),
         ")" => Some((PunctKind::CloseParenthesis, &code[1..])),
+        "[" => Some((PunctKind::OpenSquareBracket, &code[1..])),
+        "]" => Some((PunctKind::CloseSquareBracket, &code[1..])),
         ";" => Some((PunctKind::SemiColon, &code[1..])),
+        "|" => Some((PunctKind::BitOr, &code[1..])),
         "=" => Some((PunctKind::Assign, &code[1..])),
         _ => None,
     }
 }
 
 fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
+    if code.len() >= 8 {
+        match &code[..8] {
+            "_Alignof" => return Some((KeywordKind::Alignof, &code[8..])),
+            _ => (),
+        }
+    }
+
     if code.len() >= 6 {
         match &code[..6] {
             "return" => return Some((KeywordKind::Return, &code[6..])),
+            "sizeof" => return Some((KeywordKind::Sizeof, &code[6..])),
             _ => (),
         }
     }
@@ -252,6 +323,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
     if code.len() >= 4 {
         match &code[..4] {
             "else" => return Some((KeywordKind::Else, &code[4..])),
+            "char" => return Some((KeywordKind::Char, &code[4..])),
             _ => (),
         }
     }
@@ -281,17 +353,31 @@ pub fn tokenize(mut code: &str) -> TokenList {
     while !code.is_empty() {
         let (_, ch) = code.char_indices().nth(0).unwrap();
 
-        if code.chars().nth(0) == Some(' ') {
+        if code.chars().nth(0) == Some(' ') || code.chars().nth(0) == Some('\t') {
             code = &code[1..];
             continue;
         }
 
         if ch.is_digit(10) {
-            let num: i64;
+            let num: u64;
             (num, code) = tokenize_num(code);
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenNumber(num),
+                elem: TokenKind::Number(num),
+                next: new_tok.clone(),
+            });
+
+            cur = new_tok;
+            continue;
+        }
+
+        if ch == '"' {
+            let text;
+            (text, code) = tokenize_str_literal(code);
+
+            let new_tok = Rc::new(RefCell::new(Link::End));
+            *cur.borrow_mut() = Link::More(Node {
+                elem: TokenKind::StrLiteral(text),
                 next: new_tok.clone(),
             });
 
@@ -305,7 +391,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
 
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenPunct(punct),
+                elem: TokenKind::Punct(punct),
                 next: new_tok.clone(),
             });
 
@@ -319,7 +405,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
 
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenKeyword(keyword),
+                elem: TokenKind::Keyword(keyword),
                 next: new_tok.clone(),
             });
 
@@ -333,7 +419,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
 
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenIdent(ident),
+                elem: TokenKind::Ident(ident),
                 next: new_tok.clone(),
             });
 
@@ -345,7 +431,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
             code = &code[1..];
             let new_tok = Rc::new(RefCell::new(Link::End));
             *cur.borrow_mut() = Link::More(Node {
-                elem: TokenKind::TokenNewline,
+                elem: TokenKind::Newline,
                 next: new_tok.clone(),
             });
 
@@ -353,7 +439,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
             continue;
         }
 
-        unreachable!();
+        panic!("{}", code)
     }
 
     TokenList { head: tok_seq }

@@ -8,8 +8,10 @@ pub struct FunctionTypeNode {
 #[derive(Clone)]
 pub enum TypeNode {
     Int,
+    Char,
     Func(FunctionTypeNode),
     Ptr(Type),
+    Array(Type, u32),
 }
 
 #[derive(Clone)]
@@ -24,9 +26,19 @@ impl Type {
         }
     }
 
+    pub fn new_fn_type(fn_type_node: FunctionTypeNode) -> Type {
+        Type::new(TypeNode::Func(fn_type_node))
+    }
+
     pub fn new_ptr_type(ptr_to: Type) -> Type {
         Type {
             head: Rc::new(TypeNode::Ptr(ptr_to)),
+        }
+    }
+
+    pub fn new_array_type(array_to: Type, len: u32) -> Type {
+        Type {
+            head: Rc::new(TypeNode::Array(array_to, len)),
         }
     }
 
@@ -37,6 +49,13 @@ impl Type {
     pub fn get_ptr_to(&self) -> Result<Type, ()> {
         match &*self.head {
             TypeNode::Ptr(ptr_to) => Ok(ptr_to.clone()),
+            _ => Err(()),
+        }
+    }
+
+    pub fn get_array_to(&self) -> Result<Type, ()> {
+        match &*self.head {
+            TypeNode::Array(array_to, _) => Ok(array_to.clone()),
             _ => Err(()),
         }
     }
@@ -53,10 +72,14 @@ impl Type {
     }
 
     pub fn is_int_type(&self) -> bool {
-        matches!(*self.head, TypeNode::Int)
+        matches!(*self.head, TypeNode::Int) || matches!(*self.head, TypeNode::Char)
     }
 
     pub fn is_ptr_type(&self) -> bool {
         matches!(*self.head, TypeNode::Ptr(_))
+    }
+
+    pub fn is_array_type(&self) -> bool {
+        matches!(*self.head, TypeNode::Array(_, _))
     }
 }
