@@ -202,13 +202,45 @@ test_function!(
     0x30
 );
 
-test_function!(ex_1, "int main(){return 123;}", 123);
-test_function!(ex_2, "int main(){return (123);}", 123);
-test_function!(ex_3, "int main(){return ((((123))));}", 123);
-test_function!(ex_4, "int main(){return 123+51;}", 174);
-test_function!(ex_5, "int main(){return 123+56-5;}", 174);
-test_function!(ex_6, "int main(){return 175-(4-3);}", 174);
-test_function!(ex_7, "int main(){return 181-4-3;}", 174);
-test_function!(ex_8, "int main(){return 0x29*3+7*8-5*1;}", 174);
-test_function!(ex_9, "int main(){return 6*(3+7)-5*1;}", 55);
-test_function!(ex_10, "int main(){return 43,6*(3+7)-5*1;}", 55);
+test_function!(ex_001, "int main(){return 123;}", 123);
+test_function!(ex_002, "int main(){return (123);}", 123);
+test_function!(ex_003, "int main(){return ((((123))));}", 123);
+test_function!(ex_004, "int main(){return 123+51;}", 174);
+test_function!(ex_005, "int main(){return 123+56-5;}", 174);
+test_function!(ex_006, "int main(){return 175-(4-3);}", 174);
+test_function!(ex_007, "int main(){return 181-4-3;}", 174);
+test_function!(ex_008, "int main(){return 0x29*3+7*8-5*1;}", 174);
+test_function!(ex_009, "int main(){return 6*(3+7)-5*1;}", 55);
+test_function!(ex_010, "int main(){return 43,6*(3+7)-5*1;}", 55);
+
+test_function!(ex_011, "int main(){return 43,6*(3+(4|3))-(5|1)*1;}", 55);
+test_function!(
+    ex_012,
+    "int main(){return 043,41*3+07*010-0Xa/(010%(1+2));}",
+    174
+);
+test_function!(
+    ex_013,
+    "int main(){return 7*5,(12,41*3)+7*16/(9,2)-10/(8%3);}",
+    174
+);
+test_function!(ex_013_1, "int main(){return 173+ (1<2);}", 174);
+test_function!(ex_014,"int main(){return 7*5 	,	(0xC,(41   )*(4-(011>8)))+7*(((1+2)>=3)<<4)/(9,(4>>(10<=10))+(3<3))-10/(	  ( 	1  <<3)	%3);}",174);
+test_function!(
+    ex_015,
+    "int main(){return 35,	((	41|	(8   !=     15))*  ((3==3)+2))+((5|2)*(9&10))   -   (10/(8%3));}",
+    174
+);
+test_function!(
+    ex_016,
+    "int main(){return 043,41*3+07*010-0Xa/(010%(!!1+2));}",
+    174
+);
+test_function!(ex_017,"int main(){return 7*5 	,	(0xC,(41   )*(4-(011>8)))+7*(((1-~1)>=3)<<4)/(9,(4>>(10<=10))+(3<3))-10/(	  ( 	!0  <<3)	%3);}",174);
+test_function!(ex_018, "int main(){return +174;}", 174);
+test_function!(ex_019, "int main(){return -(1-175);}", 174);
+test_function!(
+    ex_020,
+    "int main(){23; 45+37; ((12-1)*75); return -(1-175);}",
+    174
+);
