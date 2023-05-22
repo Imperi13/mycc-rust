@@ -655,6 +655,12 @@ impl<'ctx> CodegenArena<'ctx> {
                     .build_int_cast_sign_flag(cond, self.context.i32_type(), false, "cast to i32")
                     .into()
             }
+            UnaryOpKind::BitNot => {
+                let expr = self.codegen_expr(&unary_node.expr);
+                self.builder
+                    .build_not(expr.into_int_value(), "bit not")
+                    .into()
+            }
         }
     }
 }

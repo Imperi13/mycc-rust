@@ -867,6 +867,24 @@ impl ParseArena {
             );
 
             Ok((tok_seq, node))
+        } else if tok_seq.expect_punct(PunctKind::Tilde).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Tilde)
+                .ok_or(ParseError::SyntaxError)?;
+
+            let expr;
+            (tok_seq, expr) = self.parse_unary(tok_seq)?;
+            let expr_type = expr.expr_type.clone();
+
+            let node = ASTExpr::new(
+                ASTExprNode::UnaryOp(UnaryOpNode {
+                    expr,
+                    kind: UnaryOpKind::BitNot,
+                }),
+                expr_type,
+            );
+
+            Ok((tok_seq, node))
         } else {
             self.parse_postfix(tok_seq)
         }
