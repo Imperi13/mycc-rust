@@ -20,6 +20,8 @@ pub enum BinaryOpKind {
     LessEqual,
     Greater,
     GreaterEqual,
+    LeftShift,
+    RightShift,
 }
 
 #[derive(Clone)]

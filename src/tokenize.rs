@@ -28,6 +28,8 @@ pub enum PunctKind {
     LessEqual,
     Greater,
     GreaterEqual,
+    LeftShift,
+    RightShift,
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -260,6 +262,8 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
             "!=" => return Some((PunctKind::NotEqual, &code[2..])),
             "<=" => return Some((PunctKind::LessEqual, &code[2..])),
             ">=" => return Some((PunctKind::GreaterEqual, &code[2..])),
+            ">>" => return Some((PunctKind::RightShift, &code[2..])),
+            "<<" => return Some((PunctKind::LeftShift, &code[2..])),
             _ => (),
         }
     }
@@ -345,7 +349,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
     while !code.is_empty() {
         let (_, ch) = code.char_indices().nth(0).unwrap();
 
-        if code.chars().nth(0) == Some(' ') {
+        if code.chars().nth(0) == Some(' ') || code.chars().nth(0) == Some('\t') {
             code = &code[1..];
             continue;
         }
@@ -431,7 +435,7 @@ pub fn tokenize(mut code: &str) -> TokenList {
             continue;
         }
 
-        unreachable!();
+        panic!("{}", code)
     }
 
     TokenList { head: tok_seq }
