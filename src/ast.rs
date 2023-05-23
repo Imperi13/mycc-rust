@@ -52,10 +52,22 @@ pub struct UnaryOpNode {
     pub kind: UnaryOpKind,
 }
 
+#[derive(Clone, Debug)]
+pub enum AssignKind {
+    Assign,
+}
+
+#[derive(Clone)]
+pub struct AssignNode {
+    pub lhs: ASTExpr,
+    pub rhs: ASTExpr,
+    pub kind: AssignKind,
+}
+
 #[derive(Clone)]
 pub enum ASTExprNode {
     Conditional(ASTExpr, ASTExpr, ASTExpr),
-    Assign(ASTExpr, ASTExpr),
+    Assign(AssignNode),
     BinaryOp(BinaryOpNode),
     UnaryOp(UnaryOpNode),
     Cast(Type, ASTExpr),
@@ -98,12 +110,14 @@ impl ASTExpr {
                 writeln!(f, "{}else_expr:", indent)?;
                 else_expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
-            ASTExprNode::Assign(ref lhs, ref val) => {
+            ASTExprNode::Assign(ref assign_node) => {
                 writeln!(f, "{}Assign", indent)?;
                 writeln!(f, "{}lhs:", indent)?;
-                lhs.fmt_with_indent(f, &format!("{}\t", indent))?;
+                assign_node
+                    .lhs
+                    .fmt_with_indent(f, &format!("{}\t", indent))?;
                 writeln!(f, "{}val:", indent)?;
-                val.fmt_with_indent(f, &format!("{}\t", indent))
+                assign_node.rhs.fmt_with_indent(f, &format!("{}\t", indent))
             }
             ASTExprNode::BinaryOp(ref binary_node) => {
                 writeln!(f, "{}BinaryOp {:?}", indent, binary_node.kind)?;

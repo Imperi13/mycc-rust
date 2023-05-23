@@ -3,6 +3,8 @@ use crate::ast::ASTExprNode;
 use crate::ast::ASTGlobal;
 use crate::ast::ASTStmt;
 use crate::ast::ASTStmtNode;
+use crate::ast::AssignKind;
+use crate::ast::AssignNode;
 use crate::ast::BinaryOpKind;
 use crate::ast::BinaryOpNode;
 use crate::ast::UnaryOpKind;
@@ -369,12 +371,8 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 phi.as_basic_value()
             }
-            ASTExprNode::Assign(ref lhs, ref rhs) => {
-                let lhs_ptr = self.codegen_addr(lhs);
-                let rhs = self.codegen_expr(rhs);
-
-                self.builder.build_store(lhs_ptr, rhs);
-                rhs
+            ASTExprNode::Assign(ref assign_node) => {
+                self.codegen_assign(assign_node, &ast.expr_type)
             }
             ASTExprNode::BinaryOp(ref binary_node) => {
                 self.codegen_binary_op(binary_node, &ast.expr_type)
@@ -429,6 +427,18 @@ impl<'ctx> CodegenArena<'ctx> {
                     let llvm_type = self.convert_llvm_basictype(&obj_type);
                     self.builder.build_load(llvm_type, ptr, "var")
                 }
+            }
+        }
+    }
+
+    fn codegen_assign(&self, assign_node: &AssignNode, _expr_type: &Type) -> BasicValueEnum {
+        match assign_node.kind {
+            AssignKind::Assign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                self.builder.build_store(lhs_ptr, rhs);
+                rhs
             }
         }
     }

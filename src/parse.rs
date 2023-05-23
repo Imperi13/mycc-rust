@@ -5,6 +5,8 @@ use crate::ast::ASTExprNode;
 use crate::ast::ASTGlobal;
 use crate::ast::ASTStmt;
 use crate::ast::ASTStmtNode;
+use crate::ast::AssignKind;
+use crate::ast::AssignNode;
 use crate::ast::BinaryOpKind;
 use crate::ast::BinaryOpNode;
 use crate::ast::UnaryOpKind;
@@ -392,7 +394,14 @@ impl ParseArena {
 
             Ok((
                 tok_seq,
-                ASTExpr::new(ASTExprNode::Assign(lhs, rhs), expr_type),
+                ASTExpr::new(
+                    ASTExprNode::Assign(AssignNode {
+                        lhs,
+                        rhs,
+                        kind: AssignKind::Assign,
+                    }),
+                    expr_type,
+                ),
             ))
         } else {
             Ok((tok_seq, lhs))
