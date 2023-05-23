@@ -178,6 +178,7 @@ pub enum ASTStmtNode {
     Block(Vec<ASTStmt>),
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
     While(ASTExpr, ASTStmt),
+    DoWhile(ASTExpr, ASTStmt),
     For(ASTExpr, ASTExpr, ASTExpr, ASTStmt),
 }
 
@@ -238,6 +239,13 @@ impl ASTStmt {
             }
             ASTStmtNode::While(ref cond, ref stmt) => {
                 writeln!(f, "{}While", indent)?;
+                writeln!(f, "{}cond:", indent)?;
+                cond.fmt_with_indent(f, &format!("{}\t", indent))?;
+                writeln!(f, "{}stmt:", indent)?;
+                stmt.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTStmtNode::DoWhile(ref cond, ref stmt) => {
+                writeln!(f, "{}DoWhile", indent)?;
                 writeln!(f, "{}cond:", indent)?;
                 cond.fmt_with_indent(f, &format!("{}\t", indent))?;
                 writeln!(f, "{}stmt:", indent)?;

@@ -56,6 +56,7 @@ pub enum KeywordKind {
     Char,
     If,
     Else,
+    Do,
     While,
     For,
     Sizeof,
@@ -375,6 +376,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
     if code.len() >= 2 {
         match &code[..2] {
             "if" => return Some((KeywordKind::If, &code[2..])),
+            "do" => return Some((KeywordKind::Do, &code[2..])),
             _ => (),
         }
     }

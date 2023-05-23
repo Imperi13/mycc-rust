@@ -293,6 +293,36 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 self.builder.position_at_end(after_bb);
             }
+            ASTStmtNode::DoWhile(ref cond, ref stmt) => {
+                let func = self.current_func.unwrap();
+                let zero = self
+                    .convert_llvm_basictype(&cond.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+
+                let loop_bb = self.context.append_basic_block(func, "loop");
+                let cond_bb = self.context.append_basic_block(func, "cond");
+                let after_bb = self.context.append_basic_block(func, "after");
+
+                self.builder.build_unconditional_branch(loop_bb);
+                self.builder.position_at_end(loop_bb);
+                self.codegen_stmt(stmt);
+
+                self.builder.build_unconditional_branch(cond_bb);
+                self.builder.position_at_end(cond_bb);
+                let cond = self.codegen_expr(cond);
+                let cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond.into_int_value(),
+                    zero,
+                    "if_cond",
+                );
+
+                self.builder
+                    .build_conditional_branch(cond, loop_bb, after_bb);
+
+                self.builder.position_at_end(after_bb);
+            }
             ASTStmtNode::For(ref start, ref cond, ref step, ref stmt) => {
                 let func = self.current_func.unwrap();
                 let zero = self

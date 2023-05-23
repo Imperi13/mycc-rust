@@ -287,6 +287,30 @@ impl ParseArena {
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::While(cond, stmt))))
+        } else if tok_seq.expect_keyword(KeywordKind::Do).is_some() {
+            tok_seq = tok_seq
+                .expect_keyword(KeywordKind::Do)
+                .ok_or(ParseError::SyntaxError)?;
+
+            let stmt;
+            (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+
+            tok_seq = tok_seq
+                .expect_keyword(KeywordKind::While)
+                .ok_or(ParseError::SyntaxError)?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenParenthesis)
+                .ok_or(ParseError::SyntaxError)?;
+
+            let cond;
+            (tok_seq, cond) = self.parse_expr(tok_seq)?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseParenthesis)
+                .ok_or(ParseError::SyntaxError)?;
+
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::DoWhile(cond, stmt))))
         } else if tok_seq.expect_keyword(KeywordKind::For).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::For)
