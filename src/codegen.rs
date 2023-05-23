@@ -38,6 +38,7 @@ pub struct CodegenArena<'ctx> {
     current_func: Option<FunctionValue<'ctx>>,
     objs_ptr: HashMap<usize, PointerValue<'ctx>>,
     break_block: HashMap<usize, BasicBlock<'ctx>>,
+    continue_block: HashMap<usize, BasicBlock<'ctx>>,
 }
 
 impl<'ctx> CodegenArena<'ctx> {
@@ -51,6 +52,7 @@ impl<'ctx> CodegenArena<'ctx> {
             current_func: None,
             objs_ptr: HashMap::new(),
             break_block: HashMap::new(),
+            continue_block: HashMap::new(),
         }
     }
 
@@ -164,6 +166,14 @@ impl<'ctx> CodegenArena<'ctx> {
         self.break_block.get(&stmt_id).unwrap().clone()
     }
 
+    fn get_continue_block(&self, stmt_id: usize) -> BasicBlock {
+        if !self.continue_block.contains_key(&stmt_id) {
+            panic!("not found obj");
+        }
+
+        self.continue_block.get(&stmt_id).unwrap().clone()
+    }
+
     fn codegen_func(&mut self, func: &ASTGlobal) {
         let ASTGlobal::Function(ref obj,ref args, ref stmts) = func else{panic!()};
 
@@ -232,6 +242,10 @@ impl<'ctx> CodegenArena<'ctx> {
                 let break_block = self.get_break_block(stmt_id);
                 self.builder.build_unconditional_branch(break_block);
             }
+            ASTStmtNode::Continue(stmt_id) => {
+                let continue_block = self.get_continue_block(stmt_id);
+                self.builder.build_unconditional_branch(continue_block);
+            }
             ASTStmtNode::Declaration(ref obj) => {
                 self.alloc_local_obj(&*obj.borrow());
             }
@@ -291,6 +305,7 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 // push break_block
                 self.break_block.insert(stmt_id, after_bb);
+                self.continue_block.insert(stmt_id, cond_bb);
 
                 self.builder.build_unconditional_branch(cond_bb);
                 self.builder.position_at_end(cond_bb);
@@ -311,7 +326,7 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 self.builder.position_at_end(after_bb);
             }
-            ASTStmtNode::DoWhile(ref cond, ref stmt) => {
+            ASTStmtNode::DoWhile(ref cond, ref stmt, stmt_id) => {
                 let func = self.current_func.unwrap();
                 let zero = self
                     .convert_llvm_basictype(&cond.expr_type)
@@ -321,6 +336,9 @@ impl<'ctx> CodegenArena<'ctx> {
                 let loop_bb = self.context.append_basic_block(func, "loop");
                 let cond_bb = self.context.append_basic_block(func, "cond");
                 let after_bb = self.context.append_basic_block(func, "after");
+
+                self.break_block.insert(stmt_id, after_bb);
+                self.continue_block.insert(stmt_id, cond_bb);
 
                 self.builder.build_unconditional_branch(loop_bb);
                 self.builder.position_at_end(loop_bb);
