@@ -7,17 +7,20 @@ use crate::types::Type;
 
 use std::rc::Rc;
 
+#[derive(Clone)]
 enum DeclaratorNest {
     Name(String),
     Nest(Rc<Declarator>),
 }
 
+#[derive(Clone)]
 enum DeclaratorSuffix {
     None,
     Array(u32),
     Function(Vec<(Type, Declarator)>),
 }
 
+#[derive(Clone)]
 pub struct Declarator {
     pointer_cnt: u32,
     nest: DeclaratorNest,
@@ -53,6 +56,13 @@ impl Declarator {
         match self.nest {
             DeclaratorNest::Name(_) => ret_type,
             DeclaratorNest::Nest(ref declarator) => (*declarator).get_type(ret_type),
+        }
+    }
+
+    pub fn get_args(&self) -> Vec<(Type, Declarator)> {
+        match self.suffix {
+            DeclaratorSuffix::Function(ref args) => args.to_vec(),
+            _ => panic!(),
         }
     }
 }

@@ -19,6 +19,7 @@ use inkwell::types::AnyTypeEnum;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::types::BasicType;
 use inkwell::types::BasicTypeEnum;
+use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
 use inkwell::values::FunctionValue;
 use inkwell::values::PointerValue;
@@ -51,7 +52,7 @@ impl<'ctx> CodegenArena<'ctx> {
     pub fn codegen_all(&mut self, globals: &Vec<ASTGlobal>, output_path: &str) {
         for obj in globals.iter() {
             match obj {
-                ASTGlobal::Function(_, _) => self.codegen_func(obj),
+                ASTGlobal::Function(_, _, _) => self.codegen_func(obj),
                 ASTGlobal::Variable(_) => self.codegen_global_variable(obj),
             };
         }
@@ -151,7 +152,7 @@ impl<'ctx> CodegenArena<'ctx> {
     }
 
     fn codegen_func(&mut self, func: &ASTGlobal) {
-        let ASTGlobal::Function(ref obj, ref stmts) = func else{panic!()};
+        let ASTGlobal::Function(ref obj,ref args, ref stmts) = func else{panic!()};
 
         let main_fn_type = self
             .convert_llvm_anytype(&(*obj.borrow()).obj_type)
@@ -171,6 +172,11 @@ impl<'ctx> CodegenArena<'ctx> {
             main_fn.as_global_value().as_pointer_value(),
         );
         self.builder.position_at_end(basic_block);
+        for (i, arg) in main_fn.get_param_iter().enumerate() {
+            let ptr = self.alloc_local_obj(&*args[i].borrow());
+            self.builder.build_store(ptr, arg);
+        }
+
         for stmt in stmts.iter() {
             self.codegen_stmt(stmt);
         }
@@ -381,13 +387,17 @@ impl<'ctx> CodegenArena<'ctx> {
                     int_value
                 }
             }
-            ASTExprNode::FuncCall(ref func_expr) => {
+            ASTExprNode::FuncCall(ref func_expr, ref args) => {
                 let func_ptr = self.codegen_expr(func_expr).into_pointer_value();
+                let arg_val = args
+                    .iter()
+                    .map(|val| self.codegen_expr(val).into())
+                    .collect::<Vec<BasicMetadataValueEnum>>();
                 let fn_type = self
                     .convert_llvm_anytype(&func_expr.expr_type)
                     .into_function_type();
                 self.builder
-                    .build_indirect_call(fn_type, func_ptr, &[], "func_call")
+                    .build_indirect_call(fn_type, func_ptr, &arg_val, "func_call")
                     .try_as_basic_value()
                     .left()
                     .unwrap()

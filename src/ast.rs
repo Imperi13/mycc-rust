@@ -59,7 +59,7 @@ pub enum ASTExprNode {
     BinaryOp(BinaryOpNode),
     UnaryOp(UnaryOpNode),
     Cast(Type, ASTExpr),
-    FuncCall(ASTExpr),
+    FuncCall(ASTExpr, Vec<ASTExpr>),
     Number(u64),
     StrLiteral(String),
     Var(Rc<RefCell<Obj>>),
@@ -117,7 +117,7 @@ impl ASTExpr {
                 writeln!(f, "{}expr:", indent)?;
                 expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
-            ASTExprNode::FuncCall(ref func_expr) => {
+            ASTExprNode::FuncCall(ref func_expr, ref _args) => {
                 writeln!(f, "{}FuncCall", indent)?;
                 writeln!(f, "{}func_expr:", indent)?;
                 func_expr.fmt_with_indent(f, &format!("{}\t", indent))
@@ -235,15 +235,15 @@ impl fmt::Debug for ASTStmt {
 
 #[derive(Clone)]
 pub enum ASTGlobal {
-    Function(Rc<RefCell<Obj>>, Vec<ASTStmt>),
+    Function(Rc<RefCell<Obj>>, Vec<Rc<RefCell<Obj>>>, Vec<ASTStmt>),
     Variable(Rc<RefCell<Obj>>),
 }
 
 impl ASTGlobal {
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
         match self {
-            ASTGlobal::Function(ref obj, ref stmts) => {
-                writeln!(f, "{}Function {}", indent, &*obj.borrow().name)?;
+            ASTGlobal::Function(ref func_obj, ref _args, ref stmts) => {
+                writeln!(f, "{}Function {}", indent, &*func_obj.borrow().name)?;
                 for (i, stmt) in stmts.iter().enumerate() {
                     writeln!(f, "{} {}th stmt:", indent, i)?;
                     stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
