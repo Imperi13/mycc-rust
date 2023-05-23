@@ -27,6 +27,7 @@ pub enum PunctKind {
     Colon,
     BitOr,
     Assign,
+    AddAssign,
     LogicalOr,
     LogicalAnd,
     Equal,
@@ -273,6 +274,7 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
             ">=" => return Some((PunctKind::GreaterEqual, &code[2..])),
             ">>" => return Some((PunctKind::RightShift, &code[2..])),
             "<<" => return Some((PunctKind::LeftShift, &code[2..])),
+            "+=" => return Some((PunctKind::AddAssign, &code[2..])),
             _ => (),
         }
     }

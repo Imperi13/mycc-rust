@@ -440,6 +440,20 @@ impl<'ctx> CodegenArena<'ctx> {
                 self.builder.build_store(lhs_ptr, rhs);
                 rhs
             }
+            AssignKind::AddAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let add =
+                    self.builder
+                        .build_int_add(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, add);
+                add.into()
+            }
         }
     }
 
