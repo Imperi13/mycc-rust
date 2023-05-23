@@ -488,8 +488,39 @@ impl ParseArena {
         }
     }
 
-    fn parse_logical_or(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
-        self.parse_logical_and(tok_seq)
+    fn parse_logical_or(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
+        let mut lhs;
+        (tok_seq, lhs) = self.parse_logical_and(tok_seq)?;
+
+        while !tok_seq.is_empty() {
+            if let TokenKind::Punct(punct) = tok_seq.get_token() {
+                let kind = match punct {
+                    PunctKind::LogicalOr => BinaryOpKind::LogicalOr,
+                    _ => break,
+                };
+
+                tok_seq = tok_seq.next();
+
+                let rhs;
+                (tok_seq, rhs) = self.parse_logical_and(tok_seq)?;
+
+                let lhs_type = lhs.expr_type.clone();
+                let rhs_type = rhs.expr_type.clone();
+
+                if !lhs_type.is_int_type() || !rhs_type.is_int_type() {
+                    return Err(ParseError::SemanticError);
+                }
+
+                lhs = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    Type::new(TypeNode::Int),
+                );
+            } else {
+                break;
+            }
+        }
+
+        Ok((tok_seq, lhs))
     }
 
     fn parse_logical_and(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
