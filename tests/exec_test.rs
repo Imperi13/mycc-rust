@@ -355,3 +355,18 @@ test_function!(
     "int main(){int a; a = 3;while (a) {a = 2;if (a - 3) {break;}a += 3;}return 174;}",
     174
 );
+
+test_function!(ex_061,"int main(){int a; int b; a=11; b=0; while(a){a-=1;b+=a;if(a)continue;break; a+=100;} return b;}",55);
+test_function!(ex_062,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)continue;break; a+=100;}while(a+3); return -a;}",3);
+test_function!(ex_063,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)continue;break; a+=100;}while(a+3); return -b;}",6);
+test_function!(
+    ex_064,
+    "int main(){int a; int b; a =-3; b=-6; return a*b*10+a+b+3;}",
+    174
+);
+test_function!(ex_065,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)continue;break; a+=100;}while(a+3); return a*b*10;}",180);
+test_function!(ex_066,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)continue;break; a+=100;}while(a+3); return a*b*10+a+b+3;}",174);
+test_function!(ex_067,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)continue;break; a+=100;}while(a+3); return a*b;}",18);
+test_function!(ex_068,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)continue;break; a+=100;}while(a+3); return b*a;}",18);
+test_function!(ex_069,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)continue;break; a+=100;}while(a+3); return b*a*10;}",180);
+test_function!(ex_070,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)continue;break;}while(a+3); return a*b;}",18);
