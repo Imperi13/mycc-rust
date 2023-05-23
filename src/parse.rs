@@ -1,3 +1,5 @@
+mod parse_decl;
+
 use crate::ast::ASTExpr;
 use crate::ast::ASTExprNode;
 use crate::ast::ASTGlobal;
@@ -11,9 +13,9 @@ use crate::tokenize::KeywordKind;
 use crate::tokenize::PunctKind;
 use crate::tokenize::TokenKind;
 use crate::tokenize::TokenList;
-use crate::types::FunctionTypeNode;
 use crate::types::Type;
 use crate::types::TypeNode;
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -126,68 +128,6 @@ impl ParseArena {
         }
     }
 
-    fn parse_declarator(
-        mut tok_seq: TokenList,
-        decl_spec_type: Type,
-    ) -> Result<(TokenList, String, Type), ParseError> {
-        let mut ret_type = decl_spec_type;
-
-        while tok_seq.expect_punct(PunctKind::Asterisk).is_some() {
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::Asterisk)
-                .ok_or(ParseError::SyntaxError)?;
-            ret_type = Type::new_ptr_type(ret_type);
-        }
-
-        let var_name = match tok_seq.get_token() {
-            TokenKind::Ident(var_name) => var_name,
-            _ => return Err(ParseError::SyntaxError),
-        };
-
-        tok_seq = tok_seq.next();
-
-        if tok_seq.expect_punct(PunctKind::OpenSquareBracket).is_some() {
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::OpenSquareBracket)
-                .ok_or(ParseError::SyntaxError)?;
-
-            let len = match tok_seq.get_token() {
-                TokenKind::Number(len) => len,
-                _ => return Err(ParseError::SyntaxError),
-            };
-
-            tok_seq = tok_seq.next();
-
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::CloseSquareBracket)
-                .ok_or(ParseError::SyntaxError)?;
-
-            Ok((
-                tok_seq,
-                var_name,
-                Type::new_array_type(ret_type, len as u32),
-            ))
-        } else if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::OpenParenthesis)
-                .ok_or(ParseError::SyntaxError)?;
-
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::CloseParenthesis)
-                .ok_or(ParseError::SyntaxError)?;
-
-            Ok((
-                tok_seq,
-                var_name,
-                Type::new_fn_type(FunctionTypeNode {
-                    return_type: ret_type,
-                }),
-            ))
-        } else {
-            Ok((tok_seq, var_name, ret_type))
-        }
-    }
-
     fn parse_global(
         &mut self,
         mut tok_seq: TokenList,
@@ -195,10 +135,11 @@ impl ParseArena {
         let decl_type;
         (tok_seq, decl_type) = self.parse_decl_spec(tok_seq)?;
 
-        let obj_type;
-        let obj_name;
+        let declarator;
 
-        (tok_seq, obj_name, obj_type) = ParseArena::parse_declarator(tok_seq, decl_type)?;
+        (tok_seq, declarator) = self.parse_declarator(tok_seq)?;
+        let obj_name = declarator.get_name();
+        let obj_type = declarator.get_type(decl_type);
 
         if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
             let TypeNode::Func(func_node) = obj_type.get_node() else {return Err(ParseError::SemanticError);};
@@ -266,9 +207,10 @@ impl ParseArena {
             let decl_type;
             (tok_seq, decl_type) = self.parse_decl_spec(tok_seq)?;
 
-            let var_name;
-            let var_type;
-            (tok_seq, var_name, var_type) = ParseArena::parse_declarator(tok_seq, decl_type)?;
+            let declarator;
+            (tok_seq, declarator) = self.parse_declarator(tok_seq)?;
+            let var_name = declarator.get_name();
+            let var_type = declarator.get_type(decl_type);
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::SemiColon)
