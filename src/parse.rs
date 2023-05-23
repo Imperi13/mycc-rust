@@ -142,8 +142,8 @@ impl ParseArena {
         let obj_type = declarator.get_type(decl_type);
 
         if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
-            let TypeNode::Func(func_node) = obj_type.get_node() else {return Err(ParseError::SemanticError);};
-            self.return_type = Some(func_node.return_type);
+            let TypeNode::Func(return_type,_) = obj_type.get_node() else {return Err(ParseError::SemanticError);};
+            self.return_type = Some(return_type);
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::OpenBrace)
@@ -972,14 +972,11 @@ impl ParseArena {
                 .expect_punct(PunctKind::CloseParenthesis)
                 .ok_or(ParseError::SyntaxError)?;
 
-            let func_type = expr
-                .expr_type
-                .get_fn_type_node()
-                .map_err(|()| ParseError::SemanticError)?;
+            let TypeNode::Func(return_type,_) = expr.expr_type.get_node() else{return Err(ParseError::SemanticError);};
 
             Ok((
                 tok_seq,
-                ASTExpr::new(ASTExprNode::FuncCall(expr), func_type.return_type),
+                ASTExpr::new(ASTExprNode::FuncCall(expr), return_type),
             ))
         } else if tok_seq.expect_punct(PunctKind::OpenSquareBracket).is_some() {
             tok_seq = tok_seq

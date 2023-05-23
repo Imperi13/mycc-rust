@@ -3,7 +3,6 @@ use crate::parse::ParseError;
 use crate::tokenize::PunctKind;
 use crate::tokenize::TokenKind;
 use crate::tokenize::TokenList;
-use crate::types::FunctionTypeNode;
 use crate::types::Type;
 
 use std::rc::Rc;
@@ -42,9 +41,13 @@ impl Declarator {
         ret_type = match self.suffix {
             DeclaratorSuffix::None => ret_type,
             DeclaratorSuffix::Array(len) => Type::new_array_type(ret_type, len),
-            DeclaratorSuffix::Function(ref _arg) => Type::new_fn_type(FunctionTypeNode {
-                return_type: ret_type,
-            }),
+            DeclaratorSuffix::Function(ref arg) => {
+                let mut arg_type = Vec::new();
+                for (ref decl_spec_type, ref declarator) in arg.iter() {
+                    arg_type.push(declarator.get_type(decl_spec_type.clone()));
+                }
+                Type::new_fn_type(ret_type, arg_type)
+            }
         };
 
         match self.nest {
@@ -99,11 +102,28 @@ impl ParseArena {
             DeclaratorSuffix::Array(len as u32)
         } else if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
             tok_seq = tok_seq.next();
+
+            let mut args = Vec::new();
+
+            while tok_seq.expect_punct(PunctKind::CloseParenthesis).is_none() {
+                let decl_spec_type;
+                (tok_seq, decl_spec_type) = self.parse_decl_spec(tok_seq)?;
+
+                let declarator;
+                (tok_seq, declarator) = self.parse_declarator(tok_seq)?;
+
+                args.push((decl_spec_type, declarator));
+
+                if tok_seq.expect_punct(PunctKind::Comma).is_some() {
+                    tok_seq = tok_seq.next();
+                }
+            }
+
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
                 .ok_or(ParseError::SyntaxError)?;
 
-            DeclaratorSuffix::Function(Vec::new())
+            DeclaratorSuffix::Function(args)
         } else {
             DeclaratorSuffix::None
         };
