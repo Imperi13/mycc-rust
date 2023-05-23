@@ -1,5 +1,6 @@
 mod ast;
 mod codegen;
+mod error;
 mod parse;
 mod tokenize;
 mod types;
@@ -14,10 +15,16 @@ pub fn compile(code: &str, output_path: &str) {
     let mut tok_seq = tokenize(&code);
 
     tok_seq.remove_newline();
-    eprintln!("TokenList without newline\n{:?}", tok_seq);
 
-    let ast = parse_all(tok_seq).unwrap();
-    eprintln!("AST\n{:?}", ast);
+    let ast = parse_all(tok_seq);
+
+    let ast = match ast {
+        Ok(ast) => ast,
+        Err(e) => {
+            eprintln!("{}", e);
+            return;
+        }
+    };
 
     let context = Context::create();
     let mut codegen_arena = CodegenArena::new(&context);

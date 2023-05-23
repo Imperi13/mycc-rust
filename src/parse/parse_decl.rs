@@ -1,5 +1,5 @@
+use crate::error::ParseError;
 use crate::parse::ParseArena;
-use crate::parse::ParseError;
 use crate::tokenize::PunctKind;
 use crate::tokenize::TokenKind;
 use crate::tokenize::TokenList;
@@ -86,14 +86,14 @@ impl ParseArena {
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
-                .ok_or(ParseError::SyntaxError)?;
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             DeclaratorNest::Nest(Rc::new(declarator))
         } else if let TokenKind::Ident(name) = tok_seq.get_token() {
             tok_seq = tok_seq.next();
             DeclaratorNest::Name(name)
         } else {
-            return Err(ParseError::SyntaxError);
+            return Err(ParseError::SyntaxError(tok_seq));
         };
 
         let suffix = if tok_seq.expect_punct(PunctKind::OpenSquareBracket).is_some() {
@@ -101,13 +101,13 @@ impl ParseArena {
 
             let len = match tok_seq.get_token() {
                 TokenKind::Number(len) => len,
-                _ => return Err(ParseError::SyntaxError),
+                _ => return Err(ParseError::SyntaxError(tok_seq)),
             };
             tok_seq = tok_seq.next();
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseSquareBracket)
-                .ok_or(ParseError::SyntaxError)?;
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             DeclaratorSuffix::Array(len as u32)
         } else if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
@@ -131,7 +131,7 @@ impl ParseArena {
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
-                .ok_or(ParseError::SyntaxError)?;
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             DeclaratorSuffix::Function(args)
         } else {
