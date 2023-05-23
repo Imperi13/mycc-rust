@@ -14,6 +14,7 @@ use crate::types::Type;
 use crate::types::TypeNode;
 
 use inkwell::attributes::AttributeLoc;
+use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -36,6 +37,7 @@ pub struct CodegenArena<'ctx> {
 
     current_func: Option<FunctionValue<'ctx>>,
     objs_ptr: HashMap<usize, PointerValue<'ctx>>,
+    break_block: HashMap<usize, BasicBlock<'ctx>>,
 }
 
 impl<'ctx> CodegenArena<'ctx> {
@@ -48,6 +50,7 @@ impl<'ctx> CodegenArena<'ctx> {
             builder,
             current_func: None,
             objs_ptr: HashMap::new(),
+            break_block: HashMap::new(),
         }
     }
 
@@ -153,6 +156,14 @@ impl<'ctx> CodegenArena<'ctx> {
         self.objs_ptr.get(&obj.id).unwrap().clone()
     }
 
+    fn get_break_block(&self, stmt_id: usize) -> BasicBlock {
+        if !self.break_block.contains_key(&stmt_id) {
+            panic!("not found obj");
+        }
+
+        self.break_block.get(&stmt_id).unwrap().clone()
+    }
+
     fn codegen_func(&mut self, func: &ASTGlobal) {
         let ASTGlobal::Function(ref obj,ref args, ref stmts) = func else{panic!()};
 
@@ -217,6 +228,10 @@ impl<'ctx> CodegenArena<'ctx> {
                 let val = self.codegen_expr(expr);
                 self.builder.build_return(Some(&val.into_int_value()));
             }
+            ASTStmtNode::Break(stmt_id) => {
+                let break_block = self.get_break_block(stmt_id);
+                self.builder.build_unconditional_branch(break_block);
+            }
             ASTStmtNode::Declaration(ref obj) => {
                 self.alloc_local_obj(&*obj.borrow());
             }
@@ -263,7 +278,7 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 self.builder.position_at_end(after_bb);
             }
-            ASTStmtNode::While(ref cond, ref stmt) => {
+            ASTStmtNode::While(ref cond, ref stmt, stmt_id) => {
                 let func = self.current_func.unwrap();
                 let zero = self
                     .convert_llvm_basictype(&cond.expr_type)
@@ -273,6 +288,9 @@ impl<'ctx> CodegenArena<'ctx> {
                 let cond_bb = self.context.append_basic_block(func, "cond");
                 let loop_bb = self.context.append_basic_block(func, "loop");
                 let after_bb = self.context.append_basic_block(func, "after");
+
+                // push break_block
+                self.break_block.insert(stmt_id, after_bb);
 
                 self.builder.build_unconditional_branch(cond_bb);
                 self.builder.position_at_end(cond_bb);

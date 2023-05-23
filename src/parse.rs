@@ -21,6 +21,7 @@ use crate::types::TypeNode;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::rc::Rc;
 
 pub fn parse_all(mut tok_seq: TokenList) -> Result<Vec<ASTGlobal>, ParseError> {
@@ -48,6 +49,9 @@ struct ParseArena {
     global_objs: HashMap<String, Rc<RefCell<Obj>>>,
     local_objs: HashMap<String, Rc<RefCell<Obj>>>,
     return_type: Option<Type>,
+
+    stmt_id: usize,
+    break_stack: VecDeque<usize>,
 }
 
 impl ParseArena {
@@ -57,6 +61,8 @@ impl ParseArena {
             global_objs: HashMap::new(),
             local_objs: HashMap::new(),
             return_type: None,
+            stmt_id: 0,
+            break_stack: VecDeque::new(),
         }
     }
 
@@ -212,6 +218,21 @@ impl ParseArena {
             let cast = ASTExpr::build_cast_node(return_type, expr);
 
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(cast))))
+        } else if tok_seq.expect_keyword(KeywordKind::Break).is_some() {
+            tok_seq = tok_seq
+                .expect_keyword(KeywordKind::Break)
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::SemiColon)
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+            let stmt_id = self
+                .break_stack
+                .back()
+                .ok_or(ParseError::SemanticError(tok_seq.clone()))?;
+
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Break(stmt_id.clone()))))
         } else if self.is_type_token(tok_seq.clone()) {
             let decl_type;
             (tok_seq, decl_type) = self.parse_decl_spec(tok_seq)?;
@@ -279,9 +300,21 @@ impl ParseArena {
                 .expect_punct(PunctKind::CloseParenthesis)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
+            // push stmt_id
+            let stmt_id = self.stmt_id;
+            self.stmt_id += 1;
+
+            self.break_stack.push_back(stmt_id);
+
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
-            Ok((tok_seq, ASTStmt::new(ASTStmtNode::While(cond, stmt))))
+
+            self.break_stack.pop_back();
+
+            Ok((
+                tok_seq,
+                ASTStmt::new(ASTStmtNode::While(cond, stmt, stmt_id)),
+            ))
         } else if tok_seq.expect_keyword(KeywordKind::Do).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Do)

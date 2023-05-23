@@ -59,6 +59,7 @@ pub enum KeywordKind {
     Do,
     While,
     For,
+    Break,
     Sizeof,
     Alignof,
 }
@@ -353,6 +354,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
     if code.len() >= 5 {
         match &code[..5] {
             "while" => return Some((KeywordKind::While, &code[5..])),
+            "break" => return Some((KeywordKind::Break, &code[5..])),
             _ => (),
         }
     }

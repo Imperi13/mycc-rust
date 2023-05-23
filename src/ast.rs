@@ -173,11 +173,12 @@ impl fmt::Debug for ASTExpr {
 #[derive(Clone)]
 pub enum ASTStmtNode {
     Return(ASTExpr),
+    Break(usize),
     Declaration(Rc<RefCell<Obj>>),
     ExprStmt(ASTExpr),
     Block(Vec<ASTStmt>),
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
-    While(ASTExpr, ASTStmt),
+    While(ASTExpr, ASTStmt, usize),
     DoWhile(ASTExpr, ASTStmt),
     For(ASTExpr, ASTExpr, ASTExpr, ASTStmt),
 }
@@ -204,6 +205,9 @@ impl ASTStmt {
                 writeln!(f, "{}Return", indent)?;
                 writeln!(f, "{}expr:", indent)?;
                 expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTStmtNode::Break(ref stmt_id) => {
+                writeln!(f, "{}Break: id{}", indent, stmt_id)
             }
             ASTStmtNode::Declaration(ref obj) => {
                 writeln!(f, "{}Declaration :{}", indent, &*obj.borrow().name)
@@ -237,8 +241,8 @@ impl ASTStmt {
                     Ok(())
                 }
             }
-            ASTStmtNode::While(ref cond, ref stmt) => {
-                writeln!(f, "{}While", indent)?;
+            ASTStmtNode::While(ref cond, ref stmt, ref stmt_id) => {
+                writeln!(f, "{}While: id{}", indent, stmt_id)?;
                 writeln!(f, "{}cond:", indent)?;
                 cond.fmt_with_indent(f, &format!("{}\t", indent))?;
                 writeln!(f, "{}stmt:", indent)?;
