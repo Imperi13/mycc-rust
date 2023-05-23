@@ -285,25 +285,29 @@ impl ParseArena {
         } else if tok_seq.expect_keyword(KeywordKind::Do).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Do)
-                .ok_or(ParseError::SyntaxError)?;
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
 
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::While)
-                .ok_or(ParseError::SyntaxError)?;
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::OpenParenthesis)
-                .ok_or(ParseError::SyntaxError)?;
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             let cond;
             (tok_seq, cond) = self.parse_expr(tok_seq)?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
-                .ok_or(ParseError::SyntaxError)?;
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::SemiColon)
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::DoWhile(cond, stmt))))
         } else if tok_seq.expect_keyword(KeywordKind::For).is_some() {
