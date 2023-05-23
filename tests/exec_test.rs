@@ -289,3 +289,30 @@ test_function!(
     "int main() { return (3 || 2) + (3 || 0) + (0 || 3)+ !(0 || 0) + 170; }",
     174
 );
+
+test_function!(
+    ex_041,
+    "int main() {int a; a = 3; a += 5;  return a + 166; }",
+    174
+);
+test_function!(
+    ex_042,
+    "int main() {int a; int b; a = 3; b = (a += 5);  return a + b + 158; }",
+    174
+);
+test_function!(
+    ex_043,
+    "int main() {int a; int b; a = 3; b = 1; b *= (a += 5);  return a + b + 158; }",
+    174
+);
+test_function!(
+    ex_044,
+    "int main() {int a; int b; a = 11; a -=5; a /= 2; b = 1; b *= (a += 5);  return a + b + 158; }",
+    174
+);
+test_function!(ex_045, "int main() {int a; int b; int c; a = 7; a &= ~2; a <<= 2; a |=2; a >>= 1; a -=5; a /= 2; b = 3; c = 8; b ^= (c%=3); b *= (a += 5);  return a + b + 158; }",174);
+test_function!(ex_046, "int foo(){ return 2;} int main() {int a; int b; int c; a = 3;b = 5;c = 2;if(a) {b = foo();} else { }    return 172+b;}",174);
+test_function!(ex_047, "int foo(){ return 2;} int main() {int a; int b; int c; a = 3;b = 5;c = 2;if(a) {b = foo();}   return 172+b;}",174);
+test_function!(ex_048, "int foo(){ return 2;} int bar(){ return 7;} int main() {int a; int b; int c; a = 3;b = 5;c = 2;if(a) {b = foo();} else { c = bar();}    return 172+b;}",174);
+test_function!(ex_049, "int foo(){ return 2;} int bar(){ return 7;} int main() {int a; int b; int c; a = 0;b = 5;c = 2;if(a) {b = foo();} else { c = bar();}    return 162+b+c;}",174);
+test_function!(ex_050, "int foo(){ return 2;} int bar(){ return 7;} int main() {int a; int b; int c; a = 3;b = 5;c = 2;if(a) if(0) { b = foo(); } else {  c = bar(); }    return 162+b+c;}",174);
