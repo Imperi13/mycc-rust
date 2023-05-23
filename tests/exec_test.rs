@@ -316,3 +316,42 @@ test_function!(ex_047, "int foo(){ return 2;} int main() {int a; int b; int c; a
 test_function!(ex_048, "int foo(){ return 2;} int bar(){ return 7;} int main() {int a; int b; int c; a = 3;b = 5;c = 2;if(a) {b = foo();} else { c = bar();}    return 172+b;}",174);
 test_function!(ex_049, "int foo(){ return 2;} int bar(){ return 7;} int main() {int a; int b; int c; a = 0;b = 5;c = 2;if(a) {b = foo();} else { c = bar();}    return 162+b+c;}",174);
 test_function!(ex_050, "int foo(){ return 2;} int bar(){ return 7;} int main() {int a; int b; int c; a = 3;b = 5;c = 2;if(a) if(0) { b = foo(); } else {  c = bar(); }    return 162+b+c;}",174);
+
+test_function!(ex_051, "int foo(){ return 2;} int bar(){ return 7;} int main() {int a; int b; int c; a = 3;b = 5;c = 2;if(a) if(0)b=foo();else c = bar();return 162+b+c;}",174);
+test_function!(ex_052, "int main() {int a; a = 4; if(1){return 170+a; a = 7; }else{return 170-a; a = 9;} a = 5; return a;}",174);
+test_function!(
+    ex_053,
+    "int foo(){return 1;} int main(){int a; a=0;do{a=3;}while(a==foo());return 174;}",
+    174
+);
+test_function!(
+    ex_054,
+    "int main(){int a; a=0;do{a+=1;}while(a && a < 174);return a;}",
+    174
+);
+test_function!(
+    ex_055,
+    "int main(){int a; a=-8;do{a+=1;}while(a);return a+174;}",
+    174
+);
+test_function!(
+    ex_056,
+    "int foo(){return 3;} int main() {int a; a = 0;while(a == foo()) {a = 3;}return 174;}",
+    174
+);
+test_function!(
+    ex_057,
+    "int main(){int a; int b; a = 0; b = 0; while(a <= 10) {b += a; a += 1;}return b;}",
+    55
+);
+test_function!(
+    ex_058,
+    "int main(){int a; a = 3;while (a) {a = 2;if (a - 3) {break;}a += 3;}return 174;}",
+    174
+);
+test_function!(ex_059, "int main(){int a; int b; int c; a = 3; b = 5; c = 0;while(a){while(b) {c += b;b-=1;if(b == 3) break;}b = 7;a-=1;if(a == 1) break;} return a*7+b*15+c*2;}",174);
+test_function!(
+    ex_060,
+    "int main(){int a; a = 3;while (a) {a = 2;if (a - 3) {break;}a += 3;}return 174;}",
+    174
+);
