@@ -392,14 +392,7 @@ impl ParseArena {
 
             Ok((
                 tok_seq,
-                ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode {
-                        lhs,
-                        rhs,
-                        kind: BinaryOpKind::Assign,
-                    }),
-                    expr_type,
-                ),
+                ASTExpr::new(ASTExprNode::Assign(lhs, rhs), expr_type),
             ))
         } else {
             Ok((tok_seq, lhs))

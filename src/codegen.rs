@@ -369,6 +369,13 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 phi.as_basic_value()
             }
+            ASTExprNode::Assign(ref lhs, ref rhs) => {
+                let lhs_ptr = self.codegen_addr(lhs);
+                let rhs = self.codegen_expr(rhs);
+
+                self.builder.build_store(lhs_ptr, rhs);
+                rhs
+            }
             ASTExprNode::BinaryOp(ref binary_node) => {
                 self.codegen_binary_op(binary_node, &ast.expr_type)
             }
@@ -428,13 +435,6 @@ impl<'ctx> CodegenArena<'ctx> {
 
     fn codegen_binary_op(&self, binary_node: &BinaryOpNode, expr_type: &Type) -> BasicValueEnum {
         match binary_node.kind {
-            BinaryOpKind::Assign => {
-                let lhs_ptr = self.codegen_addr(&binary_node.lhs);
-                let rhs = self.codegen_expr(&binary_node.rhs);
-
-                self.builder.build_store(lhs_ptr, rhs);
-                rhs
-            }
             BinaryOpKind::Comma => {
                 self.codegen_expr(&binary_node.lhs);
                 self.codegen_expr(&binary_node.rhs)
