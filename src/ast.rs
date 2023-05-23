@@ -55,6 +55,11 @@ pub struct UnaryOpNode {
 #[derive(Clone, Debug)]
 pub enum AssignKind {
     Assign,
+    LeftShiftAssign,
+    RightShiftAssign,
+    OrAssign,
+    XorAssign,
+    AndAssign,
     AddAssign,
     SubAssign,
     MulAssign,

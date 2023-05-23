@@ -440,6 +440,81 @@ impl<'ctx> CodegenArena<'ctx> {
                 self.builder.build_store(lhs_ptr, rhs);
                 rhs
             }
+            AssignKind::LeftShiftAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let lshift = self.builder.build_left_shift(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "add",
+                );
+
+                self.builder.build_store(lhs_ptr, lshift);
+                lshift.into()
+            }
+            AssignKind::RightShiftAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let rshift = self.builder.build_right_shift(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    false,
+                    "add",
+                );
+
+                self.builder.build_store(lhs_ptr, rshift);
+                rshift.into()
+            }
+            AssignKind::OrAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let or = self
+                    .builder
+                    .build_or(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, or);
+                or.into()
+            }
+            AssignKind::XorAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let xor = self
+                    .builder
+                    .build_xor(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, xor);
+                xor.into()
+            }
+            AssignKind::AndAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let and = self
+                    .builder
+                    .build_and(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, and);
+                and.into()
+            }
             AssignKind::AddAssign => {
                 let lhs_ptr = self.codegen_addr(&assign_node.lhs);
 

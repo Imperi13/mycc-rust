@@ -27,6 +27,11 @@ pub enum PunctKind {
     Colon,
     BitOr,
     Assign,
+    OrAssign,
+    XorAssign,
+    AndAssign,
+    LeftShiftAssign,
+    RightShiftAssign,
     AddAssign,
     SubAssign,
     MulAssign,
@@ -268,6 +273,14 @@ fn tokenize_ident(code: &str) -> (String, &str) {
 }
 
 fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
+    if code.len() >= 3 {
+        match &code[..3] {
+            "<<=" => return Some((PunctKind::LeftShiftAssign, &code[3..])),
+            ">>=" => return Some((PunctKind::RightShiftAssign, &code[3..])),
+            _ => (),
+        }
+    }
+
     if code.len() >= 2 {
         match &code[..2] {
             "||" => return Some((PunctKind::LogicalOr, &code[2..])),
@@ -278,6 +291,9 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
             ">=" => return Some((PunctKind::GreaterEqual, &code[2..])),
             ">>" => return Some((PunctKind::RightShift, &code[2..])),
             "<<" => return Some((PunctKind::LeftShift, &code[2..])),
+            "|=" => return Some((PunctKind::OrAssign, &code[2..])),
+            "^=" => return Some((PunctKind::XorAssign, &code[2..])),
+            "&=" => return Some((PunctKind::AndAssign, &code[2..])),
             "+=" => return Some((PunctKind::AddAssign, &code[2..])),
             "-=" => return Some((PunctKind::SubAssign, &code[2..])),
             "*=" => return Some((PunctKind::MulAssign, &code[2..])),
