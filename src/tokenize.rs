@@ -28,6 +28,7 @@ pub enum PunctKind {
     BitOr,
     Assign,
     LogicalOr,
+    LogicalAnd,
     Equal,
     NotEqual,
     Less,
@@ -265,6 +266,7 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
     if code.len() >= 2 {
         match &code[..2] {
             "||" => return Some((PunctKind::LogicalOr, &code[2..])),
+            "&&" => return Some((PunctKind::LogicalAnd, &code[2..])),
             "==" => return Some((PunctKind::Equal, &code[2..])),
             "!=" => return Some((PunctKind::NotEqual, &code[2..])),
             "<=" => return Some((PunctKind::LessEqual, &code[2..])),

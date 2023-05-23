@@ -577,6 +577,66 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 phi.as_basic_value()
             }
+            BinaryOpKind::LogicalAnd => {
+                let func = self.current_func.unwrap();
+
+                let lhs_val = self.codegen_expr(&binary_node.lhs);
+                let lhs_zero = self
+                    .convert_llvm_basictype(&binary_node.lhs.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+                let lhs_cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    lhs_val.into_int_value(),
+                    lhs_zero,
+                    "if_cond",
+                );
+
+                let rhs_bb = self.context.append_basic_block(func, "logical and rhs");
+                let else_bb = self.context.append_basic_block(func, "logical and else");
+
+                self.builder
+                    .build_conditional_branch(lhs_cond, rhs_bb, else_bb);
+
+                let then_bb = self.context.append_basic_block(func, "logical and then");
+
+                self.builder.position_at_end(rhs_bb);
+                let rhs_val = self.codegen_expr(&binary_node.rhs);
+                let rhs_zero = self
+                    .convert_llvm_basictype(&binary_node.rhs.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+                let rhs_cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    rhs_val.into_int_value(),
+                    rhs_zero,
+                    "if_cond",
+                );
+
+                self.builder
+                    .build_conditional_branch(rhs_cond, then_bb, else_bb);
+
+                let after_bb = self.context.append_basic_block(func, "logical and after");
+
+                self.builder.position_at_end(then_bb);
+                self.builder.build_unconditional_branch(after_bb);
+
+                self.builder.position_at_end(else_bb);
+                self.builder.build_unconditional_branch(after_bb);
+
+                self.builder.position_at_end(after_bb);
+
+                let llvm_type = self.convert_llvm_basictype(expr_type);
+
+                let phi = self.builder.build_phi(llvm_type, "iftmp");
+
+                phi.add_incoming(&[
+                    (&llvm_type.into_int_type().const_int(1, false), then_bb),
+                    (&llvm_type.into_int_type().const_int(0, false), else_bb),
+                ]);
+
+                phi.as_basic_value()
+            }
             BinaryOpKind::Equal => {
                 let lhs = self.codegen_expr(&binary_node.lhs);
                 let rhs = self.codegen_expr(&binary_node.rhs);
