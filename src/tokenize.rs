@@ -28,6 +28,10 @@ pub enum PunctKind {
     BitOr,
     Assign,
     AddAssign,
+    SubAssign,
+    MulAssign,
+    DivAssign,
+    ModAssign,
     LogicalOr,
     LogicalAnd,
     Equal,
@@ -275,6 +279,10 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
             ">>" => return Some((PunctKind::RightShift, &code[2..])),
             "<<" => return Some((PunctKind::LeftShift, &code[2..])),
             "+=" => return Some((PunctKind::AddAssign, &code[2..])),
+            "-=" => return Some((PunctKind::SubAssign, &code[2..])),
+            "*=" => return Some((PunctKind::MulAssign, &code[2..])),
+            "/=" => return Some((PunctKind::DivAssign, &code[2..])),
+            "%=" => return Some((PunctKind::ModAssign, &code[2..])),
             _ => (),
         }
     }

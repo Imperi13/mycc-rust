@@ -421,6 +421,78 @@ impl ParseArena {
                     expr_type,
                 ),
             ))
+        } else if tok_seq.expect_punct(PunctKind::SubAssign).is_some() {
+            tok_seq = tok_seq.next();
+
+            let rhs;
+            (tok_seq, rhs) = self.parse_assign(tok_seq)?;
+            let expr_type = lhs.expr_type.clone();
+
+            Ok((
+                tok_seq,
+                ASTExpr::new(
+                    ASTExprNode::Assign(AssignNode {
+                        lhs,
+                        rhs,
+                        kind: AssignKind::SubAssign,
+                    }),
+                    expr_type,
+                ),
+            ))
+        } else if tok_seq.expect_punct(PunctKind::MulAssign).is_some() {
+            tok_seq = tok_seq.next();
+
+            let rhs;
+            (tok_seq, rhs) = self.parse_assign(tok_seq)?;
+            let expr_type = lhs.expr_type.clone();
+
+            Ok((
+                tok_seq,
+                ASTExpr::new(
+                    ASTExprNode::Assign(AssignNode {
+                        lhs,
+                        rhs,
+                        kind: AssignKind::MulAssign,
+                    }),
+                    expr_type,
+                ),
+            ))
+        } else if tok_seq.expect_punct(PunctKind::DivAssign).is_some() {
+            tok_seq = tok_seq.next();
+
+            let rhs;
+            (tok_seq, rhs) = self.parse_assign(tok_seq)?;
+            let expr_type = lhs.expr_type.clone();
+
+            Ok((
+                tok_seq,
+                ASTExpr::new(
+                    ASTExprNode::Assign(AssignNode {
+                        lhs,
+                        rhs,
+                        kind: AssignKind::DivAssign,
+                    }),
+                    expr_type,
+                ),
+            ))
+        } else if tok_seq.expect_punct(PunctKind::ModAssign).is_some() {
+            tok_seq = tok_seq.next();
+
+            let rhs;
+            (tok_seq, rhs) = self.parse_assign(tok_seq)?;
+            let expr_type = lhs.expr_type.clone();
+
+            Ok((
+                tok_seq,
+                ASTExpr::new(
+                    ASTExprNode::Assign(AssignNode {
+                        lhs,
+                        rhs,
+                        kind: AssignKind::ModAssign,
+                    }),
+                    expr_type,
+                ),
+            ))
         } else {
             Ok((tok_seq, lhs))
         }

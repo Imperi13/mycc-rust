@@ -454,6 +454,66 @@ impl<'ctx> CodegenArena<'ctx> {
                 self.builder.build_store(lhs_ptr, add);
                 add.into()
             }
+            AssignKind::SubAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let sub =
+                    self.builder
+                        .build_int_sub(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, sub);
+                sub.into()
+            }
+            AssignKind::MulAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let mul =
+                    self.builder
+                        .build_int_mul(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, mul);
+                mul.into()
+            }
+            AssignKind::DivAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let div = self.builder.build_int_signed_div(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "add",
+                );
+
+                self.builder.build_store(lhs_ptr, div);
+                div.into()
+            }
+            AssignKind::ModAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let mod_val = self.builder.build_int_signed_rem(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "add",
+                );
+
+                self.builder.build_store(lhs_ptr, mod_val);
+                mod_val.into()
+            }
         }
     }
 

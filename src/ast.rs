@@ -56,6 +56,10 @@ pub struct UnaryOpNode {
 pub enum AssignKind {
     Assign,
     AddAssign,
+    SubAssign,
+    MulAssign,
+    DivAssign,
+    ModAssign,
 }
 
 #[derive(Clone)]
