@@ -235,7 +235,7 @@ impl ParseArena {
 
             let return_type = self.return_type.clone().unwrap();
 
-            let cast = ASTExpr::build_cast_node(return_type, expr);
+            let cast = expr.cast_to(return_type);
 
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(cast))))
         } else if tok_seq.expect_keyword(KeywordKind::Break).is_some() {
@@ -1053,49 +1053,72 @@ impl ParseArena {
     }
 
     fn parse_add(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
-        let mut lhs;
-        (tok_seq, lhs) = self.parse_mul(tok_seq)?;
+        let mut node;
+        (tok_seq, node) = self.parse_mul(tok_seq)?;
 
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
-                let kind = match punct {
-                    PunctKind::Plus => BinaryOpKind::Add,
-                    PunctKind::Minus => BinaryOpKind::Sub,
+                match punct {
+                    PunctKind::Plus => {
+                        let kind = BinaryOpKind::Add;
+                        tok_seq = tok_seq.next();
+
+                        let rhs;
+                        (tok_seq, rhs) = self.parse_mul(tok_seq)?;
+
+                        let lhs = node;
+
+                        let lhs_type = lhs.expr_type.clone();
+                        let rhs_type = rhs.expr_type.clone();
+
+                        if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                            node = ASTExpr::new(
+                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                lhs_type,
+                            );
+                        } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
+                            node = ASTExpr::new(
+                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                lhs_type,
+                            );
+                        } else if lhs_type.is_int_type() && rhs_type.is_ptr_type() {
+                            node = ASTExpr::new(
+                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                rhs_type,
+                            );
+                        } else {
+                            return Err(ParseError::SemanticError(tok_seq));
+                        }
+                    }
+                    PunctKind::Minus => {
+                        let kind = BinaryOpKind::Sub;
+                        tok_seq = tok_seq.next();
+
+                        let rhs;
+                        (tok_seq, rhs) = self.parse_mul(tok_seq)?;
+
+                        let lhs = node;
+
+                        let lhs_type = lhs.expr_type.clone();
+                        let rhs_type = rhs.expr_type.clone();
+
+                        if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                            node = ASTExpr::new(
+                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                lhs_type,
+                            );
+                        } else {
+                            return Err(ParseError::SemanticError(tok_seq));
+                        }
+                    }
                     _ => break,
                 };
-
-                tok_seq = tok_seq.next();
-
-                let rhs;
-                (tok_seq, rhs) = self.parse_mul(tok_seq)?;
-
-                let lhs_type = lhs.expr_type.clone();
-                let rhs_type = rhs.expr_type.clone();
-
-                if lhs_type.is_int_type() && rhs_type.is_int_type() {
-                    lhs = ASTExpr::new(
-                        ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
-                        lhs_type,
-                    );
-                } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
-                    lhs = ASTExpr::new(
-                        ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
-                        lhs_type,
-                    );
-                } else if lhs_type.is_int_type() && rhs_type.is_ptr_type() {
-                    lhs = ASTExpr::new(
-                        ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
-                        rhs_type,
-                    );
-                } else {
-                    return Err(ParseError::SemanticError(tok_seq));
-                }
             } else {
                 break;
             }
         }
 
-        Ok((tok_seq, lhs))
+        Ok((tok_seq, node))
     }
 
     fn parse_mul(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -1376,15 +1399,7 @@ impl ParseArena {
                 .expect_punct(PunctKind::CloseSquareBracket)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let cast_type = if expr.expr_type.is_ptr_type() {
-                expr.expr_type.clone()
-            } else if expr.expr_type.is_array_type() {
-                Type::new_ptr_type(expr.expr_type.get_array_to().unwrap())
-            } else {
-                return Err(ParseError::SemanticError(tok_seq));
-            };
-
-            let cast = ASTExpr::build_cast_node(cast_type, expr);
+            let cast = expr.cast_array();
 
             let ptr_type = if cast.expr_type.is_ptr_type() && index.expr_type.is_int_type() {
                 cast.expr_type.clone()

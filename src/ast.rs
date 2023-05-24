@@ -107,8 +107,18 @@ impl ASTExpr {
         (*self.head).borrow().clone()
     }
 
-    pub fn build_cast_node(cast_to: Type, expr: ASTExpr) -> ASTExpr {
-        ASTExpr::new(ASTExprNode::Cast(cast_to.clone(), expr), cast_to)
+    pub fn cast_to(&self, cast_to: Type) -> ASTExpr {
+        ASTExpr::new(ASTExprNode::Cast(cast_to.clone(), self.clone()), cast_to)
+    }
+
+    pub fn cast_array(&self) -> ASTExpr {
+        if self.expr_type.is_array_type() {
+            let array_to = self.expr_type.get_array_to().unwrap();
+            let ptr_ty = Type::new_ptr_type(array_to);
+            self.cast_to(ptr_ty)
+        } else {
+            self.clone()
+        }
     }
 
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
