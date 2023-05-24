@@ -519,3 +519,16 @@ test_function!(
     "int foo(int* p){*p = 172; return *p+2;} int main(){int x; return foo(&x);}",
     174
 );
+
+test_function!(ex_101,"int *foo(int *p){*p = 4;return p;} int main(){int x;int *y;y = foo(&x); *y+= 170;return x;}",174);
+test_function!(ex_102,"int *foo(int *p){*p = 4;return p;} int main(){int x;int y;*foo(&x) += 170;return x;}",174);
+
+test_function!(ex_113,"int *foo(int *p){*p = 4;return p;} int main(){int x;int y; int **z; *foo(&x) += 170;return x;}",174);
+test_function!(ex_114,"int main(){int a[2][3]; return 174;}",174);
+test_function!(ex_115,"int x; int *y; int main(){return 174;}",174);
+test_function!(ex_116,"int x; int *y; int main(){return x+174;}",174);
+test_function!(ex_117,"int x; int *y; int main(){x=3; int a; a=2; y=&a; return x+*y+169;}",174);
+
+test_function!(ex_118,"int main(){int a[1]; int *p; p = a; *p=2; return 174;}",174);
+test_function!(ex_119,"int main(){int a[1]; *(a+0)=2;return 174;}",174);
+test_function!(ex_120,"int x; int *y; int main(){x=3; int a[1]; *a=2; y=a; return x+*y+169;}",174);
