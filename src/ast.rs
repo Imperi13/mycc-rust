@@ -82,6 +82,8 @@ pub enum ASTExprNode {
     UnaryOp(UnaryOpNode),
     Cast(Type, ASTExpr),
     FuncCall(ASTExpr, Vec<ASTExpr>),
+    PostIncrement(ASTExpr),
+    PostDecrement(ASTExpr),
     Number(u64),
     StrLiteral(String),
     Var(Rc<RefCell<Obj>>),
@@ -152,6 +154,16 @@ impl ASTExpr {
                 writeln!(f, "{}FuncCall", indent)?;
                 writeln!(f, "{}func_expr:", indent)?;
                 func_expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTExprNode::PostIncrement(ref expr) => {
+                writeln!(f, "{}PostIncrement", indent)?;
+                writeln!(f, "{}expr:", indent)?;
+                expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTExprNode::PostDecrement(ref expr) => {
+                writeln!(f, "{}PostDecrement", indent)?;
+                writeln!(f, "{}expr:", indent)?;
+                expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
             ASTExprNode::Number(num) => {
                 writeln!(f, "{}Number {}", indent, num)

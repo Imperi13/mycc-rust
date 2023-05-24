@@ -481,6 +481,34 @@ impl<'ctx> CodegenArena<'ctx> {
                     .left()
                     .unwrap()
             }
+            ASTExprNode::PostIncrement(ref expr) => {
+                let llvm_type = self.convert_llvm_basictype(&ast.expr_type);
+                let ptr = self.codegen_addr(expr);
+                let val = self.builder.build_load(llvm_type, ptr, "val");
+
+                let add = self.builder.build_int_add(
+                    val.into_int_value(),
+                    llvm_type.into_int_type().const_int(1, false),
+                    "add",
+                );
+                self.builder.build_store(ptr, add);
+
+                val
+            }
+            ASTExprNode::PostDecrement(ref expr) => {
+                let llvm_type = self.convert_llvm_basictype(&ast.expr_type);
+                let ptr = self.codegen_addr(expr);
+                let val = self.builder.build_load(llvm_type, ptr, "val");
+
+                let sub = self.builder.build_int_sub(
+                    val.into_int_value(),
+                    llvm_type.into_int_type().const_int(1, false),
+                    "sub",
+                );
+                self.builder.build_store(ptr, sub);
+
+                val
+            }
             ASTExprNode::Number(num) => BasicValueEnum::IntValue(
                 self.convert_llvm_basictype(&ast.expr_type)
                     .into_int_type()

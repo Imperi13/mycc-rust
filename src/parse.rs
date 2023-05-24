@@ -1374,6 +1374,24 @@ impl ParseArena {
                     ptr_type.get_ptr_to().unwrap(),
                 ),
             ))
+        } else if tok_seq.expect_punct(PunctKind::Increment).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Increment)
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
+            let expr_type = expr.expr_type.clone();
+
+            let node = ASTExpr::new(ASTExprNode::PostIncrement(expr), expr_type);
+
+            Ok((tok_seq, node))
+        } else if tok_seq.expect_punct(PunctKind::Decrement).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Decrement)
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
+            let expr_type = expr.expr_type.clone();
+
+            let node = ASTExpr::new(ASTExprNode::PostDecrement(expr), expr_type);
+
+            Ok((tok_seq, node))
         } else {
             Ok((tok_seq, expr))
         }
