@@ -47,7 +47,7 @@ pub struct Obj {
 struct ParseArena {
     obj_id: usize,
     global_objs: HashMap<String, Rc<RefCell<Obj>>>,
-    local_objs: HashMap<String, Rc<RefCell<Obj>>>,
+    local_objs: VecDeque<HashMap<String, Rc<RefCell<Obj>>>>,
     return_type: Option<Type>,
 
     stmt_id: usize,
@@ -60,7 +60,7 @@ impl ParseArena {
         ParseArena {
             obj_id: 0,
             global_objs: HashMap::new(),
-            local_objs: HashMap::new(),
+            local_objs: VecDeque::new(),
             return_type: None,
             stmt_id: 0,
             break_stack: VecDeque::new(),
@@ -90,7 +90,7 @@ impl ParseArena {
     }
 
     fn insert_local_obj(&mut self, obj_name: &str, obj_type: Type) -> Result<Rc<RefCell<Obj>>, ()> {
-        if self.local_objs.contains_key(obj_name) {
+        if self.local_objs.back_mut().unwrap().contains_key(obj_name) {
             return Err(());
         }
 
@@ -100,15 +100,33 @@ impl ParseArena {
             obj_type,
         }));
 
-        self.local_objs.insert(String::from(obj_name), obj.clone());
+        self.local_objs
+            .back_mut()
+            .unwrap()
+            .insert(String::from(obj_name), obj.clone());
         self.obj_id += 1;
 
         Ok(obj)
     }
 
+    fn initialize_local_scope(&mut self) {
+        self.local_objs = VecDeque::new();
+        self.push_local_scope();
+    }
+
+    fn push_local_scope(&mut self) {
+        self.local_objs.push_back(HashMap::new());
+    }
+
+    fn pop_local_scope(&mut self) {
+        self.local_objs.pop_back();
+    }
+
     fn get_obj(&self, obj_name: &str) -> Result<Rc<RefCell<Obj>>, ()> {
-        if self.local_objs.contains_key(obj_name) {
-            return Ok(self.local_objs.get(obj_name).unwrap().clone());
+        for map in self.local_objs.iter().rev() {
+            if map.contains_key(obj_name) {
+                return Ok(map.get(obj_name).unwrap().clone());
+            }
         }
 
         if self.global_objs.contains_key(obj_name) {
@@ -157,7 +175,7 @@ impl ParseArena {
             // prepare parsing stmts
             let mut args = Vec::new();
             let mut stmts = Vec::new();
-            self.local_objs = HashMap::new();
+            self.initialize_local_scope();
 
             for (ref ty, ref decl) in declarator.get_args() {
                 let arg_name = decl.get_name();
@@ -445,6 +463,8 @@ impl ParseArena {
                 .expect_punct(PunctKind::OpenBrace)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
+            self.push_local_scope();
+
             let mut stmts = Vec::new();
 
             while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
@@ -452,6 +472,8 @@ impl ParseArena {
                 (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
                 stmts.push(stmt);
             }
+
+            self.pop_local_scope();
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseBrace)
