@@ -47,6 +47,8 @@ pub enum PunctKind {
     GreaterEqual,
     LeftShift,
     RightShift,
+    Increment,
+    Decrement,
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -302,6 +304,8 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
             "*=" => return Some((PunctKind::MulAssign, &code[2..])),
             "/=" => return Some((PunctKind::DivAssign, &code[2..])),
             "%=" => return Some((PunctKind::ModAssign, &code[2..])),
+            "++" => return Some((PunctKind::Increment, &code[2..])),
+            "--" => return Some((PunctKind::Decrement, &code[2..])),
             _ => (),
         }
     }

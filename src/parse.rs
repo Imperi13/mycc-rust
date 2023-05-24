@@ -1176,6 +1176,44 @@ impl ParseArena {
             );
 
             Ok((tok_seq, node))
+        } else if tok_seq.expect_punct(PunctKind::Increment).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Increment)
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+            let lhs;
+            (tok_seq, lhs) = self.parse_unary(tok_seq)?;
+            let expr_type = lhs.expr_type.clone();
+
+            let node = ASTExpr::new(
+                ASTExprNode::Assign(AssignNode {
+                    lhs,
+                    rhs: ASTExpr::new(ASTExprNode::Number(1), Type::new(TypeNode::Int)),
+                    kind: AssignKind::AddAssign,
+                }),
+                expr_type,
+            );
+
+            Ok((tok_seq, node))
+        } else if tok_seq.expect_punct(PunctKind::Decrement).is_some() {
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Decrement)
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+            let lhs;
+            (tok_seq, lhs) = self.parse_unary(tok_seq)?;
+            let expr_type = lhs.expr_type.clone();
+
+            let node = ASTExpr::new(
+                ASTExprNode::Assign(AssignNode {
+                    lhs,
+                    rhs: ASTExpr::new(ASTExprNode::Number(1), Type::new(TypeNode::Int)),
+                    kind: AssignKind::SubAssign,
+                }),
+                expr_type,
+            );
+
+            Ok((tok_seq, node))
         } else if tok_seq.expect_punct(PunctKind::Ampersand).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Ampersand)
