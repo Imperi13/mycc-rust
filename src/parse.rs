@@ -1066,7 +1066,8 @@ impl ParseArena {
                         let rhs;
                         (tok_seq, rhs) = self.parse_mul(tok_seq)?;
 
-                        let lhs = node;
+                        let lhs = node.cast_array();
+                        let rhs = rhs.cast_array();
 
                         let lhs_type = lhs.expr_type.clone();
                         let rhs_type = rhs.expr_type.clone();
