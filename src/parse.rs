@@ -387,8 +387,14 @@ impl ParseArena {
                 .expect_punct(PunctKind::OpenParenthesis)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let start;
-            (tok_seq, start) = self.parse_expr(tok_seq)?;
+            let start = if tok_seq.expect_punct(PunctKind::SemiColon).is_some() {
+                None
+            } else {
+                let tmp;
+                (tok_seq, tmp) = self.parse_expr(tok_seq)?;
+                Some(tmp)
+            };
+
             tok_seq = tok_seq
                 .expect_punct(PunctKind::SemiColon)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;

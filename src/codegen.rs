@@ -371,7 +371,10 @@ impl<'ctx> CodegenArena<'ctx> {
                 self.break_block.insert(stmt_id, after_bb);
                 self.continue_block.insert(stmt_id, step_bb);
 
-                self.codegen_expr(start);
+                if start.is_some() {
+                    let start = start.as_ref().unwrap();
+                    self.codegen_expr(start);
+                }
                 self.builder.build_unconditional_branch(cond_bb);
 
                 self.builder.position_at_end(cond_bb);
