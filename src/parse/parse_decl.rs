@@ -16,7 +16,7 @@ enum DeclaratorNest {
 #[derive(Clone)]
 enum DeclaratorSuffix {
     None,
-    Array(u32),
+    Array(Vec<u32>),
     Function(Vec<(Type, Declarator)>),
 }
 
@@ -43,7 +43,13 @@ impl Declarator {
 
         ret_type = match self.suffix {
             DeclaratorSuffix::None => ret_type,
-            DeclaratorSuffix::Array(len) => Type::new_array_type(ret_type, len),
+            DeclaratorSuffix::Array(ref vec) => {
+                let mut ty = ret_type;
+                for len in vec.iter().rev() {
+                    ty = Type::new_array_type(ty, len.clone())
+                }
+                ty
+            }
             DeclaratorSuffix::Function(ref arg) => {
                 let mut arg_type = Vec::new();
                 for (ref decl_spec_type, ref declarator) in arg.iter() {
@@ -97,19 +103,25 @@ impl ParseArena {
         };
 
         let suffix = if tok_seq.expect_punct(PunctKind::OpenSquareBracket).is_some() {
-            tok_seq = tok_seq.next();
+            let mut lens = Vec::new();
 
-            let len = match tok_seq.get_token() {
-                TokenKind::Number(len) => len,
-                _ => return Err(ParseError::SyntaxError(tok_seq)),
-            };
-            tok_seq = tok_seq.next();
+            while tok_seq.expect_punct(PunctKind::OpenSquareBracket).is_some() {
+                tok_seq = tok_seq.next();
 
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::CloseSquareBracket)
-                .ok_or(ParseError::SyntaxError(tok_seq))?;
+                let len = match tok_seq.get_token() {
+                    TokenKind::Number(len) => len,
+                    _ => return Err(ParseError::SyntaxError(tok_seq)),
+                };
+                tok_seq = tok_seq.next();
 
-            DeclaratorSuffix::Array(len as u32)
+                tok_seq = tok_seq
+                    .expect_punct(PunctKind::CloseSquareBracket)
+                    .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+                lens.push(len as u32);
+            }
+
+            DeclaratorSuffix::Array(lens)
         } else if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
             tok_seq = tok_seq.next();
 
