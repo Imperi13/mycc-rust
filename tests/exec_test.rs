@@ -370,3 +370,54 @@ test_function!(ex_067,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)con
 test_function!(ex_068,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)continue;break; a+=100;}while(a+3); return b*a;}",18);
 test_function!(ex_069,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)continue;break; a+=100;}while(a+3); return b*a*10;}",180);
 test_function!(ex_070,"int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(a)continue;break;}while(a+3); return a*b;}",18);
+
+test_function!(
+    ex_071,
+    "int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;if(!a)break;}while(a+3); return a*b;}",
+    18
+);
+test_function!(
+    ex_072,
+    "int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;}while(a+3); return a*b;}",
+    18
+);
+test_function!(
+    ex_073,
+    "int main(){int a; int b; a =0; b=0; do{a-=1;b+=a;}while(a+3); return b*a;}",
+    18
+);
+test_function!(
+    ex_074,
+    "int main(){int a; int b; a=3; b=0; b+= ++a; return a*b*11-2;}",
+    174
+);
+test_function!(
+    ex_075,
+    "int main(){int a; int b; a=3; b=0; b+= a++; return !(b-3)+!(a-4)+172;}",
+    174
+);
+test_function!(
+    ex_076,
+    "int main(){int a; int b; a =0; b=0; do{b+=--a;}while(a+3); return b*a;}",
+    18
+);
+test_function!(
+    ex_077,
+    "int main(){int a; for (a = 3;a;) {a = 2;if (a - 3) {break;}a += 3;}return 174;}",
+    174
+);
+test_function!(
+    ex_078,
+    "int main(){int a; for (a = 3;;) {a = 2;if (a - 3) {break;}a += 3;}return 174;}",
+    174
+);
+test_function!(
+    ex_079,
+    "int main(){int a; int b; for(a=0,b=0;a <= 10;) {b += a; a += 1;}return b;}",
+    55
+);
+test_function!(
+    ex_080,
+    "int main(){int a; int b; for(a=11, b=0;a;){a-=1;b+=a;if(a)continue;break; a+=100;} return b;}",
+    55
+);
