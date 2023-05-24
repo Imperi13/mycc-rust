@@ -361,10 +361,6 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             ASTStmtNode::For(ref start, ref cond, ref step, ref stmt, stmt_id) => {
                 let func = self.current_func.unwrap();
-                let zero = self
-                    .convert_llvm_basictype(&cond.expr_type)
-                    .into_int_type()
-                    .const_int(0, false);
 
                 let cond_bb = self.context.append_basic_block(func, "cond");
                 let step_bb = self.context.append_basic_block(func, "step");
@@ -379,23 +375,34 @@ impl<'ctx> CodegenArena<'ctx> {
                 self.builder.build_unconditional_branch(cond_bb);
 
                 self.builder.position_at_end(cond_bb);
-                let cond = self.codegen_expr(cond);
-                let cond = self.builder.build_int_compare(
-                    inkwell::IntPredicate::NE,
-                    cond.into_int_value(),
-                    zero,
-                    "if_cond",
-                );
+                if cond.is_some() {
+                    let cond = cond.as_ref().unwrap();
+                    let zero = self
+                        .convert_llvm_basictype(&cond.expr_type)
+                        .into_int_type()
+                        .const_int(0, false);
+                    let cond = self.codegen_expr(cond);
+                    let cond = self.builder.build_int_compare(
+                        inkwell::IntPredicate::NE,
+                        cond.into_int_value(),
+                        zero,
+                        "if_cond",
+                    );
 
-                self.builder
-                    .build_conditional_branch(cond, loop_bb, after_bb);
+                    self.builder
+                        .build_conditional_branch(cond, loop_bb, after_bb);
+                } else {
+                    self.builder.build_unconditional_branch(loop_bb);
+                }
 
                 self.builder.position_at_end(loop_bb);
                 self.codegen_stmt(stmt);
                 self.builder.build_unconditional_branch(step_bb);
 
                 self.builder.position_at_end(step_bb);
-                self.codegen_expr(step);
+                if step.is_some() {
+                    self.codegen_expr(step.as_ref().unwrap());
+                }
                 self.builder.build_unconditional_branch(cond_bb);
 
                 self.builder.position_at_end(after_bb);

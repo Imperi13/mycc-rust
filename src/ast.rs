@@ -193,7 +193,7 @@ pub enum ASTStmtNode {
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
     While(ASTExpr, ASTStmt, usize),
     DoWhile(ASTExpr, ASTStmt, usize),
-    For(ASTExpr, ASTExpr, ASTExpr, ASTStmt, usize),
+    For(ASTExpr, Option<ASTExpr>, Option<ASTExpr>, ASTStmt, usize),
 }
 
 #[derive(Clone)]
@@ -275,10 +275,16 @@ impl ASTStmt {
                 writeln!(f, "{}For: id{}", indent, stmt_id)?;
                 writeln!(f, "{}start:", indent)?;
                 start.fmt_with_indent(f, &format!("{}\t", indent))?;
-                writeln!(f, "{}cond:", indent)?;
-                cond.fmt_with_indent(f, &format!("{}\t", indent))?;
-                writeln!(f, "{}step:", indent)?;
-                step.fmt_with_indent(f, &format!("{}\t", indent))?;
+                if cond.is_some() {
+                    writeln!(f, "{}cond:", indent)?;
+                    let cond = cond.as_ref().unwrap();
+                    cond.fmt_with_indent(f, &format!("{}\t", indent))?;
+                }
+                if step.is_some() {
+                    writeln!(f, "{}step:", indent)?;
+                    let step = step.as_ref().unwrap();
+                    step.fmt_with_indent(f, &format!("{}\t", indent))?;
+                }
                 writeln!(f, "{}stmt:", indent)?;
                 stmt.fmt_with_indent(f, &format!("{}\t", indent))
             }
