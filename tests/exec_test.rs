@@ -468,3 +468,54 @@ test_function!(
     "int main(){int x;x = 86;int *y;y = &x; return (*y) + x + 2;}",
     174
 );
+
+test_function!(
+    ex_091,
+    "int main(){int x;x = 86;int *y;y = &x; return (*y) + (*y) + 2;}",
+    174
+);
+test_function!(
+    ex_092,
+    "int main(){int x;x = 86;int *y;y = &x;int **z;z = &y;return (*y) + (**z) + 2;}",
+    174
+);
+test_function!(
+    ex_093,
+    "int main(){int x;x = 86;int *y;y = &x;int **z;z = &y;return*y+**z+2;}",
+    174
+);
+test_function!(
+    ex_094,
+    "int main() {int x;int *y;x = 3;y = &x;*y = 174;return x;}",
+    174
+);
+test_function!(
+    ex_095,
+    "int main() {int x;int *y;x = 3;y = &x;*y = 171;*y += 3;return x;}",
+    174
+);
+test_function!(
+    ex_096,
+    "int main(){int x; int y; int *z; int*a; z=&x; a=&y; *z=*a=87; return(x+y);}",
+    174
+);
+test_function!(
+    ex_097,
+    "int main(){int x; int *y; int **z; z = &y; *z = &x; *y = 174; return x;}",
+    174
+);
+test_function!(
+    ex_098,
+    "int foo(int* p){return 3;} int main(){int x; return 174;}",
+    174
+);
+test_function!(
+    ex_099,
+    "int foo(int* p){return *p;} int main(){int x; x = 174; return foo(&x);}",
+    174
+);
+test_function!(
+    ex_100,
+    "int foo(int* p){*p = 172; return *p+2;} int main(){int x; return foo(&x);}",
+    174
+);
