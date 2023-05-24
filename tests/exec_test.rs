@@ -421,3 +421,50 @@ test_function!(
     "int main(){int a; int b; for(a=11, b=0;a;){a-=1;b+=a;if(a)continue;break; a+=100;} return b;}",
     55
 );
+
+test_function!(
+    ex_081,
+    "int main(){int a; int b; for(a=0,b=0;a <= 10;++a) {b += a;}return b;}",
+    55
+);
+test_function!(
+    ex_082,
+    "int main(){int a; int b; for(a=0,b=0;a <= 10;a++) {b += a;}return b;}",
+    55
+);
+test_function!(ex_083,"int main(){int a; int b; int c; int d; d=0; b = 5; c = 0;for(a = 3;a;d++){for(;b;++d) {c += b;b-=1;if(b == 3) break;}b = 7;a-=1;if(a == 1) break;} return a*7+b*15+c*2;}",174);
+test_function!(
+    ex_084,
+    "int main(){int a; int b; for(a=0,b=0;a<10;a++){ if(a ==5)continue;b+=a;} return b;}",
+    40
+);
+test_function!(
+    ex_085,
+    "int main(){int a; a = 174; {int a; a = 3;} return a;}",
+    174
+);
+test_function!(
+    ex_086,
+    "int main(){int a; a = 3; { a = 174;} return a;}",
+    174
+);
+test_function!(
+    ex_087,
+    "int main() {int *b; int a; a = 3; a += 5;  return a + 166; }",
+    174
+);
+test_function!(
+    ex_088,
+    "int main() {int *******b; int a; a = 3; a += 5;  return a + 166; }",
+    174
+);
+test_function!(
+    ex_089,
+    "int main() {int a; a = 174; int *b; b = &a; return a;}",
+    174
+);
+test_function!(
+    ex_090,
+    "int main(){int x;x = 86;int *y;y = &x; return (*y) + x + 2;}",
+    174
+);
