@@ -406,11 +406,22 @@ impl ParseArena {
                 .expect_punct(PunctKind::CloseParenthesis)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
+            // push stmt_id
+            let stmt_id = self.stmt_id;
+            self.stmt_id += 1;
+
+            self.break_stack.push_back(stmt_id);
+            self.continue_stack.push_back(stmt_id);
+
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+
+            self.break_stack.pop_back();
+            self.continue_stack.pop_back();
+
             Ok((
                 tok_seq,
-                ASTStmt::new(ASTStmtNode::For(start, cond, step, stmt)),
+                ASTStmt::new(ASTStmtNode::For(start, cond, step, stmt, stmt_id)),
             ))
         } else if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
             tok_seq = tok_seq

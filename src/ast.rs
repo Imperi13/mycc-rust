@@ -181,7 +181,7 @@ pub enum ASTStmtNode {
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
     While(ASTExpr, ASTStmt, usize),
     DoWhile(ASTExpr, ASTStmt, usize),
-    For(ASTExpr, ASTExpr, ASTExpr, ASTStmt),
+    For(ASTExpr, ASTExpr, ASTExpr, ASTStmt, usize),
 }
 
 #[derive(Clone)]
@@ -259,8 +259,8 @@ impl ASTStmt {
                 writeln!(f, "{}stmt:", indent)?;
                 stmt.fmt_with_indent(f, &format!("{}\t", indent))
             }
-            ASTStmtNode::For(ref start, ref cond, ref step, ref stmt) => {
-                writeln!(f, "{}For", indent)?;
+            ASTStmtNode::For(ref start, ref cond, ref step, ref stmt, ref stmt_id) => {
+                writeln!(f, "{}For: id{}", indent, stmt_id)?;
                 writeln!(f, "{}start:", indent)?;
                 start.fmt_with_indent(f, &format!("{}\t", indent))?;
                 writeln!(f, "{}cond:", indent)?;
