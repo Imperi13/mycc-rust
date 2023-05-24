@@ -1301,6 +1301,8 @@ impl ParseArena {
 
             let expr;
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
+
+            let expr = expr.cast_array();
             let expr_type = expr
                 .expr_type
                 .clone()

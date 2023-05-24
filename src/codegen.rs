@@ -236,7 +236,7 @@ impl<'ctx> CodegenArena<'ctx> {
         match ast.get_node() {
             ASTStmtNode::Return(ref expr) => {
                 let val = self.codegen_expr(expr);
-                self.builder.build_return(Some(&val.into_int_value()));
+                self.builder.build_return(Some(&val));
             }
             ASTStmtNode::Break(stmt_id) => {
                 let break_block = self.get_break_block(stmt_id);
