@@ -1,3 +1,4 @@
+use std::fmt;
 use std::rc::Rc;
 
 #[derive(Clone)]
@@ -12,6 +13,24 @@ pub enum TypeNode {
 #[derive(Clone)]
 pub struct Type {
     head: Rc<TypeNode>,
+}
+
+impl fmt::Debug for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self.head {
+            TypeNode::Int => write!(f, "Int"),
+            TypeNode::Char => write!(f, "Char"),
+            TypeNode::Func(ref ret, ref args) => {
+                write!(f, "Func({:?},(", ret)?;
+                for arg in args.iter() {
+                    write!(f, "{:?},", arg)?;
+                }
+                write!(f, ")")
+            }
+            TypeNode::Ptr(ref ptr_to) => write!(f, "Ptr({:?})", ptr_to),
+            TypeNode::Array(ref array_to, len) => write!(f, "Array({:?},{})", array_to, len),
+        }
+    }
 }
 
 impl Type {
