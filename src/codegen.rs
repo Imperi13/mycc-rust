@@ -734,7 +734,7 @@ impl<'ctx> CodegenArena<'ctx> {
                             )
                             .into()
                     }
-                } else if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                } else if lhs_type.is_int_type() && rhs_type.is_ptr_type() {
                     let ptr_to = rhs_type.get_ptr_to().unwrap();
                     unsafe {
                         self.builder
