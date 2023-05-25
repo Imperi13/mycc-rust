@@ -1087,9 +1087,14 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             UnaryOpKind::Addr => BasicValueEnum::PointerValue(self.codegen_addr(&unary_node.expr)),
             UnaryOpKind::Deref => {
+                assert!(&unary_node.expr.expr_type.is_ptr_type());
                 let llvm_type = self.convert_llvm_basictype(expr_type);
                 let ptr = self.codegen_expr(&unary_node.expr).into_pointer_value();
-                self.builder.build_load(llvm_type, ptr, "var")
+                if expr_type.is_array_type() {
+                    ptr.into()
+                } else {
+                    self.builder.build_load(llvm_type, ptr, "var")
+                }
             }
             UnaryOpKind::LogicalNot => {
                 let expr = self.codegen_expr(&unary_node.expr);
