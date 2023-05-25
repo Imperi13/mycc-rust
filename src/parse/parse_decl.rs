@@ -53,7 +53,14 @@ impl Declarator {
             DeclaratorSuffix::Function(ref arg) => {
                 let mut arg_type = Vec::new();
                 for (ref decl_spec_type, ref declarator) in arg.iter() {
-                    arg_type.push(declarator.get_type(decl_spec_type.clone()));
+                    let ty = declarator.get_type(decl_spec_type.clone());
+                    let ty = if ty.is_array_type() {
+                        Type::new_ptr_type(ty.get_array_to().unwrap())
+                    } else {
+                        ty
+                    };
+
+                    arg_type.push(ty);
                 }
                 Type::new_fn_type(ret_type, arg_type)
             }
