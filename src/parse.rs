@@ -181,6 +181,12 @@ impl ParseArena {
                 let arg_name = decl.get_name();
                 let arg_type = decl.get_type(ty.clone());
 
+                let arg_type = if arg_type.is_array_type() {
+                    Type::new_ptr_type(arg_type.get_array_to().unwrap())
+                } else {
+                    arg_type
+                };
+
                 let arg_obj = self
                     .insert_local_obj(&arg_name, arg_type)
                     .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
