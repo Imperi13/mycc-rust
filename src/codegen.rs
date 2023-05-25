@@ -723,10 +723,11 @@ impl<'ctx> CodegenArena<'ctx> {
                         "add node",
                     ))
                 } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
+                    let ptr_to = lhs_type.get_ptr_to().unwrap();
                     unsafe {
                         self.builder
                             .build_gep(
-                                self.convert_llvm_basictype(lhs_type),
+                                self.convert_llvm_basictype(&ptr_to),
                                 lhs.into_pointer_value(),
                                 &[rhs.into_int_value()],
                                 "ptr_add",
@@ -734,10 +735,11 @@ impl<'ctx> CodegenArena<'ctx> {
                             .into()
                     }
                 } else if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                    let ptr_to = rhs_type.get_ptr_to().unwrap();
                     unsafe {
                         self.builder
                             .build_gep(
-                                self.convert_llvm_basictype(rhs_type),
+                                self.convert_llvm_basictype(&ptr_to),
                                 rhs.into_pointer_value(),
                                 &[lhs.into_int_value()],
                                 "ptr_add",
