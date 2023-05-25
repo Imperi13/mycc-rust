@@ -751,13 +751,32 @@ impl<'ctx> CodegenArena<'ctx> {
                 }
             }
             BinaryOpKind::Sub => {
+                let lhs_type = &binary_node.lhs.expr_type;
+                let rhs_type = &binary_node.rhs.expr_type;
                 let lhs = self.codegen_expr(&binary_node.lhs);
                 let rhs = self.codegen_expr(&binary_node.rhs);
-                BasicValueEnum::IntValue(self.builder.build_int_sub(
-                    lhs.into_int_value(),
-                    rhs.into_int_value(),
-                    "sub node",
-                ))
+                if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                    BasicValueEnum::IntValue(self.builder.build_int_sub(
+                        lhs.into_int_value(),
+                        rhs.into_int_value(),
+                        "sub node",
+                    ))
+                } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
+                    let ptr_to = lhs_type.get_ptr_to().unwrap();
+                    let neg_rhs = self.builder.build_int_neg(rhs.into_int_value(), "neg");
+                    unsafe {
+                        self.builder
+                            .build_gep(
+                                self.convert_llvm_basictype(&ptr_to),
+                                lhs.into_pointer_value(),
+                                &[neg_rhs],
+                                "ptr_add",
+                            )
+                            .into()
+                    }
+                } else {
+                    unreachable!()
+                }
             }
             BinaryOpKind::Mul => {
                 let lhs = self.codegen_expr(&binary_node.lhs);

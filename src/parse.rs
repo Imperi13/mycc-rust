@@ -1104,12 +1104,18 @@ impl ParseArena {
                         let rhs;
                         (tok_seq, rhs) = self.parse_mul(tok_seq)?;
 
-                        let lhs = node;
+                        let lhs = node.cast_array();
+                        let rhs = rhs.cast_array();
 
                         let lhs_type = lhs.expr_type.clone();
                         let rhs_type = rhs.expr_type.clone();
 
                         if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                            node = ASTExpr::new(
+                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                lhs_type,
+                            );
+                        } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
                             node = ASTExpr::new(
                                 ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
                                 lhs_type,
