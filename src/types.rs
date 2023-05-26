@@ -86,6 +86,13 @@ impl Type {
         }
     }
 
+    pub fn get_arg_types(&self) -> Result<Vec<Type>, ()> {
+        match *self.head {
+            TypeNode::Func(_, ref args) => Ok(args.clone()),
+            _ => Err(()),
+        }
+    }
+
     pub fn is_function_type(&self) -> bool {
         matches!(*self.head, TypeNode::Func(_, _))
     }

@@ -1409,6 +1409,16 @@ impl ParseArena {
                     .expect_punct(PunctKind::CloseParenthesis)
                     .ok_or(ParseError::SyntaxError(tok_seq))?;
 
+                let arg_types = node.expr_type.get_arg_types().unwrap();
+                if args.len() != arg_types.len() {
+                    return Err(ParseError::SemanticError(tok_seq));
+                }
+
+                for (i, ty) in arg_types.iter().enumerate() {
+                    let arg = &args[i];
+                    args[i] = arg.cast_to(ty);
+                }
+
                 let expr = node;
 
                 let TypeNode::Func(return_type,_) = expr.expr_type.get_node() else{return Err(ParseError::SemanticError(tok_seq));};
