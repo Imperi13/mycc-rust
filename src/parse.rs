@@ -177,21 +177,25 @@ impl ParseArena {
             let mut stmts = Vec::new();
             self.initialize_local_scope();
 
-            for (ref ty, ref decl) in declarator.get_args() {
-                let arg_name = decl.get_name();
-                let arg_type = decl.get_type(ty.clone());
+            let declarator_args = declarator.get_args();
 
-                let arg_type = if arg_type.is_array_type() {
-                    Type::new_ptr_type(arg_type.get_array_to().unwrap())
-                } else {
-                    arg_type
-                };
+            if declarator_args.is_some() {
+                for (ref ty, ref decl) in declarator_args.unwrap() {
+                    let arg_name = decl.get_name();
+                    let arg_type = decl.get_type(ty.clone());
 
-                let arg_obj = self
-                    .insert_local_obj(&arg_name, arg_type)
-                    .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
+                    let arg_type = if arg_type.is_array_type() {
+                        Type::new_ptr_type(arg_type.get_array_to().unwrap())
+                    } else {
+                        arg_type
+                    };
 
-                args.push(arg_obj);
+                    let arg_obj = self
+                        .insert_local_obj(&arg_name, arg_type)
+                        .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
+
+                    args.push(arg_obj);
+                }
             }
 
             tok_seq = tok_seq
@@ -1420,13 +1424,17 @@ impl ParseArena {
                     .ok_or(ParseError::SyntaxError(tok_seq))?;
 
                 let arg_types = node.expr_type.get_arg_types().unwrap();
-                if args.len() != arg_types.len() {
-                    return Err(ParseError::SemanticError(tok_seq));
-                }
 
-                for (i, ty) in arg_types.iter().enumerate() {
-                    let arg = &args[i];
-                    args[i] = arg.cast_to(ty);
+                if arg_types.is_some() {
+                    let arg_types = arg_types.unwrap();
+                    if args.len() != arg_types.len() {
+                        return Err(ParseError::SemanticError(tok_seq));
+                    }
+
+                    for (i, ty) in arg_types.iter().enumerate() {
+                        let arg = &args[i];
+                        args[i] = arg.cast_to(ty);
+                    }
                 }
 
                 let expr = node;

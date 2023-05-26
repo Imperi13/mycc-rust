@@ -91,10 +91,15 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             TypeNode::Func(ref return_type, ref args) => {
                 let return_type = self.convert_llvm_anytype(return_type);
-                let arg_type = args
-                    .iter()
-                    .map(|ty| self.convert_llvm_basictype(ty).into())
-                    .collect::<Vec<BasicMetadataTypeEnum>>();
+                let arg_type = if args.is_some() {
+                    let args = args.clone().unwrap();
+                    args.iter()
+                        .map(|ty| self.convert_llvm_basictype(ty).into())
+                        .collect::<Vec<BasicMetadataTypeEnum>>()
+                } else {
+                    Vec::new()
+                };
+
                 match return_type.clone() {
                     AnyTypeEnum::FunctionType(_) => panic!(),
                     AnyTypeEnum::VoidType(void_type) => void_type.fn_type(&arg_type, false).into(),

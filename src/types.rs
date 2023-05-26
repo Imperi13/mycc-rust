@@ -5,7 +5,7 @@ use std::rc::Rc;
 pub enum TypeNode {
     Int,
     Char,
-    Func(Type, Vec<Type>),
+    Func(Type, Option<Vec<Type>>),
     Ptr(Type),
     Array(Type, u32),
 }
@@ -40,7 +40,7 @@ impl Type {
         }
     }
 
-    pub fn new_fn_type(return_type: Type, args: Vec<Type>) -> Type {
+    pub fn new_fn_type(return_type: Type, args: Option<Vec<Type>>) -> Type {
         Type::new(TypeNode::Func(return_type, args))
     }
 
@@ -86,7 +86,7 @@ impl Type {
         }
     }
 
-    pub fn get_arg_types(&self) -> Result<Vec<Type>, ()> {
+    pub fn get_arg_types(&self) -> Result<Option<Vec<Type>>, ()> {
         match *self.head {
             TypeNode::Func(_, ref args) => Ok(args.clone()),
             _ => Err(()),
