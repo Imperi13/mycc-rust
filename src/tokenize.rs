@@ -404,6 +404,20 @@ pub fn tokenize(mut code: &str) -> TokenList {
             continue;
         }
 
+        if code.len() >= 2 && &code[..2] == "/*" {
+            let mut index = 2;
+
+            loop {
+                if &code[index..index + 2] == "*/" {
+                    break;
+                }
+                index += 1;
+            }
+
+            code = &code[index + 2..];
+            continue;
+        }
+
         if ch.is_digit(10) {
             let num: u64;
             (num, code) = tokenize_num(code);
