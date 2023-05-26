@@ -3,6 +3,8 @@ use crate::ast::ASTExprNode;
 use crate::ast::ASTGlobal;
 use crate::ast::ASTStmt;
 use crate::ast::ASTStmtNode;
+use crate::ast::AssignKind;
+use crate::ast::AssignNode;
 use crate::ast::BinaryOpKind;
 use crate::ast::BinaryOpNode;
 use crate::ast::UnaryOpKind;
@@ -12,12 +14,15 @@ use crate::types::Type;
 use crate::types::TypeNode;
 
 use inkwell::attributes::AttributeLoc;
+use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::AnyTypeEnum;
+use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::types::BasicType;
 use inkwell::types::BasicTypeEnum;
+use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
 use inkwell::values::FunctionValue;
 use inkwell::values::PointerValue;
@@ -32,6 +37,8 @@ pub struct CodegenArena<'ctx> {
 
     current_func: Option<FunctionValue<'ctx>>,
     objs_ptr: HashMap<usize, PointerValue<'ctx>>,
+    break_block: HashMap<usize, BasicBlock<'ctx>>,
+    continue_block: HashMap<usize, BasicBlock<'ctx>>,
 }
 
 impl<'ctx> CodegenArena<'ctx> {
@@ -44,13 +51,15 @@ impl<'ctx> CodegenArena<'ctx> {
             builder,
             current_func: None,
             objs_ptr: HashMap::new(),
+            break_block: HashMap::new(),
+            continue_block: HashMap::new(),
         }
     }
 
     pub fn codegen_all(&mut self, globals: &Vec<ASTGlobal>, output_path: &str) {
         for obj in globals.iter() {
             match obj {
-                ASTGlobal::Function(_, _) => self.codegen_func(obj),
+                ASTGlobal::Function(_, _, _) => self.codegen_func(obj),
                 ASTGlobal::Variable(_) => self.codegen_global_variable(obj),
             };
         }
@@ -80,14 +89,18 @@ impl<'ctx> CodegenArena<'ctx> {
                         .into(),
                 }
             }
-            TypeNode::Func(ref func_node) => {
-                let return_type = self.convert_llvm_anytype(&func_node.return_type);
+            TypeNode::Func(ref return_type, ref args) => {
+                let return_type = self.convert_llvm_anytype(return_type);
+                let arg_type = args
+                    .iter()
+                    .map(|ty| self.convert_llvm_basictype(ty).into())
+                    .collect::<Vec<BasicMetadataTypeEnum>>();
                 match return_type.clone() {
                     AnyTypeEnum::FunctionType(_) => panic!(),
-                    AnyTypeEnum::VoidType(void_type) => void_type.fn_type(&[], false).into(),
+                    AnyTypeEnum::VoidType(void_type) => void_type.fn_type(&arg_type, false).into(),
                     _ => BasicTypeEnum::try_from(return_type)
                         .unwrap()
-                        .fn_type(&[], false)
+                        .fn_type(&arg_type, false)
                         .into(),
                 }
             }
@@ -145,8 +158,24 @@ impl<'ctx> CodegenArena<'ctx> {
         self.objs_ptr.get(&obj.id).unwrap().clone()
     }
 
+    fn get_break_block(&self, stmt_id: usize) -> BasicBlock {
+        if !self.break_block.contains_key(&stmt_id) {
+            panic!("not found obj");
+        }
+
+        self.break_block.get(&stmt_id).unwrap().clone()
+    }
+
+    fn get_continue_block(&self, stmt_id: usize) -> BasicBlock {
+        if !self.continue_block.contains_key(&stmt_id) {
+            panic!("not found obj");
+        }
+
+        self.continue_block.get(&stmt_id).unwrap().clone()
+    }
+
     fn codegen_func(&mut self, func: &ASTGlobal) {
-        let ASTGlobal::Function(ref obj, ref stmts) = func else{panic!()};
+        let ASTGlobal::Function(ref obj,ref args, ref stmts) = func else{panic!()};
 
         let main_fn_type = self
             .convert_llvm_anytype(&(*obj.borrow()).obj_type)
@@ -166,6 +195,11 @@ impl<'ctx> CodegenArena<'ctx> {
             main_fn.as_global_value().as_pointer_value(),
         );
         self.builder.position_at_end(basic_block);
+        for (i, arg) in main_fn.get_param_iter().enumerate() {
+            let ptr = self.alloc_local_obj(&*args[i].borrow());
+            self.builder.build_store(ptr, arg);
+        }
+
         for stmt in stmts.iter() {
             self.codegen_stmt(stmt);
         }
@@ -202,7 +236,15 @@ impl<'ctx> CodegenArena<'ctx> {
         match ast.get_node() {
             ASTStmtNode::Return(ref expr) => {
                 let val = self.codegen_expr(expr);
-                self.builder.build_return(Some(&val.into_int_value()));
+                self.builder.build_return(Some(&val));
+            }
+            ASTStmtNode::Break(stmt_id) => {
+                let break_block = self.get_break_block(stmt_id);
+                self.builder.build_unconditional_branch(break_block);
+            }
+            ASTStmtNode::Continue(stmt_id) => {
+                let continue_block = self.get_continue_block(stmt_id);
+                self.builder.build_unconditional_branch(continue_block);
             }
             ASTStmtNode::Declaration(ref obj) => {
                 self.alloc_local_obj(&*obj.borrow());
@@ -215,7 +257,7 @@ impl<'ctx> CodegenArena<'ctx> {
                     self.codegen_stmt(stmt);
                 }
             }
-            ASTStmtNode::If(ref cond, ref if_stmt, ref else_stmt) => {
+            ASTStmtNode::If(ref cond, ref then_stmt, ref else_stmt) => {
                 let func = self.current_func.unwrap();
                 let zero = self
                     .convert_llvm_basictype(&cond.expr_type)
@@ -238,7 +280,7 @@ impl<'ctx> CodegenArena<'ctx> {
                     .build_conditional_branch(cond, then_bb, else_bb);
 
                 self.builder.position_at_end(then_bb);
-                self.codegen_stmt(if_stmt);
+                self.codegen_stmt(then_stmt);
                 self.builder.build_unconditional_branch(after_bb);
 
                 self.builder.position_at_end(else_bb);
@@ -250,7 +292,7 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 self.builder.position_at_end(after_bb);
             }
-            ASTStmtNode::While(ref cond, ref stmt) => {
+            ASTStmtNode::While(ref cond, ref stmt, stmt_id) => {
                 let func = self.current_func.unwrap();
                 let zero = self
                     .convert_llvm_basictype(&cond.expr_type)
@@ -260,6 +302,10 @@ impl<'ctx> CodegenArena<'ctx> {
                 let cond_bb = self.context.append_basic_block(func, "cond");
                 let loop_bb = self.context.append_basic_block(func, "loop");
                 let after_bb = self.context.append_basic_block(func, "after");
+
+                // push break_block
+                self.break_block.insert(stmt_id, after_bb);
+                self.continue_block.insert(stmt_id, cond_bb);
 
                 self.builder.build_unconditional_branch(cond_bb);
                 self.builder.position_at_end(cond_bb);
@@ -280,20 +326,25 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 self.builder.position_at_end(after_bb);
             }
-            ASTStmtNode::For(ref start, ref cond, ref step, ref stmt) => {
+            ASTStmtNode::DoWhile(ref cond, ref stmt, stmt_id) => {
                 let func = self.current_func.unwrap();
                 let zero = self
                     .convert_llvm_basictype(&cond.expr_type)
                     .into_int_type()
                     .const_int(0, false);
 
-                let cond_bb = self.context.append_basic_block(func, "cond");
                 let loop_bb = self.context.append_basic_block(func, "loop");
+                let cond_bb = self.context.append_basic_block(func, "cond");
                 let after_bb = self.context.append_basic_block(func, "after");
 
-                self.codegen_expr(start);
-                self.builder.build_unconditional_branch(cond_bb);
+                self.break_block.insert(stmt_id, after_bb);
+                self.continue_block.insert(stmt_id, cond_bb);
 
+                self.builder.build_unconditional_branch(loop_bb);
+                self.builder.position_at_end(loop_bb);
+                self.codegen_stmt(stmt);
+
+                self.builder.build_unconditional_branch(cond_bb);
                 self.builder.position_at_end(cond_bb);
                 let cond = self.codegen_expr(cond);
                 let cond = self.builder.build_int_compare(
@@ -306,9 +357,55 @@ impl<'ctx> CodegenArena<'ctx> {
                 self.builder
                     .build_conditional_branch(cond, loop_bb, after_bb);
 
+                self.builder.position_at_end(after_bb);
+            }
+            ASTStmtNode::For(ref start, ref cond, ref step, ref stmt, stmt_id) => {
+                let func = self.current_func.unwrap();
+
+                let cond_bb = self.context.append_basic_block(func, "cond");
+                let step_bb = self.context.append_basic_block(func, "step");
+                let loop_bb = self.context.append_basic_block(func, "loop");
+                let after_bb = self.context.append_basic_block(func, "after");
+
+                // push break_block
+                self.break_block.insert(stmt_id, after_bb);
+                self.continue_block.insert(stmt_id, step_bb);
+
+                if start.is_some() {
+                    let start = start.as_ref().unwrap();
+                    self.codegen_expr(start);
+                }
+                self.builder.build_unconditional_branch(cond_bb);
+
+                self.builder.position_at_end(cond_bb);
+                if cond.is_some() {
+                    let cond = cond.as_ref().unwrap();
+                    let zero = self
+                        .convert_llvm_basictype(&cond.expr_type)
+                        .into_int_type()
+                        .const_int(0, false);
+                    let cond = self.codegen_expr(cond);
+                    let cond = self.builder.build_int_compare(
+                        inkwell::IntPredicate::NE,
+                        cond.into_int_value(),
+                        zero,
+                        "if_cond",
+                    );
+
+                    self.builder
+                        .build_conditional_branch(cond, loop_bb, after_bb);
+                } else {
+                    self.builder.build_unconditional_branch(loop_bb);
+                }
+
                 self.builder.position_at_end(loop_bb);
                 self.codegen_stmt(stmt);
-                self.codegen_expr(step);
+                self.builder.build_unconditional_branch(step_bb);
+
+                self.builder.position_at_end(step_bb);
+                if step.is_some() {
+                    self.codegen_expr(step.as_ref().unwrap());
+                }
                 self.builder.build_unconditional_branch(cond_bb);
 
                 self.builder.position_at_end(after_bb);
@@ -318,6 +415,49 @@ impl<'ctx> CodegenArena<'ctx> {
 
     fn codegen_expr(&self, ast: &ASTExpr) -> BasicValueEnum {
         match ast.get_node() {
+            ASTExprNode::Conditional(ref cond, ref then_expr, ref else_expr) => {
+                let func = self.current_func.unwrap();
+                let zero = self
+                    .convert_llvm_basictype(&cond.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+
+                let cond = self.codegen_expr(cond);
+                let cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond.into_int_value(),
+                    zero,
+                    "if_cond",
+                );
+
+                let then_bb = self.context.append_basic_block(func, "if_then");
+                let else_bb = self.context.append_basic_block(func, "if_else");
+                let after_bb = self.context.append_basic_block(func, "if_after");
+
+                self.builder
+                    .build_conditional_branch(cond, then_bb, else_bb);
+
+                self.builder.position_at_end(then_bb);
+                let then_val = self.codegen_expr(then_expr);
+                self.builder.build_unconditional_branch(after_bb);
+
+                self.builder.position_at_end(else_bb);
+                let else_val = self.codegen_expr(else_expr);
+                self.builder.build_unconditional_branch(after_bb);
+
+                self.builder.position_at_end(after_bb);
+
+                let llvm_type = self.convert_llvm_basictype(&ast.expr_type);
+
+                let phi = self.builder.build_phi(llvm_type, "iftmp");
+
+                phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
+
+                phi.as_basic_value()
+            }
+            ASTExprNode::Assign(ref assign_node) => {
+                self.codegen_assign(assign_node, &ast.expr_type)
+            }
             ASTExprNode::BinaryOp(ref binary_node) => {
                 self.codegen_binary_op(binary_node, &ast.expr_type)
             }
@@ -336,16 +476,48 @@ impl<'ctx> CodegenArena<'ctx> {
                     int_value
                 }
             }
-            ASTExprNode::FuncCall(ref func_expr) => {
+            ASTExprNode::FuncCall(ref func_expr, ref args) => {
                 let func_ptr = self.codegen_expr(func_expr).into_pointer_value();
+                let arg_val = args
+                    .iter()
+                    .map(|val| self.codegen_expr(val).into())
+                    .collect::<Vec<BasicMetadataValueEnum>>();
                 let fn_type = self
                     .convert_llvm_anytype(&func_expr.expr_type)
                     .into_function_type();
                 self.builder
-                    .build_indirect_call(fn_type, func_ptr, &[], "func_call")
+                    .build_indirect_call(fn_type, func_ptr, &arg_val, "func_call")
                     .try_as_basic_value()
                     .left()
                     .unwrap()
+            }
+            ASTExprNode::PostIncrement(ref expr) => {
+                let llvm_type = self.convert_llvm_basictype(&ast.expr_type);
+                let ptr = self.codegen_addr(expr);
+                let val = self.builder.build_load(llvm_type, ptr, "val");
+
+                let add = self.builder.build_int_add(
+                    val.into_int_value(),
+                    llvm_type.into_int_type().const_int(1, false),
+                    "add",
+                );
+                self.builder.build_store(ptr, add);
+
+                val
+            }
+            ASTExprNode::PostDecrement(ref expr) => {
+                let llvm_type = self.convert_llvm_basictype(&ast.expr_type);
+                let ptr = self.codegen_addr(expr);
+                let val = self.builder.build_load(llvm_type, ptr, "val");
+
+                let sub = self.builder.build_int_sub(
+                    val.into_int_value(),
+                    llvm_type.into_int_type().const_int(1, false),
+                    "sub",
+                );
+                self.builder.build_store(ptr, sub);
+
+                val
             }
             ASTExprNode::Number(num) => BasicValueEnum::IntValue(
                 self.convert_llvm_basictype(&ast.expr_type)
@@ -371,15 +543,169 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    fn codegen_binary_op(&self, binary_node: &BinaryOpNode, expr_type: &Type) -> BasicValueEnum {
-        match binary_node.kind {
-            BinaryOpKind::Assign => {
-                let lhs_ptr = self.codegen_addr(&binary_node.lhs);
-                let rhs = self.codegen_expr(&binary_node.rhs);
+    fn codegen_assign(&self, assign_node: &AssignNode, _expr_type: &Type) -> BasicValueEnum {
+        match assign_node.kind {
+            AssignKind::Assign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+                let rhs = self.codegen_expr(&assign_node.rhs);
 
                 self.builder.build_store(lhs_ptr, rhs);
                 rhs
             }
+            AssignKind::LeftShiftAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let lshift = self.builder.build_left_shift(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "add",
+                );
+
+                self.builder.build_store(lhs_ptr, lshift);
+                lshift.into()
+            }
+            AssignKind::RightShiftAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let rshift = self.builder.build_right_shift(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    false,
+                    "add",
+                );
+
+                self.builder.build_store(lhs_ptr, rshift);
+                rshift.into()
+            }
+            AssignKind::OrAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let or = self
+                    .builder
+                    .build_or(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, or);
+                or.into()
+            }
+            AssignKind::XorAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let xor = self
+                    .builder
+                    .build_xor(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, xor);
+                xor.into()
+            }
+            AssignKind::AndAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let and = self
+                    .builder
+                    .build_and(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, and);
+                and.into()
+            }
+            AssignKind::AddAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let add =
+                    self.builder
+                        .build_int_add(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, add);
+                add.into()
+            }
+            AssignKind::SubAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let sub =
+                    self.builder
+                        .build_int_sub(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, sub);
+                sub.into()
+            }
+            AssignKind::MulAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let mul =
+                    self.builder
+                        .build_int_mul(lhs.into_int_value(), rhs.into_int_value(), "add");
+
+                self.builder.build_store(lhs_ptr, mul);
+                mul.into()
+            }
+            AssignKind::DivAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let div = self.builder.build_int_signed_div(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "add",
+                );
+
+                self.builder.build_store(lhs_ptr, div);
+                div.into()
+            }
+            AssignKind::ModAssign => {
+                let lhs_ptr = self.codegen_addr(&assign_node.lhs);
+
+                let lhs_llvm_type = self.convert_llvm_basictype(&assign_node.lhs.expr_type);
+                let lhs = self.builder.build_load(lhs_llvm_type, lhs_ptr, "lhs val");
+                let rhs = self.codegen_expr(&assign_node.rhs);
+
+                let mod_val = self.builder.build_int_signed_rem(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "add",
+                );
+
+                self.builder.build_store(lhs_ptr, mod_val);
+                mod_val.into()
+            }
+        }
+    }
+
+    fn codegen_binary_op(&self, binary_node: &BinaryOpNode, expr_type: &Type) -> BasicValueEnum {
+        match binary_node.kind {
             BinaryOpKind::Comma => {
                 self.codegen_expr(&binary_node.lhs);
                 self.codegen_expr(&binary_node.rhs)
@@ -397,21 +723,23 @@ impl<'ctx> CodegenArena<'ctx> {
                         "add node",
                     ))
                 } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
+                    let ptr_to = lhs_type.get_ptr_to().unwrap();
                     unsafe {
                         self.builder
                             .build_gep(
-                                self.convert_llvm_basictype(lhs_type),
+                                self.convert_llvm_basictype(&ptr_to),
                                 lhs.into_pointer_value(),
                                 &[rhs.into_int_value()],
                                 "ptr_add",
                             )
                             .into()
                     }
-                } else if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                } else if lhs_type.is_int_type() && rhs_type.is_ptr_type() {
+                    let ptr_to = rhs_type.get_ptr_to().unwrap();
                     unsafe {
                         self.builder
                             .build_gep(
-                                self.convert_llvm_basictype(rhs_type),
+                                self.convert_llvm_basictype(&ptr_to),
                                 rhs.into_pointer_value(),
                                 &[lhs.into_int_value()],
                                 "ptr_add",
@@ -423,13 +751,32 @@ impl<'ctx> CodegenArena<'ctx> {
                 }
             }
             BinaryOpKind::Sub => {
+                let lhs_type = &binary_node.lhs.expr_type;
+                let rhs_type = &binary_node.rhs.expr_type;
                 let lhs = self.codegen_expr(&binary_node.lhs);
                 let rhs = self.codegen_expr(&binary_node.rhs);
-                BasicValueEnum::IntValue(self.builder.build_int_sub(
-                    lhs.into_int_value(),
-                    rhs.into_int_value(),
-                    "sub node",
-                ))
+                if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                    BasicValueEnum::IntValue(self.builder.build_int_sub(
+                        lhs.into_int_value(),
+                        rhs.into_int_value(),
+                        "sub node",
+                    ))
+                } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
+                    let ptr_to = lhs_type.get_ptr_to().unwrap();
+                    let neg_rhs = self.builder.build_int_neg(rhs.into_int_value(), "neg");
+                    unsafe {
+                        self.builder
+                            .build_gep(
+                                self.convert_llvm_basictype(&ptr_to),
+                                lhs.into_pointer_value(),
+                                &[neg_rhs],
+                                "ptr_add",
+                            )
+                            .into()
+                    }
+                } else {
+                    unreachable!()
+                }
             }
             BinaryOpKind::Mul => {
                 let lhs = self.codegen_expr(&binary_node.lhs);
@@ -463,12 +810,139 @@ impl<'ctx> CodegenArena<'ctx> {
                     .build_or(lhs.into_int_value(), rhs.into_int_value(), "or node")
                     .into()
             }
+            BinaryOpKind::BitXor => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                self.builder
+                    .build_xor(lhs.into_int_value(), rhs.into_int_value(), "or node")
+                    .into()
+            }
             BinaryOpKind::BitAnd => {
                 let lhs = self.codegen_expr(&binary_node.lhs);
                 let rhs = self.codegen_expr(&binary_node.rhs);
                 self.builder
                     .build_and(lhs.into_int_value(), rhs.into_int_value(), "and node")
                     .into()
+            }
+            BinaryOpKind::LogicalOr => {
+                let func = self.current_func.unwrap();
+
+                let lhs_val = self.codegen_expr(&binary_node.lhs);
+                let lhs_zero = self
+                    .convert_llvm_basictype(&binary_node.lhs.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+                let lhs_cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    lhs_val.into_int_value(),
+                    lhs_zero,
+                    "if_cond",
+                );
+
+                let then_bb = self.context.append_basic_block(func, "logical or then");
+                let rhs_bb = self.context.append_basic_block(func, "logical or rhs");
+
+                self.builder
+                    .build_conditional_branch(lhs_cond, then_bb, rhs_bb);
+
+                let else_bb = self.context.append_basic_block(func, "logical or else");
+
+                self.builder.position_at_end(rhs_bb);
+                let rhs_val = self.codegen_expr(&binary_node.rhs);
+                let rhs_zero = self
+                    .convert_llvm_basictype(&binary_node.rhs.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+                let rhs_cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    rhs_val.into_int_value(),
+                    rhs_zero,
+                    "if_cond",
+                );
+
+                self.builder
+                    .build_conditional_branch(rhs_cond, then_bb, else_bb);
+
+                let after_bb = self.context.append_basic_block(func, "logical or after");
+
+                self.builder.position_at_end(then_bb);
+                self.builder.build_unconditional_branch(after_bb);
+
+                self.builder.position_at_end(else_bb);
+                self.builder.build_unconditional_branch(after_bb);
+
+                self.builder.position_at_end(after_bb);
+
+                let llvm_type = self.convert_llvm_basictype(expr_type);
+
+                let phi = self.builder.build_phi(llvm_type, "iftmp");
+
+                phi.add_incoming(&[
+                    (&llvm_type.into_int_type().const_int(1, false), then_bb),
+                    (&llvm_type.into_int_type().const_int(0, false), else_bb),
+                ]);
+
+                phi.as_basic_value()
+            }
+            BinaryOpKind::LogicalAnd => {
+                let func = self.current_func.unwrap();
+
+                let lhs_val = self.codegen_expr(&binary_node.lhs);
+                let lhs_zero = self
+                    .convert_llvm_basictype(&binary_node.lhs.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+                let lhs_cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    lhs_val.into_int_value(),
+                    lhs_zero,
+                    "if_cond",
+                );
+
+                let rhs_bb = self.context.append_basic_block(func, "logical and rhs");
+                let else_bb = self.context.append_basic_block(func, "logical and else");
+
+                self.builder
+                    .build_conditional_branch(lhs_cond, rhs_bb, else_bb);
+
+                let then_bb = self.context.append_basic_block(func, "logical and then");
+
+                self.builder.position_at_end(rhs_bb);
+                let rhs_val = self.codegen_expr(&binary_node.rhs);
+                let rhs_zero = self
+                    .convert_llvm_basictype(&binary_node.rhs.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+                let rhs_cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    rhs_val.into_int_value(),
+                    rhs_zero,
+                    "if_cond",
+                );
+
+                self.builder
+                    .build_conditional_branch(rhs_cond, then_bb, else_bb);
+
+                let after_bb = self.context.append_basic_block(func, "logical and after");
+
+                self.builder.position_at_end(then_bb);
+                self.builder.build_unconditional_branch(after_bb);
+
+                self.builder.position_at_end(else_bb);
+                self.builder.build_unconditional_branch(after_bb);
+
+                self.builder.position_at_end(after_bb);
+
+                let llvm_type = self.convert_llvm_basictype(expr_type);
+
+                let phi = self.builder.build_phi(llvm_type, "iftmp");
+
+                phi.add_incoming(&[
+                    (&llvm_type.into_int_type().const_int(1, false), then_bb),
+                    (&llvm_type.into_int_type().const_int(0, false), else_bb),
+                ]);
+
+                phi.as_basic_value()
             }
             BinaryOpKind::Equal => {
                 let lhs = self.codegen_expr(&binary_node.lhs);
@@ -634,9 +1108,14 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             UnaryOpKind::Addr => BasicValueEnum::PointerValue(self.codegen_addr(&unary_node.expr)),
             UnaryOpKind::Deref => {
+                assert!(&unary_node.expr.expr_type.is_ptr_type());
                 let llvm_type = self.convert_llvm_basictype(expr_type);
                 let ptr = self.codegen_expr(&unary_node.expr).into_pointer_value();
-                self.builder.build_load(llvm_type, ptr, "var")
+                if expr_type.is_array_type() {
+                    ptr.into()
+                } else {
+                    self.builder.build_load(llvm_type, ptr, "var")
+                }
             }
             UnaryOpKind::LogicalNot => {
                 let expr = self.codegen_expr(&unary_node.expr);

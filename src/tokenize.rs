@@ -14,7 +14,9 @@ pub enum PunctKind {
     Comma,
     Ampersand,
     Exclamation,
+    Question,
     Tilde,
+    Caret,
     OpenBrace,
     CloseBrace,
     OpenParenthesis,
@@ -22,8 +24,21 @@ pub enum PunctKind {
     OpenSquareBracket,
     CloseSquareBracket,
     SemiColon,
+    Colon,
     BitOr,
     Assign,
+    OrAssign,
+    XorAssign,
+    AndAssign,
+    LeftShiftAssign,
+    RightShiftAssign,
+    AddAssign,
+    SubAssign,
+    MulAssign,
+    DivAssign,
+    ModAssign,
+    LogicalOr,
+    LogicalAnd,
     Equal,
     NotEqual,
     Less,
@@ -32,6 +47,8 @@ pub enum PunctKind {
     GreaterEqual,
     LeftShift,
     RightShift,
+    Increment,
+    Decrement,
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -41,8 +58,11 @@ pub enum KeywordKind {
     Char,
     If,
     Else,
+    Do,
     While,
     For,
+    Break,
+    Continue,
     Sizeof,
     Alignof,
 }
@@ -258,14 +278,34 @@ fn tokenize_ident(code: &str) -> (String, &str) {
 }
 
 fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
+    if code.len() >= 3 {
+        match &code[..3] {
+            "<<=" => return Some((PunctKind::LeftShiftAssign, &code[3..])),
+            ">>=" => return Some((PunctKind::RightShiftAssign, &code[3..])),
+            _ => (),
+        }
+    }
+
     if code.len() >= 2 {
         match &code[..2] {
+            "||" => return Some((PunctKind::LogicalOr, &code[2..])),
+            "&&" => return Some((PunctKind::LogicalAnd, &code[2..])),
             "==" => return Some((PunctKind::Equal, &code[2..])),
             "!=" => return Some((PunctKind::NotEqual, &code[2..])),
             "<=" => return Some((PunctKind::LessEqual, &code[2..])),
             ">=" => return Some((PunctKind::GreaterEqual, &code[2..])),
             ">>" => return Some((PunctKind::RightShift, &code[2..])),
             "<<" => return Some((PunctKind::LeftShift, &code[2..])),
+            "|=" => return Some((PunctKind::OrAssign, &code[2..])),
+            "^=" => return Some((PunctKind::XorAssign, &code[2..])),
+            "&=" => return Some((PunctKind::AndAssign, &code[2..])),
+            "+=" => return Some((PunctKind::AddAssign, &code[2..])),
+            "-=" => return Some((PunctKind::SubAssign, &code[2..])),
+            "*=" => return Some((PunctKind::MulAssign, &code[2..])),
+            "/=" => return Some((PunctKind::DivAssign, &code[2..])),
+            "%=" => return Some((PunctKind::ModAssign, &code[2..])),
+            "++" => return Some((PunctKind::Increment, &code[2..])),
+            "--" => return Some((PunctKind::Decrement, &code[2..])),
             _ => (),
         }
     }
@@ -281,7 +321,9 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
         "," => Some((PunctKind::Comma, &code[1..])),
         "&" => Some((PunctKind::Ampersand, &code[1..])),
         "!" => Some((PunctKind::Exclamation, &code[1..])),
+        "?" => Some((PunctKind::Question, &code[1..])),
         "~" => Some((PunctKind::Tilde, &code[1..])),
+        "^" => Some((PunctKind::Caret, &code[1..])),
         "<" => Some((PunctKind::Less, &code[1..])),
         ">" => Some((PunctKind::Greater, &code[1..])),
         "{" => Some((PunctKind::OpenBrace, &code[1..])),
@@ -291,6 +333,7 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
         "[" => Some((PunctKind::OpenSquareBracket, &code[1..])),
         "]" => Some((PunctKind::CloseSquareBracket, &code[1..])),
         ";" => Some((PunctKind::SemiColon, &code[1..])),
+        ":" => Some((PunctKind::Colon, &code[1..])),
         "|" => Some((PunctKind::BitOr, &code[1..])),
         "=" => Some((PunctKind::Assign, &code[1..])),
         _ => None,
@@ -301,6 +344,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
     if code.len() >= 8 {
         match &code[..8] {
             "_Alignof" => return Some((KeywordKind::Alignof, &code[8..])),
+            "continue" => return Some((KeywordKind::Continue, &code[8..])),
             _ => (),
         }
     }
@@ -316,6 +360,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
     if code.len() >= 5 {
         match &code[..5] {
             "while" => return Some((KeywordKind::While, &code[5..])),
+            "break" => return Some((KeywordKind::Break, &code[5..])),
             _ => (),
         }
     }
@@ -339,6 +384,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
     if code.len() >= 2 {
         match &code[..2] {
             "if" => return Some((KeywordKind::If, &code[2..])),
+            "do" => return Some((KeywordKind::Do, &code[2..])),
             _ => (),
         }
     }

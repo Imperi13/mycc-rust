@@ -1,15 +1,11 @@
+use std::fmt;
 use std::rc::Rc;
-
-#[derive(Clone)]
-pub struct FunctionTypeNode {
-    pub return_type: Type,
-}
 
 #[derive(Clone)]
 pub enum TypeNode {
     Int,
     Char,
-    Func(FunctionTypeNode),
+    Func(Type, Vec<Type>),
     Ptr(Type),
     Array(Type, u32),
 }
@@ -19,6 +15,24 @@ pub struct Type {
     head: Rc<TypeNode>,
 }
 
+impl fmt::Debug for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self.head {
+            TypeNode::Int => write!(f, "Int"),
+            TypeNode::Char => write!(f, "Char"),
+            TypeNode::Func(ref ret, ref args) => {
+                write!(f, "Func({:?},(", ret)?;
+                for arg in args.iter() {
+                    write!(f, "{:?},", arg)?;
+                }
+                write!(f, ")")
+            }
+            TypeNode::Ptr(ref ptr_to) => write!(f, "Ptr({:?})", ptr_to),
+            TypeNode::Array(ref array_to, len) => write!(f, "Array({:?},{})", array_to, len),
+        }
+    }
+}
+
 impl Type {
     pub fn new(kind: TypeNode) -> Type {
         Type {
@@ -26,8 +40,8 @@ impl Type {
         }
     }
 
-    pub fn new_fn_type(fn_type_node: FunctionTypeNode) -> Type {
-        Type::new(TypeNode::Func(fn_type_node))
+    pub fn new_fn_type(return_type: Type, args: Vec<Type>) -> Type {
+        Type::new(TypeNode::Func(return_type, args))
     }
 
     pub fn new_ptr_type(ptr_to: Type) -> Type {
@@ -39,6 +53,18 @@ impl Type {
     pub fn new_array_type(array_to: Type, len: u32) -> Type {
         Type {
             head: Rc::new(TypeNode::Array(array_to, len)),
+        }
+    }
+
+    pub fn get_math_binaryop_type(lhs: Type, rhs: Type) -> Type {
+        if lhs.is_int_type() && rhs.is_int_type() {
+            if matches!(*lhs.head, TypeNode::Char) && matches!(*rhs.head, TypeNode::Char) {
+                Type::new(TypeNode::Char)
+            } else {
+                Type::new(TypeNode::Int)
+            }
+        } else {
+            unreachable!()
         }
     }
 
@@ -60,15 +86,15 @@ impl Type {
         }
     }
 
-    pub fn get_fn_type_node(&self) -> Result<FunctionTypeNode, ()> {
-        match &*self.head {
-            TypeNode::Func(node) => Ok(node.clone()),
+    pub fn get_arg_types(&self) -> Result<Vec<Type>, ()> {
+        match *self.head {
+            TypeNode::Func(_, ref args) => Ok(args.clone()),
             _ => Err(()),
         }
     }
 
     pub fn is_function_type(&self) -> bool {
-        matches!(*self.head, TypeNode::Func(_))
+        matches!(*self.head, TypeNode::Func(_, _))
     }
 
     pub fn is_int_type(&self) -> bool {
