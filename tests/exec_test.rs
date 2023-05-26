@@ -595,13 +595,50 @@ test_function!(ex_129,"int count;int solve(int n, int col, int *hist){if (col ==
 test_function!(ex_130,"int count;int solve(int n, int col, int *hist){if (col == n) {count+=1;return 0;}int i;int j;for (i = 0, j = 0; i < n; i++) {for (j = 0; j < col && hist [j] != i && (hist [j] - i) != col - j && (hist[j] - i) != j - col; j++){}if (j < col)continue;hist[col] = i;solve(n, col + 1, hist);}return 0;}int main(){int hist[8];solve(8, 0, hist);return count;}",92);
 
 test_function!(ex_131,"int changeBoard(int board[30][30], int i, int j, int d, int N){int k;for (k = 0; k < N; k++) {board[i][k] += d;board[k][j] += d;}if (i > j) {for (k = 0; k < N - (i - j); k++) {board [k + (i - j)][k] += d;}} else {for (k = 0; k < N - (j - i); k++) {board[k][k + (j - i)] += d;}}if (i + j < N) {for (k = 0; k <= i + j; k++) {board[i + j - k][k] += d;}} else {for (k = i + j - N + 1; k < N; k++) {board[i + j - k][k] += d;}}return 0;}int setQueen(int board[30][30], int num_placed, int *ptr_sol_num, int N){int j;if (num_placed == N) {(*ptr_sol_num)+=1;return 0;}for (j = 0; j < N; j++) {if (board[num_placed][j] == 0) {changeBoard(board, num_placed, j, +1, N);setQueen(board, num_placed + 1, ptr_sol_num, N);changeBoard(board, num_placed, j, -1, N);}}return 0;}int board_[30][30];int main(){int sol_num;sol_num = 0;setQueen(board_, 0, &sol_num, 8);return sol_num;}",92);
-test_function!(ex_132,"int main(){int a[5][6];int *q;q = a[1]; 2[q]=174; return 1[a][2];}",174);
+test_function!(
+    ex_132,
+    "int main(){int a[5][6];int *q;q = a[1]; 2[q]=174; return 1[a][2];}",
+    174
+);
 
-test_function!(ex_133,"char foo(){char a; return a;} int main(){foo(); return 174;}",174);
-test_function!(ex_134,"char foo(char *p){char a; return a;} int main(){char q; foo(&q); return 174;}",174);
-test_function!(ex_135,"char foo(char *p){char a; a = 5; return a;} int main(){char q; foo(&q); return 174;}",174);
-test_function!(ex_136,"int main(){char x[3]; x[0] = -1; x[1] = 2; int y; y = 4; return x[0] + y + 171;}",174);
+test_function!(
+    ex_133,
+    "char foo(){char a; return a;} int main(){foo(); return 174;}",
+    174
+);
+test_function!(
+    ex_134,
+    "char foo(char *p){char a; return a;} int main(){char q; foo(&q); return 174;}",
+    174
+);
+test_function!(
+    ex_135,
+    "char foo(char *p){char a; a = 5; return a;} int main(){char q; foo(&q); return 174;}",
+    174
+);
+test_function!(
+    ex_136,
+    "int main(){char x[3]; x[0] = -1; x[1] = 2; int y; y = 4; return x[0] + y + 171;}",
+    174
+);
 test_function!(ex_137,"char foo(char *p){*p = 5; char a;a = 3; return a;} int main(){char q; char r; r = foo(&q); return 172-r+q;}",174);
 test_function!(ex_138,"char a;char foo(char *p){*p = 5; a = 3; return a;} int main(){char q; char r; r = foo(&q); return 172-r+q;}",174);
 test_function!(ex_139,"int foo(char a){int d;d = 3;char c;c = a+d;return c;} int main(){char f;f=3;return foo(f)*4+150;}",174);
 test_function!(ex_140,"int foo(char a){int d;d = 3;char c;c = a+d;return c*4;} int main(){char f;f=3;return foo(f)+150;}",174);
+
+test_function!(ex_143,"int foo(char a, char b){return 23;} int main(){char f;f=3;return foo(f,4)+151;}",174);
+test_function!(ex_144,"int foo(char a, char b){return a*4+11;} int main(){char f;f=3;return foo(f,4)+151;}",174);
+test_function!(
+    ex_145,
+    "int foo(char a, char b){return a*4+12;} int main(){char f;f=3;return foo(f,4)+150;}",
+    174
+);
+test_function!(
+    ex_146,
+    "int foo(char a, char b){return (a+3)*4;} int main(){char f;f=3;return foo(f,4)+150;}",
+    174
+);
+test_function!(ex_147,"int foo(char a, char b){char c;c = a+3;return c*4;} int main(){char f;f=3;return foo(f,4)+150;}",174);
+test_function!(ex_148,"int foo(char a, char b){int d;d = 3;char c;c = a+d;return c*4;} int main(){char f;f=3;return foo(f,4)+150;}",174);
+test_function!(ex_149,"int foo(char a, char b){int d;d = 3;char c;c = a+d;return c*b;} int main(){char f;f=3;return foo(f,4)+150;}",174);
+test_function!(ex_150,"char foo() { char *x;x = \"1ab\"; return x[0]; }int main(){ char *y;y = \"a2b\"; int z;z = 12; char a;a = y[1]; return (a-foo())*z+162;}",174);
