@@ -706,3 +706,29 @@ test_function!(
     0
 );
 test_function!(ex_170,"int a(int b){ return b; }int main(){int i; for (i = 1; i < 11; i++) { a(i == 1? 1 : 2); } return 0;}",0);
+
+test_function!(
+    ex_171,
+    "int a(int b){ return b; }int main(){int i; i=1; return a(i == 1? 174 : 2);}",
+    174
+);
+
+test_function!(ex_172,"int printf();int puts();int count;int main(){int i; int hist[20]; for (i = 1; i < 11; i++) { printf(i == 1? \"a\" : \"b\"); puts(\"\");} return 0;}",0);
+test_function!(ex_173,"int printf();int puts();int count;int main(){int i; int hist[20]; for (i = 1; i < 11; i++) { printf(\"%s\", (i == 1? \"a\" : \"b\")); puts(\"\");} return 0;}",0);
+test_function!(ex_174,"int printf();int puts();int count;int main(){int i; int hist[20]; for (i = 1; i < 11; i++) { printf(\"%d %s: %d\", i, (i == 1? \" \" : \"s \"), i); puts(\"\");} return 0;}",0);
+test_function!(ex_175,"int printf();int puts();int count;int solve(int n, int col, int *hist){if (col == n) {count+=1;return 0;}int i;int j;for (i = 0, j = 0; i < n; i++) {for (j = 0; j < col && hist [j] != i && (hist [j] - i) != col - j && (hist[j] - i) != j - col; j++){}if (j < col)continue;hist[col] = i;solve(n, col + 1, hist);}return 0;}int main(){int i; int hist[20]; for (i = 1; i < 11; i++) { count=0; solve(i, 0, hist); printf(\"%d queen%s: %d\", i, (i == 1? \" \" : \"s \"), count); puts(\"\");} return 0;}",0);
+test_function!(
+    ex_176,
+    "int main(){int a; int *p; p = &a; *p = 2; int *q; q = &*p; *q = 174; return a;}",
+    174
+);
+test_function!(
+    ex_177,
+    "int main(){int a; int *p; p = &a; *p = 2; int *q; q = &(*p); *q = 174; return a;}",
+    174
+);
+test_function!(
+    ex_178,
+    "char foo(char *p){char a; return a;} int main(){char q; foo(&(q)); return 174;}",
+    174
+);
