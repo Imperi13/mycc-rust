@@ -537,7 +537,8 @@ impl ParseArena {
 
             let rhs;
             (tok_seq, rhs) = self.parse_assign(tok_seq)?;
-            let expr_type = lhs.expr_type.clone();
+            let lhs_type = lhs.expr_type.clone();
+            let rhs = rhs.cast_to(lhs_type.clone());
 
             Ok((
                 tok_seq,
@@ -547,7 +548,7 @@ impl ParseArena {
                         rhs,
                         kind: AssignKind::Assign,
                     }),
-                    expr_type,
+                    lhs_type,
                 ),
             ))
         } else if tok_seq.expect_punct(PunctKind::LeftShiftAssign).is_some() {
@@ -1079,9 +1080,12 @@ impl ParseArena {
                         let rhs_type = rhs.expr_type.clone();
 
                         if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                            let math_type = Type::get_math_binaryop_type(lhs_type, rhs_type);
+                            let lhs = lhs.cast_to(math_type.clone());
+                            let rhs = rhs.cast_to(math_type.clone());
                             node = ASTExpr::new(
                                 ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
-                                lhs_type,
+                                math_type,
                             );
                         } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
                             node = ASTExpr::new(
@@ -1111,9 +1115,12 @@ impl ParseArena {
                         let rhs_type = rhs.expr_type.clone();
 
                         if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                            let math_type = Type::get_math_binaryop_type(lhs_type, rhs_type);
+                            let lhs = lhs.cast_to(math_type.clone());
+                            let rhs = rhs.cast_to(math_type.clone());
                             node = ASTExpr::new(
                                 ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
-                                lhs_type,
+                                math_type,
                             );
                         } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
                             node = ASTExpr::new(
@@ -1135,8 +1142,8 @@ impl ParseArena {
     }
 
     fn parse_mul(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
-        let mut lhs;
-        (tok_seq, lhs) = self.parse_cast(tok_seq)?;
+        let mut node;
+        (tok_seq, node) = self.parse_cast(tok_seq)?;
 
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
@@ -1151,6 +1158,7 @@ impl ParseArena {
 
                 let rhs;
                 (tok_seq, rhs) = self.parse_cast(tok_seq)?;
+                let lhs = node;
                 let lhs_type = lhs.expr_type.clone();
                 let rhs_type = rhs.expr_type.clone();
 
@@ -1158,16 +1166,20 @@ impl ParseArena {
                     return Err(ParseError::SemanticError(tok_seq));
                 }
 
-                lhs = ASTExpr::new(
+                let math_type = Type::get_math_binaryop_type(lhs_type, rhs_type);
+                let lhs = lhs.cast_to(math_type.clone());
+                let rhs = rhs.cast_to(math_type.clone());
+
+                node = ASTExpr::new(
                     ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
-                    lhs_type,
+                    math_type,
                 );
             } else {
                 break;
             }
         }
 
-        Ok((tok_seq, lhs))
+        Ok((tok_seq, node))
     }
 
     fn parse_cast(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {

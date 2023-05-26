@@ -56,6 +56,18 @@ impl Type {
         }
     }
 
+    pub fn get_math_binaryop_type(lhs: Type, rhs: Type) -> Type {
+        if lhs.is_int_type() && rhs.is_int_type() {
+            if matches!(*lhs.head, TypeNode::Char) && matches!(*rhs.head, TypeNode::Char) {
+                Type::new(TypeNode::Char)
+            } else {
+                Type::new(TypeNode::Int)
+            }
+        } else {
+            unreachable!()
+        }
+    }
+
     pub fn get_node(&self) -> TypeNode {
         (*self.head).clone()
     }
