@@ -626,8 +626,16 @@ test_function!(ex_138,"char a;char foo(char *p){*p = 5; a = 3; return a;} int ma
 test_function!(ex_139,"int foo(char a){int d;d = 3;char c;c = a+d;return c;} int main(){char f;f=3;return foo(f)*4+150;}",174);
 test_function!(ex_140,"int foo(char a){int d;d = 3;char c;c = a+d;return c*4;} int main(){char f;f=3;return foo(f)+150;}",174);
 
-test_function!(ex_143,"int foo(char a, char b){return 23;} int main(){char f;f=3;return foo(f,4)+151;}",174);
-test_function!(ex_144,"int foo(char a, char b){return a*4+11;} int main(){char f;f=3;return foo(f,4)+151;}",174);
+test_function!(
+    ex_143,
+    "int foo(char a, char b){return 23;} int main(){char f;f=3;return foo(f,4)+151;}",
+    174
+);
+test_function!(
+    ex_144,
+    "int foo(char a, char b){return a*4+11;} int main(){char f;f=3;return foo(f,4)+151;}",
+    174
+);
 test_function!(
     ex_145,
     "int foo(char a, char b){return a*4+12;} int main(){char f;f=3;return foo(f,4)+150;}",
@@ -642,3 +650,34 @@ test_function!(ex_147,"int foo(char a, char b){char c;c = a+3;return c*4;} int m
 test_function!(ex_148,"int foo(char a, char b){int d;d = 3;char c;c = a+d;return c*4;} int main(){char f;f=3;return foo(f,4)+150;}",174);
 test_function!(ex_149,"int foo(char a, char b){int d;d = 3;char c;c = a+d;return c*b;} int main(){char f;f=3;return foo(f,4)+150;}",174);
 test_function!(ex_150,"char foo() { char *x;x = \"1ab\"; return x[0]; }int main(){ char *y;y = \"a2b\"; int z;z = 12; char a;a = y[1]; return (a-foo())*z+162;}",174);
+
+test_function!(
+    ex_151,
+    "int printf();int main(){printf(\"%d %s\", 1, \"a\");return 174;}",
+    174
+);
+test_function!(ex_152,"int printf();int puts();int A[200][200];int main() {int i; for (i = 1; i <= 12; i++) { printf(\"%d %d\", i, i); puts(\"\"); } return 0;}",0);
+test_function!(ex_153,"int printf();int puts();int a(int b, int c) {return 3;}int main() {int i; for (i = 1; i <= 12; i++) { int j;j = a(0, i); printf(\"%d %d\", i, j); puts(\"\");} return 0;}",0);
+test_function!(ex_154,"int printf();int puts();int A[200][200];int dfs(int row, int N) { if (row == N) return 1; int ret;ret = 0; int col;for (col = 0; col < N; col++) { int ok; ok = 1; int i; for (i = 1; i < N; i++) { if (row - i >= 0 && col - i >= 0) { ok = ok && A[row - i][col - i] == 0; } if (row - i >= 0) { ok = ok && A[row - i][col] == 0; } if (row - i >= 0 && col + i < N) { ok = ok && A[row - i][col + i] == 0; } } if (ok) { A[row][col] = 1; ret += dfs(row + 1, N); A[row][col] = 0; } } return ret;}int main() {int i; for (i = 1; i < 11; i++) { int j; j = dfs(0, i); printf(\"%d queen: %d\", i, j); puts(\"\");} return 0;}",0);
+test_function!(ex_155,"int printf();int puts();int count;int solve(int n, int col, int *hist){if (col == n) {count+=1;return 0;}int i;int j;for (i = 0, j = 0; i < n; i++) {for (j = 0; j < col && hist [j] != i && (hist [j] - i) != col - j && (hist[j] - i) != j - col; j++){}if (j < col)continue;hist[col] = i;solve(n, col + 1, hist);}return 0;}int main(){int i; int hist[20]; for (i = 2; i < 11; i++) { count=0; solve(i, 0, hist); printf(\"%d queens: %d\", i, count); puts(\"\");} return 0;}",0);
+test_function!(ex_156, "int main(){/**/return 123;}", 123);
+test_function!(
+    ex_157,
+    "int main(){/*u89g3wihu-@w3erolk*/ return (123);}",
+    123
+);
+test_function!(
+    ex_158,
+    "int/*/* 0^[o;:._/-*/main(){return ((((123))));}",
+    123
+);
+test_function!(
+    ex_159,
+    "int a; int main(){int *p; p = &a; int i; for(i=0;i<174;i++){++*p;} return a;}",
+    174
+);
+test_function!(
+    ex_160,
+    "int a; int main(){int *p; p = &a; int i; for(i=0;i<174;((i))++){++*p;} return a;}",
+    174
+);
