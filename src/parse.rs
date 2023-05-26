@@ -1372,98 +1372,96 @@ impl ParseArena {
     }
 
     fn parse_postfix(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
-        let expr;
-        (tok_seq, expr) = self.parse_primary(tok_seq)?;
+        let mut node;
+        (tok_seq, node) = self.parse_primary(tok_seq)?;
 
-        if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::OpenParenthesis)
-                .ok_or(ParseError::SyntaxError(tok_seq))?;
+        loop {
+            if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
+                tok_seq = tok_seq
+                    .expect_punct(PunctKind::OpenParenthesis)
+                    .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let mut args = Vec::new();
+                let mut args = Vec::new();
 
-            while tok_seq.expect_punct(PunctKind::CloseParenthesis).is_none() {
-                let arg;
-                (tok_seq, arg) = self.parse_assign(tok_seq)?;
-                args.push(arg);
+                while tok_seq.expect_punct(PunctKind::CloseParenthesis).is_none() {
+                    let arg;
+                    (tok_seq, arg) = self.parse_assign(tok_seq)?;
+                    args.push(arg);
 
-                if tok_seq.expect_punct(PunctKind::Comma).is_some() {
-                    tok_seq = tok_seq.next();
+                    if tok_seq.expect_punct(PunctKind::Comma).is_some() {
+                        tok_seq = tok_seq.next();
+                    }
                 }
-            }
 
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::CloseParenthesis)
-                .ok_or(ParseError::SyntaxError(tok_seq))?;
+                tok_seq = tok_seq
+                    .expect_punct(PunctKind::CloseParenthesis)
+                    .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let TypeNode::Func(return_type,_) = expr.expr_type.get_node() else{return Err(ParseError::SemanticError(tok_seq));};
+                let expr = node;
 
-            Ok((
-                tok_seq,
-                ASTExpr::new(ASTExprNode::FuncCall(expr, args), return_type),
-            ))
-        } else if tok_seq.expect_punct(PunctKind::OpenSquareBracket).is_some() {
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::OpenSquareBracket)
-                .ok_or(ParseError::SyntaxError(tok_seq))?;
+                let TypeNode::Func(return_type,_) = expr.expr_type.get_node() else{return Err(ParseError::SemanticError(tok_seq));};
 
-            let index;
-            (tok_seq, index) = self.parse_expr(tok_seq)?;
+                node = ASTExpr::new(ASTExprNode::FuncCall(expr, args), return_type);
+            } else if tok_seq.expect_punct(PunctKind::OpenSquareBracket).is_some() {
+                tok_seq = tok_seq
+                    .expect_punct(PunctKind::OpenSquareBracket)
+                    .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::CloseSquareBracket)
-                .ok_or(ParseError::SyntaxError(tok_seq))?;
+                let index;
+                (tok_seq, index) = self.parse_expr(tok_seq)?;
 
-            let cast = expr.cast_array();
+                tok_seq = tok_seq
+                    .expect_punct(PunctKind::CloseSquareBracket)
+                    .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let ptr_type = if cast.expr_type.is_ptr_type() && index.expr_type.is_int_type() {
-                cast.expr_type.clone()
-            } else if cast.expr_type.is_int_type() && index.expr_type.is_ptr_type() {
-                index.expr_type.clone()
-            } else {
-                return Err(ParseError::SemanticError(tok_seq));
-            };
+                let cast = node.cast_array();
+                let index = index.cast_array();
 
-            let plus = ASTExpr::new(
-                ASTExprNode::BinaryOp(BinaryOpNode {
-                    kind: BinaryOpKind::Add,
-                    lhs: cast,
-                    rhs: index,
-                }),
-                ptr_type.clone(),
-            );
+                let ptr_type = if cast.expr_type.is_ptr_type() && index.expr_type.is_int_type() {
+                    cast.expr_type.clone()
+                } else if cast.expr_type.is_int_type() && index.expr_type.is_ptr_type() {
+                    index.expr_type.clone()
+                } else {
+                    return Err(ParseError::SemanticError(tok_seq));
+                };
 
-            Ok((
-                tok_seq,
-                ASTExpr::new(
+                let plus = ASTExpr::new(
+                    ASTExprNode::BinaryOp(BinaryOpNode {
+                        kind: BinaryOpKind::Add,
+                        lhs: cast,
+                        rhs: index,
+                    }),
+                    ptr_type.clone(),
+                );
+
+                node = ASTExpr::new(
                     ASTExprNode::UnaryOp(UnaryOpNode {
                         kind: UnaryOpKind::Deref,
                         expr: plus,
                     }),
                     ptr_type.get_ptr_to().unwrap(),
-                ),
-            ))
-        } else if tok_seq.expect_punct(PunctKind::Increment).is_some() {
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::Increment)
-                .ok_or(ParseError::SyntaxError(tok_seq))?;
-            let expr_type = expr.expr_type.clone();
+                );
+            } else if tok_seq.expect_punct(PunctKind::Increment).is_some() {
+                tok_seq = tok_seq
+                    .expect_punct(PunctKind::Increment)
+                    .ok_or(ParseError::SyntaxError(tok_seq))?;
+                let expr = node;
+                let expr_type = expr.expr_type.clone();
 
-            let node = ASTExpr::new(ASTExprNode::PostIncrement(expr), expr_type);
+                node = ASTExpr::new(ASTExprNode::PostIncrement(expr), expr_type);
+            } else if tok_seq.expect_punct(PunctKind::Decrement).is_some() {
+                tok_seq = tok_seq
+                    .expect_punct(PunctKind::Decrement)
+                    .ok_or(ParseError::SyntaxError(tok_seq))?;
+                let expr = node;
+                let expr_type = expr.expr_type.clone();
 
-            Ok((tok_seq, node))
-        } else if tok_seq.expect_punct(PunctKind::Decrement).is_some() {
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::Decrement)
-                .ok_or(ParseError::SyntaxError(tok_seq))?;
-            let expr_type = expr.expr_type.clone();
-
-            let node = ASTExpr::new(ASTExprNode::PostDecrement(expr), expr_type);
-
-            Ok((tok_seq, node))
-        } else {
-            Ok((tok_seq, expr))
+                node = ASTExpr::new(ASTExprNode::PostDecrement(expr), expr_type);
+            } else {
+                break;
+            }
         }
+        Ok((tok_seq, node))
     }
 
     fn parse_primary(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
