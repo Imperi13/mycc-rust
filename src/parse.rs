@@ -241,7 +241,7 @@ impl ParseArena {
 
             let return_type = self.return_type.clone().unwrap();
 
-            let cast = expr.cast_to(return_type);
+            let cast = expr.cast_to(&return_type);
 
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(cast))))
         } else if tok_seq.expect_keyword(KeywordKind::Break).is_some() {
@@ -538,7 +538,7 @@ impl ParseArena {
             let rhs;
             (tok_seq, rhs) = self.parse_assign(tok_seq)?;
             let lhs_type = lhs.expr_type.clone();
-            let rhs = rhs.cast_to(lhs_type.clone());
+            let rhs = rhs.cast_to(&lhs_type);
 
             Ok((
                 tok_seq,
@@ -1081,8 +1081,8 @@ impl ParseArena {
 
                         if lhs_type.is_int_type() && rhs_type.is_int_type() {
                             let math_type = Type::get_math_binaryop_type(lhs_type, rhs_type);
-                            let lhs = lhs.cast_to(math_type.clone());
-                            let rhs = rhs.cast_to(math_type.clone());
+                            let lhs = lhs.cast_to(&math_type);
+                            let rhs = rhs.cast_to(&math_type);
                             node = ASTExpr::new(
                                 ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
                                 math_type,
@@ -1116,8 +1116,8 @@ impl ParseArena {
 
                         if lhs_type.is_int_type() && rhs_type.is_int_type() {
                             let math_type = Type::get_math_binaryop_type(lhs_type, rhs_type);
-                            let lhs = lhs.cast_to(math_type.clone());
-                            let rhs = rhs.cast_to(math_type.clone());
+                            let lhs = lhs.cast_to(&math_type);
+                            let rhs = rhs.cast_to(&math_type);
                             node = ASTExpr::new(
                                 ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
                                 math_type,
@@ -1167,8 +1167,8 @@ impl ParseArena {
                 }
 
                 let math_type = Type::get_math_binaryop_type(lhs_type, rhs_type);
-                let lhs = lhs.cast_to(math_type.clone());
-                let rhs = rhs.cast_to(math_type.clone());
+                let lhs = lhs.cast_to(&math_type);
+                let rhs = rhs.cast_to(&math_type);
 
                 node = ASTExpr::new(
                     ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
