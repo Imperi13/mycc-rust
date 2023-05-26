@@ -213,17 +213,33 @@ impl<'ctx> CodegenArena<'ctx> {
 
     fn codegen_global_variable(&mut self, var_decl: &ASTGlobal) {
         let ASTGlobal::Variable(ref obj) = var_decl else {panic!()};
-        let llvm_type = self.convert_llvm_basictype(&(*obj.borrow()).obj_type);
-        let global_obj = self.module.add_global(
-            llvm_type,
-            Some(AddressSpace::default()),
-            &(*obj.borrow()).name,
-        );
 
-        global_obj.set_initializer(&llvm_type.const_zero());
+        if (*obj).borrow().obj_type.is_function_type() {
+            let main_fn_type = self
+                .convert_llvm_anytype(&(*obj.borrow()).obj_type)
+                .try_into()
+                .unwrap();
+            let main_fn = self
+                .module
+                .add_function(&*obj.borrow().name, main_fn_type, None);
 
-        self.objs_ptr
-            .insert((*obj).borrow().id, global_obj.as_pointer_value());
+            self.objs_ptr.insert(
+                (*obj).borrow().id,
+                main_fn.as_global_value().as_pointer_value(),
+            );
+        } else {
+            let llvm_type = self.convert_llvm_basictype(&(*obj.borrow()).obj_type);
+            let global_obj = self.module.add_global(
+                llvm_type,
+                Some(AddressSpace::default()),
+                &(*obj.borrow()).name,
+            );
+
+            global_obj.set_initializer(&llvm_type.const_zero());
+
+            self.objs_ptr
+                .insert((*obj).borrow().id, global_obj.as_pointer_value());
+        }
     }
 
     fn codegen_addr(&self, ast: &ASTExpr) -> PointerValue {
