@@ -1194,14 +1194,13 @@ impl ParseArena {
 
             let expr;
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
-            let expr_type = expr.expr_type.clone();
 
             let node = ASTExpr::new(
                 ASTExprNode::UnaryOp(UnaryOpNode {
                     expr,
                     kind: UnaryOpKind::Sizeof,
                 }),
-                expr_type,
+                Type::new(TypeNode::Int),
             );
 
             Ok((tok_seq, node))
@@ -1212,14 +1211,13 @@ impl ParseArena {
 
             let expr;
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
-            let expr_type = expr.expr_type.clone();
 
             let node = ASTExpr::new(
                 ASTExprNode::UnaryOp(UnaryOpNode {
                     expr,
                     kind: UnaryOpKind::Alignof,
                 }),
-                expr_type,
+                Type::new(TypeNode::Int),
             );
 
             Ok((tok_seq, node))
@@ -1272,6 +1270,10 @@ impl ParseArena {
             (tok_seq, lhs) = self.parse_unary(tok_seq)?;
             let expr_type = lhs.expr_type.clone();
 
+            if !expr_type.is_int_type() {
+                return Err(ParseError::SemanticError(tok_seq));
+            }
+
             let node = ASTExpr::new(
                 ASTExprNode::Assign(AssignNode {
                     lhs,
@@ -1290,6 +1292,10 @@ impl ParseArena {
             let lhs;
             (tok_seq, lhs) = self.parse_unary(tok_seq)?;
             let expr_type = lhs.expr_type.clone();
+
+            if !expr_type.is_int_type() {
+                return Err(ParseError::SemanticError(tok_seq));
+            }
 
             let node = ASTExpr::new(
                 ASTExprNode::Assign(AssignNode {
@@ -1326,8 +1332,8 @@ impl ParseArena {
 
             let expr;
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
-
             let expr = expr.cast_array();
+
             let expr_type = expr
                 .expr_type
                 .clone()
@@ -1392,6 +1398,10 @@ impl ParseArena {
                 tok_seq = tok_seq
                     .expect_punct(PunctKind::OpenParenthesis)
                     .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+                if !node.expr_type.is_function_type() {
+                    return Err(ParseError::SemanticError(tok_seq));
+                }
 
                 let mut args = Vec::new();
 
@@ -1470,6 +1480,10 @@ impl ParseArena {
                 let expr = node;
                 let expr_type = expr.expr_type.clone();
 
+                if !expr_type.is_int_type() {
+                    return Err(ParseError::SemanticError(tok_seq));
+                }
+
                 node = ASTExpr::new(ASTExprNode::PostIncrement(expr), expr_type);
             } else if tok_seq.expect_punct(PunctKind::Decrement).is_some() {
                 tok_seq = tok_seq
@@ -1477,6 +1491,10 @@ impl ParseArena {
                     .ok_or(ParseError::SyntaxError(tok_seq))?;
                 let expr = node;
                 let expr_type = expr.expr_type.clone();
+
+                if !expr_type.is_int_type() {
+                    return Err(ParseError::SemanticError(tok_seq));
+                }
 
                 node = ASTExpr::new(ASTExprNode::PostDecrement(expr), expr_type);
             } else {
