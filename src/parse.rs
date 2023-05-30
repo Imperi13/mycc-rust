@@ -31,8 +31,9 @@ pub fn parse_all(mut tok_seq: TokenList) -> Result<Vec<ASTGlobal>, ParseError> {
     while !tok_seq.is_empty() {
         let node;
         (tok_seq, node) = arena.parse_global(tok_seq)?;
-
-        ret.push(node);
+        if node.is_some() {
+            ret.push(node.unwrap());
+        }
     }
 
     Ok(ret)
@@ -154,9 +155,15 @@ impl ParseArena {
     fn parse_global(
         &mut self,
         mut tok_seq: TokenList,
-    ) -> Result<(TokenList, ASTGlobal), ParseError> {
+    ) -> Result<(TokenList, Option<ASTGlobal>), ParseError> {
         let decl_type;
         (tok_seq, decl_type) = self.parse_decl_spec(tok_seq)?;
+
+        if tok_seq.expect_punct(PunctKind::SemiColon).is_some() {
+            tok_seq = tok_seq.next();
+
+            return Ok((tok_seq, None));
+        }
 
         let declarator;
 
@@ -214,7 +221,7 @@ impl ParseArena {
 
             self.return_type = None;
 
-            Ok((tok_seq, ASTGlobal::Function(obj, args, stmts)))
+            Ok((tok_seq, Some(ASTGlobal::Function(obj, args, stmts))))
         } else if tok_seq.expect_punct(PunctKind::SemiColon).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::SemiColon)
@@ -224,7 +231,7 @@ impl ParseArena {
                 .insert_global_obj(&obj_name, obj_type)
                 .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
 
-            Ok((tok_seq, ASTGlobal::Variable(obj)))
+            Ok((tok_seq, Some(ASTGlobal::Variable(obj))))
         } else {
             Err(ParseError::SyntaxError(tok_seq))
         }
