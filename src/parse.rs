@@ -123,18 +123,18 @@ impl ParseArena {
         self.local_objs.pop_back();
     }
 
-    fn get_obj(&self, obj_name: &str) -> Result<Rc<RefCell<Obj>>, ()> {
+    fn search_obj(&self, obj_name: &str) -> Option<Rc<RefCell<Obj>>> {
         for map in self.local_objs.iter().rev() {
             if map.contains_key(obj_name) {
-                return Ok(map.get(obj_name).unwrap().clone());
+                return Some(map.get(obj_name).unwrap().clone());
             }
         }
 
         if self.global_objs.contains_key(obj_name) {
-            return Ok(self.global_objs.get(obj_name).unwrap().clone());
+            return Some(self.global_objs.get(obj_name).unwrap().clone());
         }
 
-        Err(())
+        None
     }
 
     fn is_type_token(&self, tok_seq: TokenList) -> bool {
@@ -1543,8 +1543,8 @@ impl ParseArena {
             Ok((tok_seq, ret))
         } else if let TokenKind::Ident(ref var_name) = tok_seq.get_token() {
             let obj = self
-                .get_obj(var_name)
-                .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
+                .search_obj(var_name)
+                .ok_or(ParseError::SemanticError(tok_seq.clone()))?;
             let expr_type = (*obj).borrow().obj_type.clone();
             Ok((
                 tok_seq.next(),
