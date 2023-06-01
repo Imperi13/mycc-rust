@@ -1,8 +1,6 @@
-use crate::parse::Obj;
+use crate::obj::Obj;
 use crate::types::Type;
-use std::cell::RefCell;
 use std::fmt;
-use std::rc::Rc;
 
 #[derive(Clone, Debug)]
 pub enum BinaryOpKind {
@@ -86,7 +84,7 @@ pub enum ASTExprNode {
     PostDecrement(ASTExpr),
     Number(u64),
     StrLiteral(String),
-    Var(Rc<RefCell<Obj>>),
+    Var(Obj),
 }
 
 #[derive(Clone)]
@@ -183,7 +181,7 @@ impl ASTExpr {
             }
             ASTExprNode::StrLiteral(ref text) => writeln!(f, "{}Number {}", indent, text),
             ASTExprNode::Var(ref obj) => {
-                writeln!(f, "{}Var {}", indent, &*obj.borrow().name)
+                writeln!(f, "{}Var {}", indent, obj.get_node().name)
             }
         }
     }
@@ -200,7 +198,7 @@ pub enum ASTStmtNode {
     Return(ASTExpr),
     Break(usize),
     Continue(usize),
-    Declaration(Rc<RefCell<Obj>>),
+    Declaration(Obj),
     ExprStmt(ASTExpr),
     Block(Vec<ASTStmt>),
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
@@ -245,7 +243,7 @@ impl ASTStmt {
                 writeln!(f, "{}Continue: id{}", indent, stmt_id)
             }
             ASTStmtNode::Declaration(ref obj) => {
-                writeln!(f, "{}Declaration :{}", indent, &*obj.borrow().name)
+                writeln!(f, "{}Declaration :{}", indent, obj.get_node().name)
             }
             ASTStmtNode::ExprStmt(ref expr) => {
                 writeln!(f, "{}ExprStmt", indent)?;
@@ -322,15 +320,15 @@ impl fmt::Debug for ASTStmt {
 
 #[derive(Clone)]
 pub enum ASTGlobal {
-    Function(Rc<RefCell<Obj>>, Vec<Rc<RefCell<Obj>>>, Vec<ASTStmt>),
-    Variable(Rc<RefCell<Obj>>),
+    Function(Obj, Vec<Obj>, Vec<ASTStmt>),
+    Variable(Obj),
 }
 
 impl ASTGlobal {
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
         match self {
             ASTGlobal::Function(ref func_obj, ref _args, ref stmts) => {
-                writeln!(f, "{}Function {}", indent, &*func_obj.borrow().name)?;
+                writeln!(f, "{}Function {}", indent, func_obj.get_node().name)?;
                 for (i, stmt) in stmts.iter().enumerate() {
                     writeln!(f, "{} {}th stmt:", indent, i)?;
                     stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
@@ -338,7 +336,7 @@ impl ASTGlobal {
                 Ok(())
             }
             ASTGlobal::Variable(ref obj) => {
-                writeln!(f, "{}Variable {}", indent, &*obj.borrow().name)
+                writeln!(f, "{}Variable {}", indent, obj.get_node().name)
             }
         }
     }

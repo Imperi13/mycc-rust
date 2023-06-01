@@ -12,6 +12,8 @@ use crate::ast::BinaryOpNode;
 use crate::ast::UnaryOpKind;
 use crate::ast::UnaryOpNode;
 use crate::error::ParseError;
+use crate::obj::Obj;
+use crate::obj::ObjNode;
 use crate::tokenize::KeywordKind;
 use crate::tokenize::PunctKind;
 use crate::tokenize::TokenKind;
@@ -19,10 +21,8 @@ use crate::tokenize::TokenList;
 use crate::types::Type;
 use crate::types::TypeNode;
 
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::rc::Rc;
 
 pub fn parse_all(mut tok_seq: TokenList) -> Result<Vec<ASTGlobal>, ParseError> {
     let mut ret = Vec::new();
@@ -39,16 +39,10 @@ pub fn parse_all(mut tok_seq: TokenList) -> Result<Vec<ASTGlobal>, ParseError> {
     Ok(ret)
 }
 
-pub struct Obj {
-    pub id: usize,
-    pub name: String,
-    pub obj_type: Type,
-}
-
 struct ParseArena {
     obj_id: usize,
-    global_objs: HashMap<String, Rc<RefCell<Obj>>>,
-    local_objs: VecDeque<HashMap<String, Rc<RefCell<Obj>>>>,
+    global_objs: HashMap<String, Obj>,
+    local_objs: VecDeque<HashMap<String, Obj>>,
     return_type: Option<Type>,
 
     stmt_id: usize,
@@ -69,20 +63,16 @@ impl ParseArena {
         }
     }
 
-    fn insert_global_obj(
-        &mut self,
-        obj_name: &str,
-        obj_type: Type,
-    ) -> Result<Rc<RefCell<Obj>>, ()> {
+    fn insert_global_obj(&mut self, obj_name: &str, obj_type: Type) -> Result<Obj, ()> {
         if self.global_objs.contains_key(obj_name) {
             return Err(());
         }
 
-        let obj = Rc::new(RefCell::new(Obj {
+        let obj = Obj::new(ObjNode {
             id: self.obj_id,
             name: String::from(obj_name),
             obj_type,
-        }));
+        });
 
         self.global_objs.insert(String::from(obj_name), obj.clone());
         self.obj_id += 1;
@@ -90,16 +80,16 @@ impl ParseArena {
         Ok(obj)
     }
 
-    fn insert_local_obj(&mut self, obj_name: &str, obj_type: Type) -> Result<Rc<RefCell<Obj>>, ()> {
+    fn insert_local_obj(&mut self, obj_name: &str, obj_type: Type) -> Result<Obj, ()> {
         if self.local_objs.back_mut().unwrap().contains_key(obj_name) {
             return Err(());
         }
 
-        let obj = Rc::new(RefCell::new(Obj {
+        let obj = Obj::new(ObjNode {
             id: self.obj_id,
             name: String::from(obj_name),
             obj_type,
-        }));
+        });
 
         self.local_objs
             .back_mut()
@@ -123,7 +113,7 @@ impl ParseArena {
         self.local_objs.pop_back();
     }
 
-    fn search_obj(&self, obj_name: &str) -> Option<Rc<RefCell<Obj>>> {
+    fn search_obj(&self, obj_name: &str) -> Option<Obj> {
         for map in self.local_objs.iter().rev() {
             if map.contains_key(obj_name) {
                 return Some(map.get(obj_name).unwrap().clone());
@@ -1545,7 +1535,7 @@ impl ParseArena {
             let obj = self
                 .search_obj(var_name)
                 .ok_or(ParseError::SemanticError(tok_seq.clone()))?;
-            let expr_type = (*obj).borrow().obj_type.clone();
+            let expr_type = obj.get_node().obj_type.clone();
             Ok((
                 tok_seq.next(),
                 ASTExpr::new(ASTExprNode::Var(obj), expr_type),

@@ -4,6 +4,7 @@ mod error;
 mod parse;
 mod tokenize;
 mod types;
+mod obj;
 
 use inkwell::context::Context;
 
