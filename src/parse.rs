@@ -1,4 +1,4 @@
-mod parse_decl;
+mod declarator;
 
 use crate::ast::ASTExpr;
 use crate::ast::ASTExprNode;
