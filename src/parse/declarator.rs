@@ -5,6 +5,8 @@ use crate::tokenize::TokenKind;
 use crate::tokenize::TokenList;
 use crate::types::Type;
 
+use super::decl_spec::DeclSpec;
+
 #[derive(Clone)]
 enum DeclaratorNest {
     Name(String),
@@ -15,7 +17,7 @@ enum DeclaratorNest {
 enum DeclaratorSuffix {
     None,
     Array(Vec<u32>),
-    Function(Option<Vec<(Type, Declarator)>>),
+    Function(Option<Vec<(DeclSpec, Declarator)>>),
 }
 
 #[derive(Clone)]
@@ -51,7 +53,8 @@ impl Declarator {
             DeclaratorSuffix::Function(ref arg) => {
                 let arg_type = if arg.is_some() {
                     let mut arg_type = Vec::new();
-                    for (ref decl_spec_type, ref declarator) in arg.clone().unwrap().iter() {
+                    for (ref decl_spec, ref declarator) in arg.clone().unwrap().iter() {
+                        let decl_spec_type = decl_spec.get_type();
                         let ty = declarator.get_type(decl_spec_type.clone());
                         let ty = if ty.is_array_type() {
                             Type::new_ptr_type(ty.get_array_to().unwrap())
@@ -76,7 +79,7 @@ impl Declarator {
         }
     }
 
-    pub fn get_args(&self) -> Option<Vec<(Type, Declarator)>> {
+    pub fn get_args(&self) -> Option<Vec<(DeclSpec, Declarator)>> {
         match self.suffix {
             DeclaratorSuffix::Function(ref args) => args.clone(),
             _ => panic!(),
@@ -143,13 +146,13 @@ impl ParseArena {
                 let mut args = Vec::new();
 
                 while tok_seq.expect_punct(PunctKind::CloseParenthesis).is_none() {
-                    let decl_spec_type;
-                    (tok_seq, decl_spec_type) = self.parse_decl_spec(tok_seq)?;
+                    let decl_spec;
+                    (tok_seq, decl_spec) = self.parse_decl_spec(tok_seq)?;
 
                     let declarator;
                     (tok_seq, declarator) = self.parse_declarator(tok_seq)?;
 
-                    args.push((decl_spec_type, declarator));
+                    args.push((decl_spec, declarator));
 
                     if tok_seq.expect_punct(PunctKind::Comma).is_some() {
                         tok_seq = tok_seq.next();
