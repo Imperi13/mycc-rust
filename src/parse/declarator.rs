@@ -5,12 +5,10 @@ use crate::tokenize::TokenKind;
 use crate::tokenize::TokenList;
 use crate::types::Type;
 
-use std::rc::Rc;
-
 #[derive(Clone)]
 enum DeclaratorNest {
     Name(String),
-    Nest(Rc<Declarator>),
+    Nest(Box<Declarator>),
 }
 
 #[derive(Clone)]
@@ -107,7 +105,7 @@ impl ParseArena {
                 .expect_punct(PunctKind::CloseParenthesis)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            DeclaratorNest::Nest(Rc::new(declarator))
+            DeclaratorNest::Nest(Box::new(declarator))
         } else if let TokenKind::Ident(name) = tok_seq.get_token() {
             tok_seq = tok_seq.next();
             DeclaratorNest::Name(name)
