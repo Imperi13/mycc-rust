@@ -121,7 +121,7 @@ impl<'ctx> CodegenArena<'ctx> {
     }
 
     fn alloc_local_obj<'a>(&'a mut self, obj: &Obj) -> PointerValue<'ctx> {
-        if self.objs_ptr.contains_key(&obj.get_node().id) {
+        if self.objs_ptr.contains_key(&obj.borrow().id) {
             panic!("already exists obj");
         }
 
@@ -136,31 +136,31 @@ impl<'ctx> CodegenArena<'ctx> {
             None => builder.position_at_end(entry),
         }
 
-        let ptr = match obj.get_node().obj_type.get_node() {
+        let ptr = match obj.borrow().obj_type.get_node() {
             TypeNode::Array(ref array_to, len) => {
                 let asm_type = self.convert_llvm_basictype(array_to);
                 builder.build_array_alloca(
                     asm_type,
                     self.context.i32_type().const_int(len as u64, false),
-                    &obj.get_node().name,
+                    &obj.borrow().name,
                 )
             }
             _ => {
-                let asm_type = self.convert_llvm_basictype(&obj.get_node().obj_type);
-                builder.build_alloca(asm_type, &obj.get_node().name)
+                let asm_type = self.convert_llvm_basictype(&obj.borrow().obj_type);
+                builder.build_alloca(asm_type, &obj.borrow().name)
             }
         };
 
-        self.objs_ptr.insert(obj.get_node().id, ptr);
+        self.objs_ptr.insert(obj.borrow().id, ptr);
         ptr
     }
 
     fn get_local_obj(&self, obj: &Obj) -> PointerValue {
-        if !self.objs_ptr.contains_key(&obj.get_node().id) {
+        if !self.objs_ptr.contains_key(&obj.borrow().id) {
             panic!("not found obj")
         }
 
-        self.objs_ptr.get(&obj.get_node().id).unwrap().clone()
+        self.objs_ptr.get(&obj.borrow().id).unwrap().clone()
     }
 
     fn get_break_block(&self, stmt_id: usize) -> BasicBlock {
@@ -183,12 +183,12 @@ impl<'ctx> CodegenArena<'ctx> {
         let ASTGlobal::Function(ref obj,ref args, ref stmts) = func else{panic!()};
 
         let main_fn_type = self
-            .convert_llvm_anytype(&obj.get_node().obj_type)
+            .convert_llvm_anytype(&obj.borrow().obj_type)
             .try_into()
             .unwrap();
         let main_fn = self
             .module
-            .add_function(&obj.get_node().name, main_fn_type, None);
+            .add_function(&obj.borrow().name, main_fn_type, None);
         let frame_pointer_attribute = self.context.create_string_attribute("frame-pointer", "all");
         main_fn.add_attribute(AttributeLoc::Function, frame_pointer_attribute);
 
@@ -196,7 +196,7 @@ impl<'ctx> CodegenArena<'ctx> {
 
         self.current_func = Some(main_fn);
         self.objs_ptr.insert(
-            obj.get_node().id,
+            obj.borrow().id,
             main_fn.as_global_value().as_pointer_value(),
         );
         self.builder.position_at_end(basic_block);
@@ -214,31 +214,31 @@ impl<'ctx> CodegenArena<'ctx> {
     fn codegen_global_variable(&mut self, var_decl: &ASTGlobal) {
         let ASTGlobal::Variable(ref obj) = var_decl else {panic!()};
 
-        if obj.get_node().obj_type.is_function_type() {
+        if obj.borrow().obj_type.is_function_type() {
             let main_fn_type = self
-                .convert_llvm_anytype(&obj.get_node().obj_type)
+                .convert_llvm_anytype(&obj.borrow().obj_type)
                 .try_into()
                 .unwrap();
             let main_fn = self
                 .module
-                .add_function(&obj.get_node().name, main_fn_type, None);
+                .add_function(&obj.borrow().name, main_fn_type, None);
 
             self.objs_ptr.insert(
-                obj.get_node().id,
+                obj.borrow().id,
                 main_fn.as_global_value().as_pointer_value(),
             );
         } else {
-            let llvm_type = self.convert_llvm_basictype(&obj.get_node().obj_type);
+            let llvm_type = self.convert_llvm_basictype(&obj.borrow().obj_type);
             let global_obj = self.module.add_global(
                 llvm_type,
                 Some(AddressSpace::default()),
-                &obj.get_node().name,
+                &obj.borrow().name,
             );
 
             global_obj.set_initializer(&llvm_type.const_zero());
 
             self.objs_ptr
-                .insert(obj.get_node().id, global_obj.as_pointer_value());
+                .insert(obj.borrow().id, global_obj.as_pointer_value());
         }
     }
 
@@ -553,7 +553,7 @@ impl<'ctx> CodegenArena<'ctx> {
             },
             ASTExprNode::Var(ref obj) => {
                 let ptr = self.codegen_addr(ast);
-                let obj_type = obj.get_node().obj_type;
+                let obj_type = &obj.borrow().obj_type;
                 if obj_type.is_function_type() || obj_type.is_array_type() {
                     BasicValueEnum::PointerValue(ptr)
                 } else {

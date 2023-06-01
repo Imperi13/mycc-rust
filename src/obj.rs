@@ -1,5 +1,6 @@
 use crate::types::Type;
 
+use std::cell::Ref;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -22,7 +23,7 @@ impl Obj {
         }
     }
 
-    pub fn get_node(&self) -> ObjNode {
-        (*self.head).borrow().clone()
+    pub fn borrow(&self) -> Ref<ObjNode> {
+        (*self.head).borrow()
     }
 }

@@ -1535,7 +1535,7 @@ impl ParseArena {
             let obj = self
                 .search_obj(var_name)
                 .ok_or(ParseError::SemanticError(tok_seq.clone()))?;
-            let expr_type = obj.get_node().obj_type.clone();
+            let expr_type = obj.borrow().obj_type.clone();
             Ok((
                 tok_seq.next(),
                 ASTExpr::new(ASTExprNode::Var(obj), expr_type),

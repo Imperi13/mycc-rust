@@ -181,7 +181,7 @@ impl ASTExpr {
             }
             ASTExprNode::StrLiteral(ref text) => writeln!(f, "{}Number {}", indent, text),
             ASTExprNode::Var(ref obj) => {
-                writeln!(f, "{}Var {}", indent, obj.get_node().name)
+                writeln!(f, "{}Var {}", indent, obj.borrow().name)
             }
         }
     }
@@ -243,7 +243,7 @@ impl ASTStmt {
                 writeln!(f, "{}Continue: id{}", indent, stmt_id)
             }
             ASTStmtNode::Declaration(ref obj) => {
-                writeln!(f, "{}Declaration :{}", indent, obj.get_node().name)
+                writeln!(f, "{}Declaration :{}", indent, obj.borrow().name)
             }
             ASTStmtNode::ExprStmt(ref expr) => {
                 writeln!(f, "{}ExprStmt", indent)?;
@@ -328,7 +328,7 @@ impl ASTGlobal {
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
         match self {
             ASTGlobal::Function(ref func_obj, ref _args, ref stmts) => {
-                writeln!(f, "{}Function {}", indent, func_obj.get_node().name)?;
+                writeln!(f, "{}Function {}", indent, func_obj.borrow().name)?;
                 for (i, stmt) in stmts.iter().enumerate() {
                     writeln!(f, "{} {}th stmt:", indent, i)?;
                     stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
@@ -336,7 +336,7 @@ impl ASTGlobal {
                 Ok(())
             }
             ASTGlobal::Variable(ref obj) => {
-                writeln!(f, "{}Variable {}", indent, obj.get_node().name)
+                writeln!(f, "{}Variable {}", indent, obj.borrow().name)
             }
         }
     }
