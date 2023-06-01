@@ -91,20 +91,20 @@ pub enum ASTExprNode {
 
 #[derive(Clone)]
 pub struct ASTExpr {
-    head: Rc<RefCell<ASTExprNode>>,
+    head: Box<ASTExprNode>,
     pub expr_type: Type,
 }
 
 impl ASTExpr {
     pub fn new(node: ASTExprNode, expr_type: Type) -> ASTExpr {
         ASTExpr {
-            head: Rc::new(RefCell::new(node)),
+            head: Box::new(node),
             expr_type,
         }
     }
 
     pub fn get_node(&self) -> ASTExprNode {
-        (*self.head).borrow().clone()
+        (*self.head).clone()
     }
 
     pub fn cast_to(&self, cast_to: &Type) -> ASTExpr {
@@ -125,7 +125,7 @@ impl ASTExpr {
     }
 
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
-        match *self.head.borrow() {
+        match *self.head {
             ASTExprNode::Conditional(ref cond, ref then_expr, ref else_expr) => {
                 writeln!(f, "{}Conditional", indent)?;
                 writeln!(f, "{}cond:", indent)?;
@@ -217,22 +217,22 @@ pub enum ASTStmtNode {
 
 #[derive(Clone)]
 pub struct ASTStmt {
-    head: Rc<RefCell<ASTStmtNode>>,
+    head: Box<ASTStmtNode>,
 }
 
 impl ASTStmt {
     pub fn new(node: ASTStmtNode) -> ASTStmt {
         ASTStmt {
-            head: Rc::new(RefCell::new(node)),
+            head: Box::new(node),
         }
     }
 
     pub fn get_node(&self) -> ASTStmtNode {
-        (*self.head).borrow().clone()
+        (*self.head).clone()
     }
 
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
-        match *self.head.borrow() {
+        match *self.head {
             ASTStmtNode::Return(ref expr) => {
                 writeln!(f, "{}Return", indent)?;
                 writeln!(f, "{}expr:", indent)?;
