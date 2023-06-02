@@ -16,13 +16,14 @@ impl ParseArena {
             tok_seq = tok_seq.next();
             Ok((tok_seq, Type::new(TypeNode::Char)))
         } else if tok_seq.expect_keyword(KeywordKind::Struct).is_some() {
-            unimplemented!()
+            let mut scope = Vec::new();
+            self.parse_struct_spec(tok_seq, &mut scope)
         } else {
             Err(ParseError::SyntaxError(tok_seq))
         }
     }
 
-    pub fn parse_decl_spec_with_scope(
+    pub fn parse_struct_spec(
         &self,
         mut tok_seq: TokenList,
         scope: &mut Vec<HashMap<String, Type>>,
