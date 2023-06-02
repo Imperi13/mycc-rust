@@ -38,7 +38,36 @@ impl ParseArena {
                 tok_seq = tok_seq.next();
                 scope.push_back(HashMap::new());
 
-                unimplemented!()
+                let mut members = Vec::new();
+
+                while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
+                    let decl_spec_type;
+                    (tok_seq, decl_spec_type) = self.parse_decl_spec_with_scope(tok_seq, scope)?;
+                    let declarator;
+                    (tok_seq, declarator) = self.parse_declarator(tok_seq)?;
+
+                    tok_seq = tok_seq
+                        .expect_punct(PunctKind::SemiColon)
+                        .ok_or(ParseError::SyntaxError(tok_seq.clone()))?;
+
+                    let mem_name = declarator.get_name();
+                    let mem_type = declarator.get_type(decl_spec_type);
+
+                    members.push((mem_type, mem_name));
+                }
+
+                tok_seq = tok_seq
+                    .expect_punct(PunctKind::CloseBrace)
+                    .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+                let ty = Type::new(TypeNode::Struct(StructDecl {
+                    id: self.struct_id,
+                    tag: tag.clone(),
+                    members: Some(members),
+                }));
+                self.struct_id += 1;
+
+                Ok((tok_seq, ty))
             } else {
                 let ty = Type::new(TypeNode::Struct(StructDecl {
                     id: self.struct_id,
