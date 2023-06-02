@@ -41,10 +41,13 @@ pub fn parse_all(mut tok_seq: TokenList) -> Result<Vec<ASTGlobal>, ParseError> {
 }
 
 struct ParseArena {
+    return_type: Option<Type>,
+
     obj_id: usize,
     global_objs: HashMap<String, Obj>,
     local_objs: VecDeque<HashMap<String, Obj>>,
-    return_type: Option<Type>,
+
+    struct_id: usize,
 
     stmt_id: usize,
     break_stack: VecDeque<usize>,
@@ -54,10 +57,11 @@ struct ParseArena {
 impl ParseArena {
     pub fn new() -> ParseArena {
         ParseArena {
+            return_type: None,
             obj_id: 0,
             global_objs: HashMap::new(),
             local_objs: VecDeque::new(),
-            return_type: None,
+            struct_id: 0,
             stmt_id: 0,
             break_stack: VecDeque::new(),
             continue_stack: VecDeque::new(),

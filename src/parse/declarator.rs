@@ -86,7 +86,7 @@ impl Declarator {
 
 impl ParseArena {
     pub fn parse_declarator(
-        &self,
+        &mut self,
         mut tok_seq: TokenList,
     ) -> Result<(TokenList, Declarator), ParseError> {
         let mut pointer_cnt = 0;

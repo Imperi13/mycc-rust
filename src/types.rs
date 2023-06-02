@@ -5,8 +5,8 @@ use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct StructDecl {
-    id: usize,
-    tag: String,
+    pub id: usize,
+    pub tag: String,
 }
 
 #[derive(Clone)]
