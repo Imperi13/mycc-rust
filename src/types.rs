@@ -4,12 +4,19 @@ use std::fmt;
 use std::rc::Rc;
 
 #[derive(Clone)]
+pub struct StructDecl {
+    id: usize,
+    tag: String,
+}
+
+#[derive(Clone)]
 pub enum TypeNode {
     Int,
     Char,
     Func(Type, Option<Vec<Type>>),
     Ptr(Type),
     Array(Type, u32),
+    Struct(StructDecl),
 }
 
 #[derive(Clone)]
@@ -31,6 +38,7 @@ impl fmt::Debug for Type {
             }
             TypeNode::Ptr(ref ptr_to) => write!(f, "Ptr({:?})", ptr_to),
             TypeNode::Array(ref array_to, len) => write!(f, "Array({:?},{})", array_to, len),
+            TypeNode::Struct(_) => unimplemented!(),
         }
     }
 }

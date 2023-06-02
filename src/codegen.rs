@@ -113,6 +113,7 @@ impl<'ctx> CodegenArena<'ctx> {
                 let array_to = self.convert_llvm_basictype(c_array_to);
                 array_to.array_type(len).into()
             }
+            TypeNode::Struct(_) => unimplemented!(),
         }
     }
 
