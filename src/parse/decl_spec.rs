@@ -5,34 +5,28 @@ use crate::tokenize::TokenList;
 use crate::types::Type;
 use crate::types::TypeNode;
 
-#[derive(Clone)]
-pub enum DeclSpec {
-    Int,
-    Char,
-}
-
-impl DeclSpec {
-    pub fn get_type(&self) -> Type {
-        match self {
-            DeclSpec::Int => Type::new(TypeNode::Int),
-            DeclSpec::Char => Type::new(TypeNode::Char),
-        }
-    }
-}
+use std::collections::HashMap;
 
 impl ParseArena {
-    pub fn parse_decl_spec(
-        &self,
-        mut tok_seq: TokenList,
-    ) -> Result<(TokenList, DeclSpec), ParseError> {
+    pub fn parse_decl_spec(&self, mut tok_seq: TokenList) -> Result<(TokenList, Type), ParseError> {
         if tok_seq.expect_keyword(KeywordKind::Int).is_some() {
             tok_seq = tok_seq.next();
-            Ok((tok_seq, DeclSpec::Int))
+            Ok((tok_seq, Type::new(TypeNode::Int)))
         } else if tok_seq.expect_keyword(KeywordKind::Char).is_some() {
             tok_seq = tok_seq.next();
-            Ok((tok_seq, DeclSpec::Char))
+            Ok((tok_seq, Type::new(TypeNode::Char)))
+        } else if tok_seq.expect_keyword(KeywordKind::Struct).is_some() {
+            unimplemented!()
         } else {
             Err(ParseError::SyntaxError(tok_seq))
         }
+    }
+
+    pub fn parse_decl_spec_with_scope(
+        &self,
+        mut tok_seq: TokenList,
+        scope: &mut Vec<HashMap<String, Type>>,
+    ) -> Result<(TokenList, Type), ParseError> {
+        unimplemented!()
     }
 }

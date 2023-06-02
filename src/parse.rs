@@ -137,9 +137,8 @@ impl ParseArena {
         &mut self,
         mut tok_seq: TokenList,
     ) -> Result<(TokenList, Option<ASTGlobal>), ParseError> {
-        let decl_spec;
-        (tok_seq, decl_spec) = self.parse_decl_spec(tok_seq)?;
-        let decl_spec_type = decl_spec.get_type();
+        let decl_spec_type;
+        (tok_seq, decl_spec_type) = self.parse_decl_spec(tok_seq)?;
 
         if tok_seq.expect_punct(PunctKind::SemiColon).is_some() {
             tok_seq = tok_seq.next();
@@ -172,10 +171,9 @@ impl ParseArena {
             let declarator_args = declarator.get_args();
 
             if declarator_args.is_some() {
-                for (ref decl_spec, ref declarator) in declarator_args.unwrap() {
-                    let decl_spec_type = decl_spec.get_type();
+                for (ref decl_spec_type, ref declarator) in declarator_args.unwrap() {
                     let arg_name = declarator.get_name();
-                    let arg_type = declarator.get_type(decl_spec_type);
+                    let arg_type = declarator.get_type(decl_spec_type.clone());
 
                     let arg_type = if arg_type.is_array_type() {
                         Type::new_ptr_type(arg_type.get_array_to().unwrap())
@@ -275,9 +273,8 @@ impl ParseArena {
                 ASTStmt::new(ASTStmtNode::Continue(stmt_id.clone())),
             ))
         } else if self.is_type_token(tok_seq.clone()) {
-            let decl_spec;
-            (tok_seq, decl_spec) = self.parse_decl_spec(tok_seq)?;
-            let decl_spec_type = decl_spec.get_type();
+            let decl_spec_type;
+            (tok_seq, decl_spec_type) = self.parse_decl_spec(tok_seq)?;
 
             let declarator;
             (tok_seq, declarator) = self.parse_declarator(tok_seq)?;

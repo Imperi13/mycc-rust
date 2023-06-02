@@ -5,8 +5,6 @@ use crate::tokenize::TokenKind;
 use crate::tokenize::TokenList;
 use crate::types::Type;
 
-use super::decl_spec::DeclSpec;
-
 #[derive(Clone)]
 enum DeclaratorNest {
     Name(String),
@@ -17,7 +15,7 @@ enum DeclaratorNest {
 enum DeclaratorSuffix {
     None,
     Array(Vec<u32>),
-    Function(Option<Vec<(DeclSpec, Declarator)>>),
+    Function(Option<Vec<(Type, Declarator)>>),
 }
 
 #[derive(Clone)]
@@ -53,8 +51,7 @@ impl Declarator {
             DeclaratorSuffix::Function(ref arg) => {
                 let arg_type = if arg.is_some() {
                     let mut arg_type = Vec::new();
-                    for (ref decl_spec, ref declarator) in arg.clone().unwrap().iter() {
-                        let decl_spec_type = decl_spec.get_type();
+                    for (ref decl_spec_type, ref declarator) in arg.clone().unwrap().iter() {
                         let ty = declarator.get_type(decl_spec_type.clone());
                         let ty = if ty.is_array_type() {
                             Type::new_ptr_type(ty.get_array_to().unwrap())
@@ -79,7 +76,7 @@ impl Declarator {
         }
     }
 
-    pub fn get_args(&self) -> Option<Vec<(DeclSpec, Declarator)>> {
+    pub fn get_args(&self) -> Option<Vec<(Type, Declarator)>> {
         match self.suffix {
             DeclaratorSuffix::Function(ref args) => args.clone(),
             _ => panic!(),
