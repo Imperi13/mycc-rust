@@ -154,8 +154,11 @@ impl ParseArena {
         let obj_type = declarator.get_type(decl_spec_type);
 
         if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
-            let TypeNode::Func(return_type,_) = obj_type.get_node() else {return Err(ParseError::SemanticError(tok_seq));};
-            self.return_type = Some(return_type);
+            if let TypeNode::Func(ref return_type, _) = *obj_type.borrow() {
+                self.return_type = Some(return_type.clone());
+            } else {
+                return Err(ParseError::SemanticError(tok_seq));
+            }
 
             let obj = self
                 .insert_global_obj(&obj_name, obj_type)
@@ -1430,9 +1433,12 @@ impl ParseArena {
 
                 let expr = node;
 
-                let TypeNode::Func(return_type,_) = expr.expr_type.get_node() else{return Err(ParseError::SemanticError(tok_seq));};
+                let TypeNode::Func(ref return_type,_) = *expr.expr_type.borrow() else{return Err(ParseError::SemanticError(tok_seq));};
 
-                node = ASTExpr::new(ASTExprNode::FuncCall(expr, args), return_type);
+                node = ASTExpr::new(
+                    ASTExprNode::FuncCall(expr.clone(), args),
+                    return_type.clone(),
+                );
             } else if tok_seq.expect_punct(PunctKind::OpenSquareBracket).is_some() {
                 tok_seq = tok_seq
                     .expect_punct(PunctKind::OpenSquareBracket)

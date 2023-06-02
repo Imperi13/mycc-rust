@@ -1,3 +1,5 @@
+use std::cell::Ref;
+use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -12,12 +14,12 @@ pub enum TypeNode {
 
 #[derive(Clone)]
 pub struct Type {
-    head: Rc<TypeNode>,
+    head: Rc<RefCell<TypeNode>>,
 }
 
 impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self.head {
+        match *self.head.borrow() {
             TypeNode::Int => write!(f, "Int"),
             TypeNode::Char => write!(f, "Char"),
             TypeNode::Func(ref ret, ref args) => {
@@ -36,7 +38,7 @@ impl fmt::Debug for Type {
 impl Type {
     pub fn new(kind: TypeNode) -> Type {
         Type {
-            head: Rc::new(kind),
+            head: Rc::new(RefCell::new(kind)),
         }
     }
 
@@ -45,20 +47,18 @@ impl Type {
     }
 
     pub fn new_ptr_type(ptr_to: Type) -> Type {
-        Type {
-            head: Rc::new(TypeNode::Ptr(ptr_to)),
-        }
+        Type::new(TypeNode::Ptr(ptr_to))
     }
 
     pub fn new_array_type(array_to: Type, len: u32) -> Type {
-        Type {
-            head: Rc::new(TypeNode::Array(array_to, len)),
-        }
+        Type::new(TypeNode::Array(array_to, len))
     }
 
     pub fn get_math_binaryop_type(lhs: Type, rhs: Type) -> Type {
         if lhs.is_int_type() && rhs.is_int_type() {
-            if matches!(*lhs.head, TypeNode::Char) && matches!(*rhs.head, TypeNode::Char) {
+            if matches!(*lhs.head.borrow(), TypeNode::Char)
+                && matches!(*rhs.head.borrow(), TypeNode::Char)
+            {
                 Type::new(TypeNode::Char)
             } else {
                 Type::new(TypeNode::Int)
@@ -68,44 +68,45 @@ impl Type {
         }
     }
 
-    pub fn get_node(&self) -> TypeNode {
-        (*self.head).clone()
+    pub fn borrow(&self) -> Ref<TypeNode> {
+        (*self.head).borrow()
     }
 
     pub fn get_ptr_to(&self) -> Result<Type, ()> {
-        match &*self.head {
-            TypeNode::Ptr(ptr_to) => Ok(ptr_to.clone()),
+        match *self.head.borrow() {
+            TypeNode::Ptr(ref ptr_to) => Ok(ptr_to.clone()),
             _ => Err(()),
         }
     }
 
     pub fn get_array_to(&self) -> Result<Type, ()> {
-        match &*self.head {
-            TypeNode::Array(array_to, _) => Ok(array_to.clone()),
+        match *self.head.borrow() {
+            TypeNode::Array(ref array_to, _) => Ok(array_to.clone()),
             _ => Err(()),
         }
     }
 
     pub fn get_arg_types(&self) -> Result<Option<Vec<Type>>, ()> {
-        match *self.head {
+        match *self.head.borrow() {
             TypeNode::Func(_, ref args) => Ok(args.clone()),
             _ => Err(()),
         }
     }
 
     pub fn is_function_type(&self) -> bool {
-        matches!(*self.head, TypeNode::Func(_, _))
+        matches!(*self.head.borrow(), TypeNode::Func(_, _))
     }
 
     pub fn is_int_type(&self) -> bool {
-        matches!(*self.head, TypeNode::Int) || matches!(*self.head, TypeNode::Char)
+        matches!(*self.head.borrow(), TypeNode::Int)
+            || matches!(*self.head.borrow(), TypeNode::Char)
     }
 
     pub fn is_ptr_type(&self) -> bool {
-        matches!(*self.head, TypeNode::Ptr(_))
+        matches!(*self.head.borrow(), TypeNode::Ptr(_))
     }
 
     pub fn is_array_type(&self) -> bool {
-        matches!(*self.head, TypeNode::Array(_, _))
+        matches!(*self.head.borrow(), TypeNode::Array(_, _))
     }
 }

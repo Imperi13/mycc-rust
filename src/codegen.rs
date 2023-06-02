@@ -73,7 +73,7 @@ impl<'ctx> CodegenArena<'ctx> {
     }
 
     fn convert_llvm_anytype<'a>(&'a self, c_type: &Type) -> AnyTypeEnum<'ctx> {
-        match c_type.get_node() {
+        match *c_type.borrow() {
             TypeNode::Int => self.context.i32_type().into(),
             TypeNode::Char => self.context.i8_type().into(),
             TypeNode::Ptr(ref c_ptr_to) => {
@@ -136,7 +136,7 @@ impl<'ctx> CodegenArena<'ctx> {
             None => builder.position_at_end(entry),
         }
 
-        let ptr = match obj.borrow().obj_type.get_node() {
+        let ptr = match *obj.borrow().obj_type.borrow() {
             TypeNode::Array(ref array_to, len) => {
                 let asm_type = self.convert_llvm_basictype(array_to);
                 builder.build_array_alloca(
