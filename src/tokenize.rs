@@ -65,6 +65,7 @@ pub enum KeywordKind {
     Continue,
     Sizeof,
     Alignof,
+    Struct,
 }
 
 #[derive(Debug, Clone)]
@@ -353,6 +354,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
         match &code[..6] {
             "return" => return Some((KeywordKind::Return, &code[6..])),
             "sizeof" => return Some((KeywordKind::Sizeof, &code[6..])),
+            "struct" => return Some((KeywordKind::Struct, &code[6..])),
             _ => (),
         }
     }
