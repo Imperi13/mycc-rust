@@ -7,6 +7,7 @@ use std::rc::Rc;
 pub struct StructDecl {
     pub id: usize,
     pub tag: String,
+    pub members: Option<Vec<(Type, String)>>,
 }
 
 #[derive(Clone)]
