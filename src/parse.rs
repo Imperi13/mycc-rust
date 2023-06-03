@@ -134,7 +134,9 @@ impl ParseArena {
 
     fn is_type_token(&self, tok_seq: TokenList) -> bool {
         let TokenKind::Keyword(keyword) = tok_seq.get_token() else {return false;};
-        matches!(keyword, KeywordKind::Int) || matches!(keyword, KeywordKind::Char)
+        matches!(keyword, KeywordKind::Int)
+            || matches!(keyword, KeywordKind::Char)
+            || matches!(keyword, KeywordKind::Struct)
     }
 
     fn parse_global(
@@ -288,6 +290,11 @@ impl ParseArena {
         } else if self.is_type_token(tok_seq.clone()) {
             let decl_spec_type;
             (tok_seq, decl_spec_type) = self.parse_decl_spec(tok_seq)?;
+
+            if tok_seq.expect_punct(PunctKind::SemiColon).is_some() {
+                tok_seq = tok_seq.next();
+                return Ok((tok_seq, None));
+            }
 
             let declarator;
             (tok_seq, declarator) = self.parse_declarator(tok_seq)?;
