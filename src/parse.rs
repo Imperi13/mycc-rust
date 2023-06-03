@@ -169,7 +169,6 @@ impl ParseArena {
 
             // prepare parsing stmts
             let mut args = Vec::new();
-            let mut stmts = Vec::new();
             self.initialize_local_scope();
 
             let declarator_args = declarator.get_args();
@@ -197,10 +196,14 @@ impl ParseArena {
                 .expect_punct(PunctKind::OpenBrace)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
+            let mut stmts = Vec::new();
+
             while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
                 let stmt;
                 (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
-                stmts.push(stmt);
+                if stmt.is_some() {
+                    stmts.push(stmt.unwrap());
+                }
             }
 
             tok_seq = tok_seq
@@ -225,7 +228,10 @@ impl ParseArena {
         }
     }
 
-    fn parse_stmt(&mut self, mut tok_seq: TokenList) -> Result<(TokenList, ASTStmt), ParseError> {
+    fn parse_stmt(
+        &mut self,
+        mut tok_seq: TokenList,
+    ) -> Result<(TokenList, Option<ASTStmt>), ParseError> {
         if tok_seq.expect_keyword(KeywordKind::Return).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Return)
@@ -242,7 +248,7 @@ impl ParseArena {
 
             let cast = expr.cast_to(&return_type);
 
-            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(cast))))
+            Ok((tok_seq, Some(ASTStmt::new(ASTStmtNode::Return(cast)))))
         } else if tok_seq.expect_keyword(KeywordKind::Break).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Break)
@@ -257,7 +263,10 @@ impl ParseArena {
                 .back()
                 .ok_or(ParseError::SemanticError(tok_seq.clone()))?;
 
-            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Break(stmt_id.clone()))))
+            Ok((
+                tok_seq,
+                Some(ASTStmt::new(ASTStmtNode::Break(stmt_id.clone()))),
+            ))
         } else if tok_seq.expect_keyword(KeywordKind::Continue).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Continue)
@@ -274,7 +283,7 @@ impl ParseArena {
 
             Ok((
                 tok_seq,
-                ASTStmt::new(ASTStmtNode::Continue(stmt_id.clone())),
+                Some(ASTStmt::new(ASTStmtNode::Continue(stmt_id.clone()))),
             ))
         } else if self.is_type_token(tok_seq.clone()) {
             let decl_spec_type;
@@ -292,7 +301,7 @@ impl ParseArena {
             let obj = self
                 .insert_local_obj(&var_name, var_type)
                 .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
-            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Declaration(obj))))
+            Ok((tok_seq, Some(ASTStmt::new(ASTStmtNode::Declaration(obj)))))
         } else if tok_seq.expect_keyword(KeywordKind::If).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::If)
@@ -312,6 +321,8 @@ impl ParseArena {
             let if_stmt;
             (tok_seq, if_stmt) = self.parse_stmt(tok_seq)?;
 
+            let if_stmt = if_stmt.ok_or(ParseError::SyntaxError(tok_seq.clone()))?;
+
             if tok_seq.expect_keyword(KeywordKind::Else).is_some() {
                 tok_seq = tok_seq
                     .expect_keyword(KeywordKind::Else)
@@ -319,13 +330,21 @@ impl ParseArena {
 
                 let else_stmt;
                 (tok_seq, else_stmt) = self.parse_stmt(tok_seq)?;
+                let else_stmt = else_stmt.ok_or(ParseError::SyntaxError(tok_seq.clone()))?;
 
                 Ok((
                     tok_seq,
-                    ASTStmt::new(ASTStmtNode::If(cond, if_stmt, Some(else_stmt))),
+                    Some(ASTStmt::new(ASTStmtNode::If(
+                        cond,
+                        if_stmt,
+                        Some(else_stmt),
+                    ))),
                 ))
             } else {
-                Ok((tok_seq, ASTStmt::new(ASTStmtNode::If(cond, if_stmt, None))))
+                Ok((
+                    tok_seq,
+                    Some(ASTStmt::new(ASTStmtNode::If(cond, if_stmt, None))),
+                ))
             }
         } else if tok_seq.expect_keyword(KeywordKind::While).is_some() {
             tok_seq = tok_seq
@@ -352,13 +371,14 @@ impl ParseArena {
 
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+            let stmt = stmt.ok_or(ParseError::SyntaxError(tok_seq.clone()))?;
 
             self.break_stack.pop_back();
             self.continue_stack.pop_back();
 
             Ok((
                 tok_seq,
-                ASTStmt::new(ASTStmtNode::While(cond, stmt, stmt_id)),
+                Some(ASTStmt::new(ASTStmtNode::While(cond, stmt, stmt_id))),
             ))
         } else if tok_seq.expect_keyword(KeywordKind::Do).is_some() {
             tok_seq = tok_seq
@@ -374,6 +394,7 @@ impl ParseArena {
 
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+            let stmt = stmt.ok_or(ParseError::SyntaxError(tok_seq.clone()))?;
 
             self.break_stack.pop_back();
             self.continue_stack.pop_back();
@@ -399,7 +420,7 @@ impl ParseArena {
 
             Ok((
                 tok_seq,
-                ASTStmt::new(ASTStmtNode::DoWhile(cond, stmt, stmt_id)),
+                Some(ASTStmt::new(ASTStmtNode::DoWhile(cond, stmt, stmt_id))),
             ))
         } else if tok_seq.expect_keyword(KeywordKind::For).is_some() {
             tok_seq = tok_seq
@@ -455,13 +476,16 @@ impl ParseArena {
 
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+            let stmt = stmt.ok_or(ParseError::SyntaxError(tok_seq.clone()))?;
 
             self.break_stack.pop_back();
             self.continue_stack.pop_back();
 
             Ok((
                 tok_seq,
-                ASTStmt::new(ASTStmtNode::For(start, cond, step, stmt, stmt_id)),
+                Some(ASTStmt::new(ASTStmtNode::For(
+                    start, cond, step, stmt, stmt_id,
+                ))),
             ))
         } else if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
             tok_seq = tok_seq
@@ -475,7 +499,9 @@ impl ParseArena {
             while tok_seq.expect_punct(PunctKind::CloseBrace).is_none() {
                 let stmt;
                 (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
-                stmts.push(stmt);
+                if stmt.is_some() {
+                    stmts.push(stmt.unwrap());
+                }
             }
 
             self.pop_local_scope();
@@ -484,7 +510,7 @@ impl ParseArena {
                 .expect_punct(PunctKind::CloseBrace)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Block(stmts))))
+            Ok((tok_seq, Some(ASTStmt::new(ASTStmtNode::Block(stmts)))))
         } else {
             let expr;
             (tok_seq, expr) = self.parse_expr(tok_seq)?;
@@ -493,7 +519,7 @@ impl ParseArena {
                 .expect_punct(PunctKind::SemiColon)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            Ok((tok_seq, ASTStmt::new(ASTStmtNode::ExprStmt(expr))))
+            Ok((tok_seq, Some(ASTStmt::new(ASTStmtNode::ExprStmt(expr)))))
         }
     }
 
