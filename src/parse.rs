@@ -48,6 +48,7 @@ struct ParseArena {
     local_objs: VecDeque<HashMap<String, Obj>>,
 
     struct_id: usize,
+    global_structs: HashMap<String, Type>,
 
     stmt_id: usize,
     break_stack: VecDeque<usize>,
@@ -62,6 +63,7 @@ impl ParseArena {
             global_objs: HashMap::new(),
             local_objs: VecDeque::new(),
             struct_id: 0,
+            global_structs: HashMap::new(),
             stmt_id: 0,
             break_stack: VecDeque::new(),
             continue_stack: VecDeque::new(),
@@ -105,6 +107,17 @@ impl ParseArena {
         Ok(obj)
     }
 
+    fn insert_global_struct(&mut self, struct_type: Type) -> Type {
+        let TypeNode::Struct(ref st_decl) = *struct_type.borrow() else {panic!() };
+
+        if !self.global_structs.contains_key(&st_decl.tag) {
+            self.global_structs
+                .insert(st_decl.tag.clone(), struct_type.clone());
+        }
+
+        struct_type.clone()
+    }
+
     fn initialize_local_scope(&mut self) {
         self.local_objs = VecDeque::new();
         self.push_local_scope();
@@ -145,6 +158,10 @@ impl ParseArena {
     ) -> Result<(TokenList, Option<ASTGlobal>), ParseError> {
         let decl_spec_type;
         (tok_seq, decl_spec_type) = self.parse_decl_spec(tok_seq)?;
+
+        if decl_spec_type.is_struct_type() {
+            self.insert_global_struct(decl_spec_type.clone());
+        }
 
         if tok_seq.expect_punct(PunctKind::SemiColon).is_some() {
             tok_seq = tok_seq.next();

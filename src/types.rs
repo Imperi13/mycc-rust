@@ -118,4 +118,8 @@ impl Type {
     pub fn is_array_type(&self) -> bool {
         matches!(*self.head.borrow(), TypeNode::Array(_, _))
     }
+
+    pub fn is_struct_type(&self) -> bool {
+        matches!(*self.head.borrow(), TypeNode::Struct(_))
+    }
 }
