@@ -113,7 +113,19 @@ impl<'ctx> CodegenArena<'ctx> {
                 let array_to = self.convert_llvm_basictype(c_array_to);
                 array_to.array_type(len).into()
             }
-            TypeNode::Struct(_) => unimplemented!(),
+            TypeNode::Struct(ref st_decl) => {
+                if st_decl.members.is_some() {
+                    let members = st_decl.members.as_ref().unwrap();
+                    let mut mem_ty = Vec::new();
+                    for (ty, _) in members.iter() {
+                        mem_ty.push(self.convert_llvm_basictype(ty));
+                    }
+
+                    self.context.struct_type(&mem_ty, false).into()
+                } else {
+                    self.context.opaque_struct_type(&st_decl.tag).into()
+                }
+            }
         }
     }
 
