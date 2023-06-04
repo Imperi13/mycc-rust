@@ -122,4 +122,13 @@ impl Type {
     pub fn is_struct_type(&self) -> bool {
         matches!(*self.head.borrow(), TypeNode::Struct(_))
     }
+
+    pub fn is_complete_type(&self) -> bool {
+        match *self.head.borrow() {
+            TypeNode::Int | TypeNode::Char | TypeNode::Ptr(_) => true,
+            TypeNode::Array(ref array_to, _) => array_to.is_complete_type(),
+            TypeNode::Struct(ref st_decl) => st_decl.members.is_some(),
+            _ => false,
+        }
+    }
 }

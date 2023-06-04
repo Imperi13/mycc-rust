@@ -318,6 +318,10 @@ impl ParseArena {
             let var_name = declarator.get_name();
             let var_type = declarator.get_type(decl_spec_type);
 
+            if !var_type.is_complete_type() {
+                return Err(ParseError::SemanticError(tok_seq));
+            }
+
             tok_seq = tok_seq
                 .expect_punct(PunctKind::SemiColon)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
