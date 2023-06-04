@@ -736,8 +736,41 @@ test_function!(
 test_function!(ex_179,"char; char     ; char; int; int ; int; int;int;char foo(char *p){char a; return a;} int main(){char q; foo(&(q)); return 174;}",174);
 test_function!(ex_180," struct A; char; char     ; char; int; int ; int; struct B;  int;int;  struct C; int main(){return 174;}",174);
 test_function!(ex_181," struct A{int a; int b;}; char; char     ; char; int; int ; int; struct B{int c; int b;};  int;int;  struct C; int main(){return 174;}",174);
-test_function!(ex_182,"int main(){ int; return 174;}",174);
-test_function!(ex_183,"struct A{int a; int b;}; int main(){ struct A; return 174;}",174);
-test_function!(ex_184,"struct A{int a; int b;}; int main(){ struct A a; return 174;}",174);
-test_function!(ex_185,"struct A{int a; int b;}; int main(){ struct A a[10]; return 174;}",174);
-test_function!(ex_186,"struct A{int a; int b;};  struct A a[10]; int main(){return 174;}",174);
+test_function!(ex_182, "int main(){ int; return 174;}", 174);
+test_function!(
+    ex_183,
+    "struct A{int a; int b;}; int main(){ struct A; return 174;}",
+    174
+);
+test_function!(
+    ex_184,
+    "struct A{int a; int b;}; int main(){ struct A a; return 174;}",
+    174
+);
+test_function!(
+    ex_185,
+    "struct A{int a; int b;}; int main(){ struct A a[10]; return 174;}",
+    174
+);
+test_function!(
+    ex_186,
+    "struct A{int a; int b;};  struct A a[10]; int main(){return 174;}",
+    174
+);
+
+test_function!(ex_196,"int *f(int *p){return p;} int main(){int a[4]; a[0] = 1; f(a)[0]++; f(a)[1] = 172; return a[1]+a[0];}",174);
+test_function!(
+    ex_197,
+    "struct A{char a; int b;}; int main(){struct A a; a.a = 74; return a.a;}",
+    74
+);
+test_function!(
+    ex_198,
+    "struct A{int a; int b;}; int main(){struct A a; a.a = 174; return a.a;}",
+    174
+);
+test_function!(
+    ex_199,
+    "struct A{int a; int b;}; int main(){struct A a; a.a = 174; return a.a;}",
+    174
+);
