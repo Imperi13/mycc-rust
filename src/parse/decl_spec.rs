@@ -69,14 +69,20 @@ impl ParseArena {
 
                 Ok((tok_seq, ty))
             } else {
-                let ty = Type::new(TypeNode::Struct(StructDecl {
-                    id: self.struct_id,
-                    tag: tag.clone(),
-                    members: None,
-                }));
-                self.struct_id += 1;
+                if self.global_structs.contains_key(tag) {
+                    let ty = self.global_structs.get(tag).unwrap().clone();
 
-                Ok((tok_seq, ty))
+                    Ok((tok_seq, ty))
+                } else {
+                    let ty = Type::new(TypeNode::Struct(StructDecl {
+                        id: self.struct_id,
+                        tag: tag.clone(),
+                        members: None,
+                    }));
+                    self.struct_id += 1;
+
+                    Ok((tok_seq, ty))
+                }
             }
         } else {
             Err(ParseError::SyntaxError(tok_seq))
