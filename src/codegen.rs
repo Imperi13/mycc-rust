@@ -262,6 +262,16 @@ impl<'ctx> CodegenArena<'ctx> {
                 UnaryOpKind::Deref => self.codegen_expr(&unary_node.expr).into_pointer_value(),
                 _ => panic!(),
             },
+            ASTExprNode::Dot(ref st_expr, index) => {
+                let st_ptr = self.codegen_addr(st_expr);
+                let st_ty = self
+                    .convert_llvm_basictype(&st_expr.expr_type)
+                    .into_struct_type();
+
+                self.builder
+                    .build_struct_gep(st_ty, st_ptr, index as u32, "addr struct dot")
+                    .unwrap()
+            }
             _ => panic!(),
         }
     }
@@ -525,7 +535,16 @@ impl<'ctx> CodegenArena<'ctx> {
                     .left()
                     .unwrap()
             }
-            ASTExprNode::Dot(ref st_expr, index) => unimplemented!(),
+            ASTExprNode::Dot(ref _st_expr, _index) => {
+                let ptr = self.codegen_addr(ast);
+                let expr_type = &ast.expr_type;
+                if expr_type.is_function_type() || expr_type.is_array_type() {
+                    ptr.into()
+                } else {
+                    let llvm_type = self.convert_llvm_basictype(expr_type);
+                    self.builder.build_load(llvm_type, ptr, "dot")
+                }
+            }
             ASTExprNode::PostIncrement(ref expr) => {
                 let llvm_type = self.convert_llvm_basictype(&ast.expr_type);
                 let ptr = self.codegen_addr(expr);
