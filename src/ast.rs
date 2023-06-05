@@ -80,6 +80,7 @@ pub enum ASTExprNode {
     UnaryOp(UnaryOpNode),
     Cast(Type, ASTExpr),
     FuncCall(ASTExpr, Vec<ASTExpr>),
+    Dot(ASTExpr, usize),
     PostIncrement(ASTExpr),
     PostDecrement(ASTExpr),
     Number(u64),
@@ -165,6 +166,11 @@ impl ASTExpr {
                 writeln!(f, "{}FuncCall", indent)?;
                 writeln!(f, "{}func_expr:", indent)?;
                 func_expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTExprNode::Dot(ref st_expr, index) => {
+                writeln!(f, "{}Dot index:{}", indent, index)?;
+                writeln!(f, "{}st_expr:", indent)?;
+                st_expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
             ASTExprNode::PostIncrement(ref expr) => {
                 writeln!(f, "{}PostIncrement", indent)?;

@@ -102,6 +102,25 @@ impl Type {
         }
     }
 
+    pub fn get_struct_member(&self, name: &str) -> (usize, Type) {
+        match *self.head.borrow() {
+            TypeNode::Struct(ref st_decl) => {
+                if st_decl.members.is_none() {
+                    panic!()
+                }
+                let members = st_decl.members.as_ref().unwrap();
+
+                for (index, (mem_ty, mem_name)) in members.iter().enumerate() {
+                    if mem_name == name {
+                        return (index, mem_ty.clone());
+                    }
+                }
+                panic!()
+            }
+            _ => panic!(),
+        }
+    }
+
     pub fn is_function_type(&self) -> bool {
         matches!(*self.head.borrow(), TypeNode::Func(_, _))
     }

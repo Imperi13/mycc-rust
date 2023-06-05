@@ -525,6 +525,7 @@ impl<'ctx> CodegenArena<'ctx> {
                     .left()
                     .unwrap()
             }
+            ASTExprNode::Dot(ref st_expr, index) => unimplemented!(),
             ASTExprNode::PostIncrement(ref expr) => {
                 let llvm_type = self.convert_llvm_basictype(&ast.expr_type);
                 let ptr = self.codegen_addr(expr);
