@@ -213,6 +213,17 @@ test_function!(
     0x30
 );
 
+test_function!(
+    arrow_1,
+    "struct A{char a; int b;}; int main(){struct A a; struct A *ptr;ptr = &a; ptr->a = 74; return a.a;}",
+    74
+);
+test_function!(
+    arrow_2,
+    "struct A{char a; int b;}; int main(){struct A a; struct A *ptr;ptr = &a; ptr->a = 174; return ptr->a;}",
+    174
+);
+
 test_function!(ex_001, "int main(){return 123;}", 123);
 test_function!(ex_002, "int main(){return (123);}", 123);
 test_function!(ex_003, "int main(){return ((((123))));}", 123);
