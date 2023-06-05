@@ -12,6 +12,7 @@ pub struct StructDecl {
 
 #[derive(Clone)]
 pub enum TypeNode {
+    Bool,
     Int,
     Char,
     Func(Type, Option<Vec<Type>>),
@@ -28,6 +29,7 @@ pub struct Type {
 impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self.head.borrow() {
+            TypeNode::Bool => write!(f, "Bool"),
             TypeNode::Int => write!(f, "Int"),
             TypeNode::Char => write!(f, "Char"),
             TypeNode::Func(ref ret, ref args) => {

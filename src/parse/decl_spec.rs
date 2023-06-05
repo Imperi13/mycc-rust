@@ -12,6 +12,14 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 
 impl ParseArena {
+    pub fn is_type_token(&self, tok_seq: TokenList) -> bool {
+        let TokenKind::Keyword(keyword) = tok_seq.get_token() else {return false;};
+        matches!(keyword, KeywordKind::Int)
+            || matches!(keyword, KeywordKind::Char)
+            || matches!(keyword, KeywordKind::Bool)
+            || matches!(keyword, KeywordKind::Struct)
+    }
+
     pub fn parse_decl_spec(&mut self, tok_seq: TokenList) -> Result<(TokenList, Type), ParseError> {
         let mut scope = VecDeque::new();
         self.parse_decl_spec_with_scope(tok_seq, &mut scope)
@@ -28,6 +36,9 @@ impl ParseArena {
         } else if tok_seq.expect_keyword(KeywordKind::Char).is_some() {
             tok_seq = tok_seq.next();
             Ok((tok_seq, Type::new(TypeNode::Char)))
+        } else if tok_seq.expect_keyword(KeywordKind::Bool).is_some() {
+            tok_seq = tok_seq.next();
+            Ok((tok_seq, Type::new(TypeNode::Bool)))
         } else if tok_seq.expect_keyword(KeywordKind::Struct).is_some() {
             tok_seq = tok_seq.next();
 

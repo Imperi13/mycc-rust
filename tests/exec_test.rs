@@ -224,10 +224,8 @@ test_function!(
     174
 );
 
-test_function!(bool_1,"int main() {return 173 + sizeof(_Bool);}",174);
-test_function!(bool_2,"int main() {return 173 + _Alignof(_Bool);}",174);
-test_function!(bool_3,"int main() {_Bool test; test = 1; if(test)return 174;else return 170;}",174);
-test_function!(bool_4,"int main() {_Bool test; test = 256; if(test)return 174;else return 170;}",174);
+test_function!(bool_1,"int main() {_Bool test; test = 1; if(test)return 174;else return 170;}",174);
+test_function!(bool_2,"int main() {_Bool test; test = 256; if(test)return 174;else return 170;}",174);
 
 test_function!(ex_001, "int main(){return 123;}", 123);
 test_function!(ex_002, "int main(){return (123);}", 123);

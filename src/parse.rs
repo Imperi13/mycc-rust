@@ -145,13 +145,6 @@ impl ParseArena {
         None
     }
 
-    fn is_type_token(&self, tok_seq: TokenList) -> bool {
-        let TokenKind::Keyword(keyword) = tok_seq.get_token() else {return false;};
-        matches!(keyword, KeywordKind::Int)
-            || matches!(keyword, KeywordKind::Char)
-            || matches!(keyword, KeywordKind::Struct)
-    }
-
     fn parse_global(
         &mut self,
         mut tok_seq: TokenList,
