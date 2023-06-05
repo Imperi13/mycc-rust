@@ -132,6 +132,10 @@ impl Type {
             || matches!(*self.head.borrow(), TypeNode::Char)
     }
 
+    pub fn is_bool_type(&self) -> bool {
+        matches!(*self.head.borrow(), TypeNode::Bool)
+    }
+
     pub fn is_ptr_type(&self) -> bool {
         matches!(*self.head.borrow(), TypeNode::Ptr(_))
     }
@@ -146,10 +150,10 @@ impl Type {
 
     pub fn is_complete_type(&self) -> bool {
         match *self.head.borrow() {
-            TypeNode::Int | TypeNode::Char | TypeNode::Ptr(_) => true,
+            TypeNode::Int | TypeNode::Char | TypeNode::Bool | TypeNode::Ptr(_) => true,
             TypeNode::Array(ref array_to, _) => array_to.is_complete_type(),
             TypeNode::Struct(ref st_decl) => st_decl.members.is_some(),
-            _ => false,
+            TypeNode::Func(_, _) => false,
         }
     }
 }

@@ -222,6 +222,8 @@ impl<'ctx> CodegenArena<'ctx> {
         for stmt in stmts.iter() {
             self.codegen_stmt(stmt);
         }
+
+        self.builder.build_unreachable();
         self.current_func = None;
     }
 
@@ -520,15 +522,52 @@ impl<'ctx> CodegenArena<'ctx> {
                 self.codegen_unary_op(unary_node, &ast.expr_type)
             }
             ASTExprNode::Cast(ref cast_to, ref expr) => {
-                let int_value = self.codegen_expr(expr);
+                let val = self.codegen_expr(expr);
 
                 if expr.expr_type.is_int_type() && cast_to.is_int_type() {
                     let llvm_type = self.convert_llvm_basictype(cast_to).into_int_type();
                     self.builder
-                        .build_int_cast(int_value.into_int_value(), llvm_type, "int cast")
+                        .build_int_cast(val.into_int_value(), llvm_type, "int cast")
+                        .into()
+                } else if (expr.expr_type.is_int_type() || expr.expr_type.is_ptr_type())
+                    && cast_to.is_bool_type()
+                {
+                    let val = if expr.expr_type.is_int_type() {
+                        val
+                    } else {
+                        self.builder
+                            .build_ptr_to_int(
+                                val.into_pointer_value(),
+                                self.context.i64_type(),
+                                "ptr to int",
+                            )
+                            .into()
+                    };
+
+                    let int_type = if expr.expr_type.is_int_type() {
+                        self.convert_llvm_basictype(&expr.expr_type).into_int_type()
+                    } else {
+                        self.context.i64_type()
+                    };
+
+                    let zero = int_type.const_int(0, false);
+                    let cond = self.builder.build_int_compare(
+                        inkwell::IntPredicate::NE,
+                        val.into_int_value(),
+                        zero,
+                        "cast to bool",
+                    );
+
+                    self.builder
+                        .build_int_cast_sign_flag(
+                            cond,
+                            self.context.i8_type(),
+                            false,
+                            "cast to bool",
+                        )
                         .into()
                 } else {
-                    int_value
+                    val
                 }
             }
             ASTExprNode::FuncCall(ref func_expr, ref args) => {
