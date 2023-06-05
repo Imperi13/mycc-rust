@@ -56,6 +56,7 @@ pub enum PunctKind {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum KeywordKind {
     Return,
+    Bool,
     Int,
     Char,
     If,
@@ -367,6 +368,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
         match &code[..5] {
             "while" => return Some((KeywordKind::While, &code[5..])),
             "break" => return Some((KeywordKind::Break, &code[5..])),
+            "_Bool" => return Some((KeywordKind::Bool, &code[5..])),
             _ => (),
         }
     }
