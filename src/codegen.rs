@@ -272,6 +272,16 @@ impl<'ctx> CodegenArena<'ctx> {
                     .build_struct_gep(st_ty, st_ptr, index as u32, "addr struct dot")
                     .unwrap()
             }
+            ASTExprNode::Arrow(ref st_expr, index) => {
+                let st_ptr = self.codegen_expr(st_expr).into_pointer_value();
+                let st_ty = self
+                    .convert_llvm_basictype(&st_expr.expr_type.get_ptr_to().unwrap())
+                    .into_struct_type();
+
+                self.builder
+                    .build_struct_gep(st_ty, st_ptr, index as u32, "addr struct arrow")
+                    .unwrap()
+            }
             _ => panic!(),
         }
     }
@@ -536,6 +546,16 @@ impl<'ctx> CodegenArena<'ctx> {
                     .unwrap()
             }
             ASTExprNode::Dot(ref _st_expr, _index) => {
+                let ptr = self.codegen_addr(ast);
+                let expr_type = &ast.expr_type;
+                if expr_type.is_function_type() || expr_type.is_array_type() {
+                    ptr.into()
+                } else {
+                    let llvm_type = self.convert_llvm_basictype(expr_type);
+                    self.builder.build_load(llvm_type, ptr, "dot")
+                }
+            }
+            ASTExprNode::Arrow(ref _st_expr, _index) => {
                 let ptr = self.codegen_addr(ast);
                 let expr_type = &ast.expr_type;
                 if expr_type.is_function_type() || expr_type.is_array_type() {

@@ -1545,6 +1545,25 @@ impl ParseArena {
                 let (index, expr_type) = node.expr_type.get_struct_member(&member);
 
                 node = ASTExpr::new(ASTExprNode::Dot(node, index), expr_type);
+            } else if tok_seq.expect_punct(PunctKind::Arrow).is_some() {
+                tok_seq = tok_seq.next();
+
+                let TokenKind::Ident(member) = tok_seq.get_token() else {return Err(ParseError::SyntaxError(tok_seq));};
+
+                tok_seq = tok_seq.next();
+
+                if !node.expr_type.is_ptr_type() {
+                    return Err(ParseError::SemanticError(tok_seq));
+                }
+
+                let st_type = node.expr_type.get_ptr_to().unwrap();
+                if !st_type.is_struct_type() {
+                    return Err(ParseError::SemanticError(tok_seq));
+                }
+
+                let (index, expr_type) = st_type.get_struct_member(&member);
+
+                node = ASTExpr::new(ASTExprNode::Arrow(node, index), expr_type);
             } else if tok_seq.expect_punct(PunctKind::Increment).is_some() {
                 tok_seq = tok_seq
                     .expect_punct(PunctKind::Increment)

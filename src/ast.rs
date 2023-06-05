@@ -81,6 +81,7 @@ pub enum ASTExprNode {
     Cast(Type, ASTExpr),
     FuncCall(ASTExpr, Vec<ASTExpr>),
     Dot(ASTExpr, usize),
+    Arrow(ASTExpr, usize),
     PostIncrement(ASTExpr),
     PostDecrement(ASTExpr),
     Number(u64),
@@ -169,6 +170,11 @@ impl ASTExpr {
             }
             ASTExprNode::Dot(ref st_expr, index) => {
                 writeln!(f, "{}Dot index:{}", indent, index)?;
+                writeln!(f, "{}st_expr:", indent)?;
+                st_expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTExprNode::Arrow(ref st_expr, index) => {
+                writeln!(f, "{}Arrow index:{}", indent, index)?;
                 writeln!(f, "{}st_expr:", indent)?;
                 st_expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
