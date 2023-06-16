@@ -1,3 +1,4 @@
+use crate::ast::ASTBlockStmt;
 use crate::ast::ASTExpr;
 use crate::ast::ASTExprNode;
 use crate::ast::ASTGlobal;
@@ -220,7 +221,12 @@ impl<'ctx> CodegenArena<'ctx> {
         }
 
         for stmt in stmts.iter() {
-            self.codegen_stmt(stmt);
+            match stmt {
+                ASTBlockStmt::Declaration(ref obj) => {
+                    self.alloc_local_obj(obj);
+                }
+                ASTBlockStmt::Stmt(ref stmt) => self.codegen_stmt(stmt),
+            }
         }
 
         self.builder.build_unreachable();
@@ -303,15 +309,17 @@ impl<'ctx> CodegenArena<'ctx> {
                 let continue_block = self.get_continue_block(stmt_id);
                 self.builder.build_unconditional_branch(continue_block);
             }
-            ASTStmtNode::Declaration(ref obj) => {
-                self.alloc_local_obj(&obj);
-            }
             ASTStmtNode::ExprStmt(ref expr) => {
                 self.codegen_expr(expr);
             }
             ASTStmtNode::Block(ref stmts) => {
                 for stmt in stmts.iter() {
-                    self.codegen_stmt(stmt);
+                    match stmt {
+                        ASTBlockStmt::Declaration(ref obj) => {
+                            self.alloc_local_obj(obj);
+                        }
+                        ASTBlockStmt::Stmt(ref stmt) => self.codegen_stmt(stmt),
+                    }
                 }
             }
             ASTStmtNode::If(ref cond, ref then_stmt, ref else_stmt) => {

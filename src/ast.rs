@@ -210,9 +210,8 @@ pub enum ASTStmtNode {
     Return(ASTExpr),
     Break(usize),
     Continue(usize),
-    Declaration(Obj),
     ExprStmt(ASTExpr),
-    Block(Vec<ASTStmt>),
+    Block(Vec<ASTBlockStmt>),
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
     While(ASTExpr, ASTStmt, usize),
     DoWhile(ASTExpr, ASTStmt, usize),
@@ -253,9 +252,6 @@ impl ASTStmt {
             }
             ASTStmtNode::Continue(ref stmt_id) => {
                 writeln!(f, "{}Continue: id{}", indent, stmt_id)
-            }
-            ASTStmtNode::Declaration(ref obj) => {
-                writeln!(f, "{}Declaration :{}", indent, obj.borrow().name)
             }
             ASTStmtNode::ExprStmt(ref expr) => {
                 writeln!(f, "{}ExprStmt", indent)?;
@@ -331,8 +327,29 @@ impl fmt::Debug for ASTStmt {
 }
 
 #[derive(Clone)]
+pub enum ASTBlockStmt {
+    Declaration(Obj),
+    Stmt(ASTStmt),
+}
+
+impl ASTBlockStmt {
+    pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
+        match self {
+            ASTBlockStmt::Declaration(ref _obj) => writeln!(f, "{}Declaration", indent),
+            ASTBlockStmt::Stmt(ref stmt) => stmt.fmt_with_indent(f, indent),
+        }
+    }
+}
+
+impl fmt::Debug for ASTBlockStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_with_indent(f, "")
+    }
+}
+
+#[derive(Clone)]
 pub enum ASTGlobal {
-    Function(Obj, Vec<Obj>, Vec<ASTStmt>),
+    Function(Obj, Vec<Obj>, Vec<ASTBlockStmt>),
     Variable(Obj),
 }
 
