@@ -97,6 +97,13 @@ impl Type {
         }
     }
 
+    pub fn get_return_type(&self) -> Result<Type, ()> {
+        match *self.head.borrow() {
+            TypeNode::Func(ref ty, _) => Ok(ty.clone()),
+            _ => Err(()),
+        }
+    }
+
     pub fn get_arg_types(&self) -> Result<Option<Vec<Type>>, ()> {
         match *self.head.borrow() {
             TypeNode::Func(_, ref args) => Ok(args.clone()),

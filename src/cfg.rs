@@ -1,8 +1,11 @@
 use crate::ast::ASTBlockStmt;
 use crate::ast::ASTExpr;
+use crate::ast::ASTExprNode;
 use crate::ast::ASTGlobal;
 use crate::ast::ASTStmt;
 use crate::ast::ASTStmtNode;
+use crate::ast::AssignKind;
+use crate::ast::AssignNode;
 use crate::obj::Obj;
 use crate::obj::ObjArena;
 
@@ -25,6 +28,7 @@ pub enum BlockID {
 #[derive(Clone, Debug)]
 pub enum CFGJump {
     None,
+    Return(Obj),
     Unconditional(BlockID),
     Conditional(ASTExpr, BlockID, BlockID),
 }
@@ -95,8 +99,12 @@ pub fn gen_cfg_all(obj_arena: &mut ObjArena, ast_all: &Vec<ASTGlobal>) -> Vec<CF
     let mut cfg_globals = Vec::new();
     for ast in ast_all.iter() {
         let cfg_global = match ast {
-            ASTGlobal::Function(_, _, ref stmts) => {
-                let mut arena = CFGArena::new(obj_arena);
+            ASTGlobal::Function(func_obj, _, ref stmts) => {
+                let retval = obj_arena.publish_obj(
+                    "retval",
+                    func_obj.borrow().obj_type.get_return_type().unwrap(),
+                );
+                let mut arena = CFGArena::new(retval);
                 CFGGlobal::Function(arena.gen_cfg_function(stmts))
             }
             ASTGlobal::Variable(ref obj) => CFGGlobal::Variable(obj.clone()),
@@ -108,8 +116,8 @@ pub fn gen_cfg_all(obj_arena: &mut ObjArena, ast_all: &Vec<ASTGlobal>) -> Vec<CF
     cfg_globals
 }
 
-struct CFGArena<'a> {
-    obj_arena: &'a mut ObjArena,
+struct CFGArena {
+    retval: Obj,
 
     entry_block: CFGBlock,
     return_block: CFGBlock,
@@ -119,10 +127,10 @@ struct CFGArena<'a> {
     current_stmts: Vec<CFGStmt>,
 }
 
-impl<'a> CFGArena<'a> {
-    pub fn new(obj_arena: &'a mut ObjArena) -> Self {
+impl CFGArena {
+    pub fn new(retval: Obj) -> Self {
         CFGArena {
-            obj_arena,
+            retval,
             entry_block: CFGBlock::new(BlockID::Entry),
             return_block: CFGBlock::new(BlockID::Return),
             blocks: HashMap::new(),
@@ -151,6 +159,8 @@ impl<'a> CFGArena<'a> {
         self.current_id += 1;
         self.current_stmts = Vec::new();
 
+        self.return_block.jump_to = CFGJump::Return(self.retval.clone());
+
         CFGFunction {
             entry_block: self.entry_block.clone(),
             return_block: self.return_block.clone(),
@@ -164,8 +174,19 @@ impl<'a> CFGArena<'a> {
                 self.current_stmts.push(CFGStmt::Expr(expr.clone()));
             }
             ASTStmtNode::Return(ref expr) => {
-                // test
-                self.current_stmts.push(CFGStmt::Expr(expr.clone()));
+                let retval_expr = ASTExpr::new(
+                    ASTExprNode::Var(self.retval.clone()),
+                    self.retval.borrow().obj_type.clone(),
+                );
+                let assign_expr = ASTExpr::new(
+                    ASTExprNode::Assign(AssignNode {
+                        lhs: retval_expr,
+                        rhs: expr.clone(),
+                        kind: AssignKind::Assign,
+                    }),
+                    self.retval.borrow().obj_type.clone(),
+                );
+                self.current_stmts.push(CFGStmt::Expr(assign_expr));
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
                     stmts: self.current_stmts.clone(),

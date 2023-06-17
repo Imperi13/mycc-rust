@@ -1,5 +1,7 @@
 use crate::types::Type;
 
+use std::fmt;
+
 use std::cell::Ref;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -25,6 +27,12 @@ impl Obj {
 
     pub fn borrow(&self) -> Ref<ObjNode> {
         (*self.head).borrow()
+    }
+}
+
+impl fmt::Debug for Obj {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Obj ")
     }
 }
 
