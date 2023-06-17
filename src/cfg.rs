@@ -175,6 +175,16 @@ impl CFGArena {
             ASTStmtNode::ExprStmt(ref expr) => {
                 self.current_stmts.push(CFGStmt::Expr(expr.clone()));
             }
+            ASTStmtNode::Block(ref stmts) => {
+                for block_stmt in stmts.iter() {
+                    match block_stmt {
+                        ASTBlockStmt::Stmt(ref stmt) => self.push_stmt(stmt),
+                        ASTBlockStmt::Declaration(ref obj) => {
+                            self.entry_block.stmts.push(CFGStmt::Decl(obj.clone()));
+                        }
+                    }
+                }
+            }
             ASTStmtNode::Return(ref expr) => {
                 let retval_expr = ASTExpr::new(
                     ASTExprNode::Var(self.retval.clone()),
