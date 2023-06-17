@@ -84,7 +84,7 @@ impl Declarator {
     }
 }
 
-impl ParseArena {
+impl<'a> ParseArena<'a> {
     pub fn parse_declarator(
         &mut self,
         mut tok_seq: TokenList,
