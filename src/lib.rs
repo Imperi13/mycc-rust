@@ -5,6 +5,7 @@ mod parse;
 mod tokenize;
 mod types;
 mod obj;
+mod cfg;
 
 use inkwell::context::Context;
 
