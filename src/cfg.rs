@@ -145,7 +145,9 @@ impl CFGArena {
         for block_stmt in stmts.iter() {
             match block_stmt {
                 ASTBlockStmt::Stmt(ref stmt) => self.push_stmt(stmt),
-                ASTBlockStmt::Declaration(ref _obj) => unimplemented!(),
+                ASTBlockStmt::Declaration(ref obj) => {
+                    self.entry_block.stmts.push(CFGStmt::Decl(obj.clone()));
+                }
             }
         }
 
