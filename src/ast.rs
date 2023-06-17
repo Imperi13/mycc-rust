@@ -207,10 +207,10 @@ impl fmt::Debug for ASTExpr {
 
 #[derive(Clone)]
 pub enum ASTStmtNode {
+    ExprStmt(ASTExpr),
     Return(ASTExpr),
     Break(usize),
     Continue(usize),
-    ExprStmt(ASTExpr),
     Block(Vec<ASTBlockStmt>),
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
     While(ASTExpr, ASTStmt, usize),

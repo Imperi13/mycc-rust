@@ -1,17 +1,19 @@
 mod ast;
+mod cfg;
 mod codegen;
 mod error;
+mod obj;
 mod parse;
 mod tokenize;
 mod types;
-mod obj;
-mod cfg;
 
 use inkwell::context::Context;
 
 use codegen::CodegenArena;
 use parse::parse_all;
 use tokenize::tokenize;
+
+use cfg::gen_cfg_all;
 
 pub fn compile(code: &str, output_path: &str) {
     let mut tok_seq = tokenize(&code);
@@ -27,6 +29,9 @@ pub fn compile(code: &str, output_path: &str) {
             return;
         }
     };
+
+    let cfg = gen_cfg_all(&ast);
+    eprintln!("{:?}", cfg);
 
     let context = Context::create();
     let mut codegen_arena = CodegenArena::new(&context);
