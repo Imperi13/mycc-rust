@@ -4,6 +4,7 @@ use crate::ast::ASTGlobal;
 use crate::ast::ASTStmt;
 use crate::ast::ASTStmtNode;
 use crate::obj::Obj;
+use crate::obj::ObjArena;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -90,12 +91,12 @@ impl fmt::Debug for CFGGlobal {
     }
 }
 
-pub fn gen_cfg_all(ast_all: &Vec<ASTGlobal>) -> Vec<CFGGlobal> {
+pub fn gen_cfg_all(obj_arena: &mut ObjArena, ast_all: &Vec<ASTGlobal>) -> Vec<CFGGlobal> {
     let mut cfg_globals = Vec::new();
     for ast in ast_all.iter() {
         let cfg_global = match ast {
             ASTGlobal::Function(_, _, ref stmts) => {
-                let mut arena = CFGArena::new();
+                let mut arena = CFGArena::new(obj_arena);
                 CFGGlobal::Function(arena.gen_cfg_function(stmts))
             }
             ASTGlobal::Variable(ref obj) => CFGGlobal::Variable(obj.clone()),
@@ -107,7 +108,9 @@ pub fn gen_cfg_all(ast_all: &Vec<ASTGlobal>) -> Vec<CFGGlobal> {
     cfg_globals
 }
 
-struct CFGArena {
+struct CFGArena<'a> {
+    obj_arena: &'a mut ObjArena,
+
     entry_block: CFGBlock,
     return_block: CFGBlock,
     blocks: HashMap<usize, CFGBlock>,
@@ -116,9 +119,10 @@ struct CFGArena {
     current_stmts: Vec<CFGStmt>,
 }
 
-impl CFGArena {
-    pub fn new() -> Self {
+impl<'a> CFGArena<'a> {
+    pub fn new(obj_arena: &'a mut ObjArena) -> Self {
         CFGArena {
+            obj_arena,
             entry_block: CFGBlock::new(BlockID::Entry),
             return_block: CFGBlock::new(BlockID::Return),
             blocks: HashMap::new(),

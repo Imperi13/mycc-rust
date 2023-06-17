@@ -33,7 +33,7 @@ pub fn compile(code: &str, output_path: &str) {
         }
     };
 
-    let cfg = gen_cfg_all(&ast);
+    let cfg = gen_cfg_all(&mut obj_arena,&ast);
     eprintln!("{:?}", cfg);
 
     let context = Context::create();
