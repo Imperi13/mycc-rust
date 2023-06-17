@@ -11,7 +11,7 @@ use crate::types::TypeNode;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
-impl ParseArena {
+impl<'a> ParseArena<'a> {
     pub fn is_type_token(&self, tok_seq: TokenList) -> bool {
         let TokenKind::Keyword(keyword) = tok_seq.get_token() else {return false;};
         matches!(keyword, KeywordKind::Int)

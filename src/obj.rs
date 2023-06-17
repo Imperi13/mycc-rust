@@ -17,7 +17,7 @@ pub struct Obj {
 }
 
 impl Obj {
-    pub fn new(node: ObjNode) -> Obj {
+    fn new(node: ObjNode) -> Obj {
         Obj {
             head: Rc::new(RefCell::new(node)),
         }
@@ -25,5 +25,26 @@ impl Obj {
 
     pub fn borrow(&self) -> Ref<ObjNode> {
         (*self.head).borrow()
+    }
+}
+
+pub struct ObjArena {
+    current_id: usize,
+}
+
+impl ObjArena {
+    pub fn new() -> Self {
+        ObjArena { current_id: 0 }
+    }
+
+    pub fn publish_obj(&mut self, obj_name: &str, obj_type: Type) -> Obj {
+        let node = ObjNode {
+            id: self.current_id,
+            name: String::from(obj_name),
+            obj_type,
+        };
+
+        self.current_id += 1;
+        Obj::new(node)
     }
 }

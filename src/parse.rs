@@ -15,7 +15,7 @@ use crate::ast::UnaryOpKind;
 use crate::ast::UnaryOpNode;
 use crate::error::ParseError;
 use crate::obj::Obj;
-use crate::obj::ObjNode;
+use crate::obj::ObjArena;
 use crate::tokenize::KeywordKind;
 use crate::tokenize::PunctKind;
 use crate::tokenize::TokenKind;
@@ -26,9 +26,12 @@ use crate::types::TypeNode;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
-pub fn parse_all(mut tok_seq: TokenList) -> Result<Vec<ASTGlobal>, ParseError> {
+pub fn parse_all(
+    obj_arena: &mut ObjArena,
+    mut tok_seq: TokenList,
+) -> Result<Vec<ASTGlobal>, ParseError> {
     let mut ret = Vec::new();
-    let mut arena = ParseArena::new();
+    let mut arena = ParseArena::new(obj_arena);
 
     while !tok_seq.is_empty() {
         let node;
@@ -41,10 +44,11 @@ pub fn parse_all(mut tok_seq: TokenList) -> Result<Vec<ASTGlobal>, ParseError> {
     Ok(ret)
 }
 
-struct ParseArena {
+struct ParseArena<'a> {
     return_type: Option<Type>,
 
-    obj_id: usize,
+    obj_arena: &'a mut ObjArena,
+
     global_objs: HashMap<String, Obj>,
     local_objs: VecDeque<HashMap<String, Obj>>,
 
@@ -56,11 +60,11 @@ struct ParseArena {
     continue_stack: VecDeque<usize>,
 }
 
-impl ParseArena {
-    pub fn new() -> ParseArena {
+impl<'a> ParseArena<'a> {
+    pub fn new(obj_arena: &'a mut ObjArena) -> ParseArena<'a> {
         ParseArena {
             return_type: None,
-            obj_id: 0,
+            obj_arena,
             global_objs: HashMap::new(),
             local_objs: VecDeque::new(),
             struct_id: 0,
@@ -76,14 +80,9 @@ impl ParseArena {
             return Err(());
         }
 
-        let obj = Obj::new(ObjNode {
-            id: self.obj_id,
-            name: String::from(obj_name),
-            obj_type,
-        });
+        let obj = self.obj_arena.publish_obj(obj_name, obj_type);
 
         self.global_objs.insert(String::from(obj_name), obj.clone());
-        self.obj_id += 1;
 
         Ok(obj)
     }
@@ -93,17 +92,12 @@ impl ParseArena {
             return Err(());
         }
 
-        let obj = Obj::new(ObjNode {
-            id: self.obj_id,
-            name: String::from(obj_name),
-            obj_type,
-        });
+        let obj = self.obj_arena.publish_obj(obj_name, obj_type);
 
         self.local_objs
             .back_mut()
             .unwrap()
             .insert(String::from(obj_name), obj.clone());
-        self.obj_id += 1;
 
         Ok(obj)
     }
