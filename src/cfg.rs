@@ -124,6 +124,7 @@ struct CFGArena {
     blocks: HashMap<usize, CFGBlock>,
 
     current_id: usize,
+    next_id: usize,
     current_stmts: Vec<CFGStmt>,
 }
 
@@ -135,6 +136,7 @@ impl CFGArena {
             return_block: CFGBlock::new(BlockID::Return),
             blocks: HashMap::new(),
             current_id: 0,
+            next_id: 1,
             current_stmts: Vec::new(),
         }
     }
@@ -158,7 +160,8 @@ impl CFGArena {
         };
 
         self.blocks.insert(self.current_id, last_block);
-        self.current_id += 1;
+        self.current_id = self.next_id;
+        self.next_id += 1;
         self.current_stmts = Vec::new();
 
         self.return_block.jump_to = CFGJump::Return(self.retval.clone());
@@ -206,8 +209,97 @@ impl CFGArena {
                 };
 
                 self.blocks.insert(self.current_id, block);
-                self.current_id += 1;
+                self.current_id = self.next_id;
+                self.next_id += 1;
                 self.current_stmts = Vec::new();
+            }
+            ASTStmtNode::If(ref cond, ref then_stmt, ref else_stmt) => {
+                if else_stmt.is_some() {
+                    let else_stmt = else_stmt.as_ref().unwrap();
+
+                    let then_id = self.next_id;
+                    let else_id = self.next_id + 1;
+                    let after_id = self.next_id + 2;
+                    self.next_id += 3;
+
+                    let block = CFGBlock {
+                        id: BlockID::Block(self.current_id),
+                        stmts: self.current_stmts.clone(),
+                        jump_to: CFGJump::Conditional(
+                            cond.clone(),
+                            BlockID::Block(then_id),
+                            BlockID::Block(else_id),
+                        ),
+                    };
+
+                    self.blocks.insert(self.current_id, block);
+
+                    // then_stmt
+                    self.current_id = then_id;
+                    self.current_stmts = Vec::new();
+
+                    self.push_stmt(then_stmt);
+
+                    let block = CFGBlock {
+                        id: BlockID::Block(self.current_id),
+                        stmts: self.current_stmts.clone(),
+                        jump_to: CFGJump::Unconditional(BlockID::Block(after_id)),
+                    };
+
+                    self.blocks.insert(self.current_id, block);
+
+                    // else_stmt
+                    self.current_id = else_id;
+                    self.current_stmts = Vec::new();
+
+                    self.push_stmt(else_stmt);
+
+                    let block = CFGBlock {
+                        id: BlockID::Block(self.current_id),
+                        stmts: self.current_stmts.clone(),
+                        jump_to: CFGJump::Unconditional(BlockID::Block(after_id)),
+                    };
+
+                    self.blocks.insert(self.current_id, block);
+
+                    // after
+                    self.current_id = after_id;
+                    self.current_stmts = Vec::new();
+                } else {
+                    let then_id = self.next_id;
+                    let after_id = self.next_id + 1;
+                    self.next_id += 2;
+
+                    let block = CFGBlock {
+                        id: BlockID::Block(self.current_id),
+                        stmts: self.current_stmts.clone(),
+                        jump_to: CFGJump::Conditional(
+                            cond.clone(),
+                            BlockID::Block(then_id),
+                            BlockID::Block(after_id),
+                        ),
+                    };
+
+                    self.blocks.insert(self.current_id, block);
+
+                    // then_stmt
+                    self.current_id = then_id;
+                    self.current_stmts = Vec::new();
+
+                    self.push_stmt(then_stmt);
+
+                    let block = CFGBlock {
+                        id: BlockID::Block(self.current_id),
+                        stmts: self.current_stmts.clone(),
+                        jump_to: CFGJump::Unconditional(BlockID::Block(after_id)),
+                    };
+
+                    self.blocks.insert(self.current_id, block);
+
+                    // after
+                    self.current_id = after_id;
+                    self.current_stmts = Vec::new();
+                }
             }
             _ => unimplemented!(),
         }
