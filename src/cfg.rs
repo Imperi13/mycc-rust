@@ -348,6 +348,53 @@ impl CFGArena {
                 self.current_id = after_id;
                 self.current_stmts = Vec::new();
             }
+            ASTStmtNode::DoWhile(ref cond, ref stmt, _) => {
+                let loop_id = self.next_id;
+                let cond_id = self.next_id + 1;
+                let after_id = self.next_id + 2;
+                self.next_id += 3;
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(loop_id)),
+                };
+
+                self.blocks.insert(self.current_id, block);
+
+                // loop
+                self.current_id = loop_id;
+                self.current_stmts = Vec::new();
+
+                self.push_stmt(stmt);
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(cond_id)),
+                };
+                self.blocks.insert(self.current_id, block);
+
+                // cond
+                self.current_id = cond_id;
+                self.current_stmts = Vec::new();
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Conditional(
+                        cond.clone(),
+                        BlockID::Block(loop_id),
+                        BlockID::Block(after_id),
+                    ),
+                };
+
+                self.blocks.insert(self.current_id, block);
+
+                // after
+                self.current_id = after_id;
+                self.current_stmts = Vec::new();
+            }
             _ => unimplemented!(),
         }
     }
