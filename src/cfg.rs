@@ -35,9 +35,9 @@ pub enum CFGJump {
 
 #[derive(Clone)]
 pub struct CFGBlock {
-    id: BlockID,
-    stmts: Vec<CFGStmt>,
-    jump_to: CFGJump,
+    pub id: BlockID,
+    pub stmts: Vec<CFGStmt>,
+    pub jump_to: CFGJump,
 }
 
 impl CFGBlock {
@@ -67,12 +67,12 @@ impl fmt::Debug for CFGBlock {
 
 #[derive(Clone)]
 pub struct CFGFunction {
-    func_obj: Obj,
-    args: Vec<Obj>,
+    pub func_obj: Obj,
+    pub args: Vec<Obj>,
 
-    entry_block: CFGBlock,
-    return_block: CFGBlock,
-    blocks: HashMap<usize, CFGBlock>,
+    pub entry_block: CFGBlock,
+    pub return_block: CFGBlock,
+    pub blocks: HashMap<usize, CFGBlock>,
 }
 
 #[derive(Clone)]
