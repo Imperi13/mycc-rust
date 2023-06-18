@@ -124,6 +124,7 @@ struct CFGArena {
     blocks: HashMap<usize, CFGBlock>,
 
     break_map: HashMap<usize, usize>,
+    continue_map: HashMap<usize, usize>,
 
     current_id: usize,
     next_id: usize,
@@ -138,6 +139,7 @@ impl CFGArena {
             return_block: CFGBlock::new(BlockID::Return),
             blocks: HashMap::new(),
             break_map: HashMap::new(),
+            continue_map: HashMap::new(),
             current_id: 0,
             next_id: 1,
             current_stmts: Vec::new(),
@@ -311,6 +313,7 @@ impl CFGArena {
                 self.next_id += 3;
 
                 self.break_map.insert(stmt_id, after_id);
+                self.continue_map.insert(stmt_id, cond_id);
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
@@ -360,6 +363,7 @@ impl CFGArena {
                 self.next_id += 3;
 
                 self.break_map.insert(stmt_id, after_id);
+                self.continue_map.insert(stmt_id, cond_id);
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
@@ -410,6 +414,7 @@ impl CFGArena {
                 self.next_id += 4;
 
                 self.break_map.insert(stmt_id, after_id);
+                self.continue_map.insert(stmt_id, step_id);
 
                 if start.is_some() {
                     let start = start.as_ref().unwrap();
@@ -492,7 +497,20 @@ impl CFGArena {
                 self.next_id += 1;
                 self.current_stmts = Vec::new();
             }
-            _ => unimplemented!(),
+            ASTStmtNode::Continue(ref stmt_id) => {
+                let continue_id = self.continue_map.get(stmt_id).unwrap().clone();
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(continue_id)),
+                };
+
+                self.blocks.insert(self.current_id, block);
+                self.current_id = self.next_id;
+                self.next_id += 1;
+                self.current_stmts = Vec::new();
+            }
         }
     }
 }
