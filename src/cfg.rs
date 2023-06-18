@@ -67,6 +67,9 @@ impl fmt::Debug for CFGBlock {
 
 #[derive(Clone)]
 pub struct CFGFunction {
+    func_obj: Obj,
+    args: Vec<Obj>,
+
     entry_block: CFGBlock,
     return_block: CFGBlock,
     blocks: HashMap<usize, CFGBlock>,
@@ -99,13 +102,13 @@ pub fn gen_cfg_all(obj_arena: &mut ObjArena, ast_all: &Vec<ASTGlobal>) -> Vec<CF
     let mut cfg_globals = Vec::new();
     for ast in ast_all.iter() {
         let cfg_global = match ast {
-            ASTGlobal::Function(func_obj, _, ref stmts) => {
+            ASTGlobal::Function(ref func_obj, ref args, ref stmts) => {
                 let retval = obj_arena.publish_obj(
                     "retval",
                     func_obj.borrow().obj_type.get_return_type().unwrap(),
                 );
                 let mut arena = CFGArena::new(retval);
-                CFGGlobal::Function(arena.gen_cfg_function(stmts))
+                CFGGlobal::Function(arena.gen_cfg_function(func_obj, args, stmts))
             }
             ASTGlobal::Variable(ref obj) => CFGGlobal::Variable(obj.clone()),
         };
@@ -146,7 +149,12 @@ impl CFGArena {
         }
     }
 
-    pub fn gen_cfg_function(&mut self, stmts: &Vec<ASTBlockStmt>) -> CFGFunction {
+    pub fn gen_cfg_function(
+        &mut self,
+        func_obj: &Obj,
+        args: &Vec<Obj>,
+        stmts: &Vec<ASTBlockStmt>,
+    ) -> CFGFunction {
         self.entry_block.jump_to = CFGJump::Unconditional(BlockID::Block(self.current_id));
 
         for block_stmt in stmts.iter() {
@@ -172,6 +180,8 @@ impl CFGArena {
         self.return_block.jump_to = CFGJump::Return(self.retval.clone());
 
         CFGFunction {
+            func_obj: func_obj.clone(),
+            args: args.clone(),
             entry_block: self.entry_block.clone(),
             return_block: self.return_block.clone(),
             blocks: self.blocks.clone(),
