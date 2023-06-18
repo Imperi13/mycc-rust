@@ -123,6 +123,8 @@ struct CFGArena {
     return_block: CFGBlock,
     blocks: HashMap<usize, CFGBlock>,
 
+    break_map: HashMap<usize, usize>,
+
     current_id: usize,
     next_id: usize,
     current_stmts: Vec<CFGStmt>,
@@ -135,6 +137,7 @@ impl CFGArena {
             entry_block: CFGBlock::new(BlockID::Entry),
             return_block: CFGBlock::new(BlockID::Return),
             blocks: HashMap::new(),
+            break_map: HashMap::new(),
             current_id: 0,
             next_id: 1,
             current_stmts: Vec::new(),
@@ -301,11 +304,13 @@ impl CFGArena {
                     self.current_stmts = Vec::new();
                 }
             }
-            ASTStmtNode::While(ref cond, ref stmt, _) => {
+            ASTStmtNode::While(ref cond, ref stmt, stmt_id) => {
                 let cond_id = self.next_id;
                 let loop_id = self.next_id + 1;
                 let after_id = self.next_id + 2;
                 self.next_id += 3;
+
+                self.break_map.insert(stmt_id, after_id);
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
@@ -348,11 +353,13 @@ impl CFGArena {
                 self.current_id = after_id;
                 self.current_stmts = Vec::new();
             }
-            ASTStmtNode::DoWhile(ref cond, ref stmt, _) => {
+            ASTStmtNode::DoWhile(ref cond, ref stmt, stmt_id) => {
                 let loop_id = self.next_id;
                 let cond_id = self.next_id + 1;
                 let after_id = self.next_id + 2;
                 self.next_id += 3;
+
+                self.break_map.insert(stmt_id, after_id);
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
@@ -395,12 +402,14 @@ impl CFGArena {
                 self.current_id = after_id;
                 self.current_stmts = Vec::new();
             }
-            ASTStmtNode::For(ref start, ref cond, ref step, ref stmt, _) => {
+            ASTStmtNode::For(ref start, ref cond, ref step, ref stmt, stmt_id) => {
                 let cond_id = self.next_id;
                 let step_id = self.next_id + 1;
                 let loop_id = self.next_id + 2;
                 let after_id = self.next_id + 3;
                 self.next_id += 4;
+
+                self.break_map.insert(stmt_id, after_id);
 
                 if start.is_some() {
                     let start = start.as_ref().unwrap();
@@ -468,6 +477,19 @@ impl CFGArena {
 
                 // after
                 self.current_id = after_id;
+                self.current_stmts = Vec::new();
+            }
+            ASTStmtNode::Break(ref stmt_id) => {
+                let break_id = self.break_map.get(stmt_id).unwrap().clone();
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(break_id)),
+                };
+
+                self.blocks.insert(self.current_id, block);
+                self.current_id = self.next_id;
+                self.next_id += 1;
                 self.current_stmts = Vec::new();
             }
             _ => unimplemented!(),
