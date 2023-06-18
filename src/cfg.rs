@@ -407,6 +407,14 @@ impl CFGArena {
                     self.current_stmts.push(CFGStmt::Expr(start.clone()));
                 }
 
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(cond_id)),
+                };
+
+                self.blocks.insert(self.current_id, block);
+
                 // cond
                 self.current_id = cond_id;
                 self.current_stmts = Vec::new();
