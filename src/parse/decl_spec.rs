@@ -17,6 +17,7 @@ impl<'a> ParseArena<'a> {
         matches!(keyword, KeywordKind::Int)
             || matches!(keyword, KeywordKind::Char)
             || matches!(keyword, KeywordKind::Bool)
+            || matches!(keyword, KeywordKind::Void)
             || matches!(keyword, KeywordKind::Struct)
     }
 
@@ -39,6 +40,9 @@ impl<'a> ParseArena<'a> {
         } else if tok_seq.expect_keyword(KeywordKind::Bool).is_some() {
             tok_seq = tok_seq.next();
             Ok((tok_seq, Type::new(TypeNode::Bool)))
+        } else if tok_seq.expect_keyword(KeywordKind::Void).is_some() {
+            tok_seq = tok_seq.next();
+            Ok((tok_seq, Type::new(TypeNode::Void)))
         } else if tok_seq.expect_keyword(KeywordKind::Struct).is_some() {
             tok_seq = tok_seq.next();
 

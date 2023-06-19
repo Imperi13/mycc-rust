@@ -12,6 +12,7 @@ pub struct StructDecl {
 
 #[derive(Clone)]
 pub enum TypeNode {
+    Void,
     Bool,
     Int,
     Char,
@@ -30,6 +31,7 @@ impl PartialEq<Type> for Type {
     #[inline]
     fn eq(&self, rhs: &Type) -> bool {
         match (&*self.head.borrow(), &*rhs.head.borrow()) {
+            (TypeNode::Void, TypeNode::Void) => true,
             (TypeNode::Int, TypeNode::Int) => true,
             (TypeNode::Char, TypeNode::Char) => true,
             (TypeNode::Bool, TypeNode::Bool) => true,
@@ -50,6 +52,7 @@ impl PartialEq<Type> for Type {
 impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self.head.borrow() {
+            TypeNode::Void => write!(f, "Void"),
             TypeNode::Bool => write!(f, "Bool"),
             TypeNode::Int => write!(f, "Int"),
             TypeNode::Char => write!(f, "Char"),
@@ -160,6 +163,10 @@ impl Type {
             || matches!(*self.head.borrow(), TypeNode::Char)
     }
 
+    pub fn is_void_type(&self) -> bool {
+        matches!(*self.head.borrow(), TypeNode::Void)
+    }
+
     pub fn is_bool_type(&self) -> bool {
         matches!(*self.head.borrow(), TypeNode::Bool)
     }
@@ -182,6 +189,7 @@ impl Type {
             TypeNode::Array(ref array_to, _) => array_to.is_complete_type(),
             TypeNode::Struct(ref st_decl) => st_decl.members.is_some(),
             TypeNode::Func(_, _) => false,
+            TypeNode::Void => false,
         }
     }
 }
