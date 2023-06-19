@@ -89,7 +89,11 @@ impl<'ctx> CodegenArena<'ctx> {
                 let ptr_to = self.convert_llvm_anytype(c_ptr_to);
                 match ptr_to.clone() {
                     // use i8* for void *
-                    AnyTypeEnum::VoidType(_) => self.context.i8_type().ptr_type(AddressSpace::default()).into(),
+                    AnyTypeEnum::VoidType(_) => self
+                        .context
+                        .i8_type()
+                        .ptr_type(AddressSpace::default())
+                        .into(),
                     AnyTypeEnum::FunctionType(fn_type) => {
                         fn_type.ptr_type(AddressSpace::default()).into()
                     }
@@ -808,6 +812,17 @@ impl<'ctx> CodegenArena<'ctx> {
                             )
                             .into()
                     }
+                } else if lhs_type.is_ptr_type() && rhs_type.is_ptr_type() {
+                    let ptr_to = lhs_type.get_ptr_to().unwrap();
+                    let llvm_type = self.convert_llvm_basictype(&ptr_to);
+                    self.builder
+                        .build_ptr_diff(
+                            llvm_type,
+                            lhs.into_pointer_value(),
+                            rhs.into_pointer_value(),
+                            "ptr diff",
+                        )
+                        .into()
                 } else {
                     unreachable!()
                 }

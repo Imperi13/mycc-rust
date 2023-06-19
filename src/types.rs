@@ -167,6 +167,10 @@ impl Type {
         matches!(*self.head.borrow(), TypeNode::Void)
     }
 
+    pub fn is_void_ptr_type(&self) -> bool {
+        self.is_ptr_type() && self.get_ptr_to().unwrap().is_void_type()
+    }
+
     pub fn is_bool_type(&self) -> bool {
         matches!(*self.head.borrow(), TypeNode::Bool)
     }

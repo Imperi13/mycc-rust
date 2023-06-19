@@ -115,6 +115,8 @@ impl ASTExpr {
             || (self.expr_type.is_ptr_type() && cast_to.is_bool_type())
             || (self.expr_type.is_array_type() && cast_to.is_ptr_type())
             || (self.is_const_zero() && cast_to.is_ptr_type())
+            || (self.expr_type.is_void_ptr_type() && cast_to.is_ptr_type())
+            || (self.expr_type.is_ptr_type() && cast_to.is_void_ptr_type())
     }
 
     pub fn cast_to(&self, cast_to: &Type) -> ASTExpr {

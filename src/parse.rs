@@ -1171,6 +1171,11 @@ impl<'a> ParseArena<'a> {
                                 ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
                                 lhs_type,
                             );
+                        } else if lhs_type.is_ptr_type() && rhs_type.is_ptr_type() {
+                            node = ASTExpr::new(
+                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                Type::new(TypeNode::Int),
+                            );
                         } else {
                             return Err(ParseError::SemanticError(tok_seq));
                         }
