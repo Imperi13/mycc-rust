@@ -481,6 +481,9 @@ impl<'ctx> CodegenArena<'ctx> {
                             "cast to bool",
                         )
                         .into()
+                } else if expr.is_const_zero() && cast_to.is_ptr_type() {
+                    let llvm_type = self.convert_llvm_basictype(cast_to).into_pointer_type();
+                    llvm_type.const_null().into()
                 } else {
                     val
                 }

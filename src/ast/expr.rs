@@ -112,6 +112,7 @@ impl ASTExpr {
         &self.expr_type == cast_to
             || (self.expr_type.is_int_type() && cast_to.is_int_type())
             || (self.expr_type.is_int_type() && cast_to.is_bool_type())
+            || (self.expr_type.is_ptr_type() && cast_to.is_bool_type())
             || (self.expr_type.is_array_type() && cast_to.is_ptr_type())
             || (self.is_const_zero() && cast_to.is_ptr_type())
     }
