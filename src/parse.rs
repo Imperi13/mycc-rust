@@ -823,8 +823,8 @@ impl<'a> ParseArena<'a> {
     }
 
     fn parse_logical_or(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
-        let mut lhs;
-        (tok_seq, lhs) = self.parse_logical_and(tok_seq)?;
+        let mut node;
+        (tok_seq, node) = self.parse_logical_and(tok_seq)?;
 
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
@@ -835,17 +835,13 @@ impl<'a> ParseArena<'a> {
 
                 tok_seq = tok_seq.next();
 
+                let lhs = node.cast_to(&Type::new(TypeNode::Bool));
+
                 let rhs;
                 (tok_seq, rhs) = self.parse_logical_and(tok_seq)?;
+                let rhs = rhs.cast_to(&Type::new(TypeNode::Bool));
 
-                let lhs_type = lhs.expr_type.clone();
-                let rhs_type = rhs.expr_type.clone();
-
-                if !lhs_type.is_int_type() || !rhs_type.is_int_type() {
-                    return Err(ParseError::SemanticError(tok_seq));
-                }
-
-                lhs = ASTExpr::new(
+                node = ASTExpr::new(
                     ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
                     Type::new(TypeNode::Int),
                 );
@@ -854,15 +850,15 @@ impl<'a> ParseArena<'a> {
             }
         }
 
-        Ok((tok_seq, lhs))
+        Ok((tok_seq, node))
     }
 
     fn parse_logical_and(
         &self,
         mut tok_seq: TokenList,
     ) -> Result<(TokenList, ASTExpr), ParseError> {
-        let mut lhs;
-        (tok_seq, lhs) = self.parse_bit_or(tok_seq)?;
+        let mut node;
+        (tok_seq, node) = self.parse_bit_or(tok_seq)?;
 
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
@@ -873,17 +869,13 @@ impl<'a> ParseArena<'a> {
 
                 tok_seq = tok_seq.next();
 
+                let lhs = node.cast_to(&Type::new(TypeNode::Bool));
+
                 let rhs;
                 (tok_seq, rhs) = self.parse_bit_or(tok_seq)?;
+                let rhs = rhs.cast_to(&Type::new(TypeNode::Bool));
 
-                let lhs_type = lhs.expr_type.clone();
-                let rhs_type = rhs.expr_type.clone();
-
-                if !lhs_type.is_int_type() || !rhs_type.is_int_type() {
-                    return Err(ParseError::SemanticError(tok_seq));
-                }
-
-                lhs = ASTExpr::new(
+                node = ASTExpr::new(
                     ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
                     Type::new(TypeNode::Int),
                 );
@@ -892,7 +884,7 @@ impl<'a> ParseArena<'a> {
             }
         }
 
-        Ok((tok_seq, lhs))
+        Ok((tok_seq, node))
     }
 
     fn parse_bit_or(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
