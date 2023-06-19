@@ -574,3 +574,42 @@ test_function!(
     "struct A{int a; int b;}; int main(){struct A a; a.a = 174; return a.a;}",
     174
 );
+
+test_function!(
+    ex_204,
+    "int main(){int *p; p = 0; if(p) {return 4; } return 174;}",
+    174
+);
+test_function!(
+    ex_205,
+    "int main(){int *p; int a; p = &a; if(p) {return 4; } return 174;}",
+    4
+);
+test_function!(
+    ex_206,
+    "int main(){int *p; int a; p = &a; return p && &p;}",
+    1
+);
+test_function!(
+    ex_207,
+    "int main(){int *p; int a; p = &a; return p || &p;}",
+    1
+);
+test_function!(
+    ex_208,
+    "int main(){int *p; int a; p = &a; return p?174:1;}",
+    174
+);
+test_function!(ex_209, "int main(){int *p; p = 0; return p?174:1;}", 1);
+test_function!(ex_210, "int main(void){return 174;}", 174);
+test_function!(
+    ex_211,
+    "int main(void){void *p; p = 0; p = p; return 174;}",
+    174
+);
+test_function!(ex_212,"struct A{int a; int b;}; int main(){ struct A *p; void *q1; void *q2; q1 = p; q2 = p+1; char *r1; char *r2; r1 = q1; r2 = q2; return r2-r1;}",8);
+test_function!(
+    ex_213,
+    "void f(int *p){*p = 174; return;} int main(void){ int a; f(&a); return a;}",
+    174
+);
