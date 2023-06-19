@@ -112,6 +112,28 @@ impl TokenList {
         }
     }
 
+    pub fn equal_punct(&self, expect_punct: PunctKind) -> bool {
+        if let Link::More(ref node) = *self.head.clone().borrow() {
+            match &node.elem {
+                TokenKind::Punct(punct) => &expect_punct == punct,
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn equal_keyword(&self, expect_keyword: KeywordKind) -> bool {
+        if let Link::More(ref node) = *self.head.clone().borrow() {
+            match &node.elem {
+                TokenKind::Keyword(keyword) => &expect_keyword == keyword,
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
+
     pub fn expect_punct(&self, expect_punct: PunctKind) -> Option<TokenList> {
         if let Link::More(ref node) = *self.head.clone().borrow() {
             match &node.elem {
