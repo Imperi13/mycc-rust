@@ -10,6 +10,7 @@ use crate::obj::Obj;
 use crate::obj::ObjArena;
 
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fmt;
 
 #[derive(Clone)]
@@ -77,50 +78,87 @@ pub struct CFGFunction {
 }
 
 impl CFGFunction {
-    pub fn is_valid_blocks(&self) -> bool {
+    pub fn cleanup_unreachable_block(&mut self) {
         let size = self.blocks.len();
 
-        for i in 0..size {
-            let Some(ref block) = self.blocks.get(&i) else {return false;};
-            if block.id != BlockID::Block(i) {
-                return false;
-            }
+        let mut visit = vec![false; size];
+        let mut queue = VecDeque::new();
 
-            match block.jump_to {
-                CFGJump::Unconditional(ref id) => match id {
+        match self.entry_block.jump_to {
+            CFGJump::Unconditional(ref id) => match id.clone() {
+                BlockID::Block(num) => {
+                    visit[num] = true;
+                    queue.push_back(num);
+                }
+                _ => (),
+            },
+            CFGJump::Conditional(_, ref then_id, ref else_id) => {
+                match then_id.clone() {
                     BlockID::Block(num) => {
-                        if num >= &size {
-                            return false;
+                        visit[num] = true;
+                        queue.push_back(num);
+                    }
+                    _ => (),
+                }
+                match else_id.clone() {
+                    BlockID::Block(num) => {
+                        visit[num] = true;
+                        queue.push_back(num);
+                    }
+                    _ => (),
+                }
+            }
+            _ => panic!(),
+        }
+
+        // bfs
+
+        while !queue.is_empty() {
+            let now = queue.pop_front().unwrap();
+
+            let now_block = self.blocks.get(&now).unwrap();
+
+            match now_block.jump_to {
+                CFGJump::Unconditional(ref id) => match id.clone() {
+                    BlockID::Block(num) => {
+                        if !visit[num] {
+                            visit[num] = true;
+                            queue.push_back(num);
                         }
                     }
                     _ => (),
                 },
                 CFGJump::Conditional(_, ref then_id, ref else_id) => {
-                    match then_id {
+                    match then_id.clone() {
                         BlockID::Block(num) => {
-                            if num >= &size {
-                                return false;
+                            if !visit[num] {
+                                visit[num] = true;
+                                queue.push_back(num);
                             }
                         }
                         _ => (),
                     }
-                    match else_id {
+                    match else_id.clone() {
                         BlockID::Block(num) => {
-                            if num >= &size {
-                                return false;
+                            if !visit[num] {
+                                visit[num] = true;
+                                queue.push_back(num);
                             }
                         }
                         _ => (),
                     }
                 }
-
-                _ => {
-                    return false;
-                }
+                _ => panic!(),
             }
         }
 
-        true
+        // remove unreachable block
+
+        for index in 0..size {
+            if !visit[index] {
+                self.blocks.remove(&index);
+            }
+        }
     }
 }
 
@@ -228,7 +266,7 @@ impl CFGArena {
 
         self.return_block.jump_to = CFGJump::Return;
 
-        let cfg_func = CFGFunction {
+        let mut cfg_func = CFGFunction {
             func_obj: func_obj.clone(),
             args: args.clone(),
             retval: self.retval.clone(),
@@ -237,7 +275,7 @@ impl CFGArena {
             blocks: self.blocks.clone(),
         };
 
-        assert!(cfg_func.is_valid_blocks());
+        cfg_func.cleanup_unreachable_block();
 
         cfg_func
     }
