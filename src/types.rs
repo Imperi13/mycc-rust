@@ -26,6 +26,27 @@ pub struct Type {
     head: Rc<RefCell<TypeNode>>,
 }
 
+impl PartialEq<Type> for Type {
+    #[inline]
+    fn eq(&self, rhs: &Type) -> bool {
+        match (&*self.head.borrow(), &*rhs.head.borrow()) {
+            (TypeNode::Int, TypeNode::Int) => true,
+            (TypeNode::Char, TypeNode::Char) => true,
+            (TypeNode::Bool, TypeNode::Bool) => true,
+            (TypeNode::Ptr(ref lhs_to), TypeNode::Ptr(ref rhs_to)) => lhs_to == rhs_to,
+            (TypeNode::Struct(ref lhs_st), TypeNode::Struct(ref rhs_st)) => lhs_st.id == rhs_st.id,
+            (TypeNode::Array(ref lhs_to, lhs_len), TypeNode::Array(ref rhs_to, rhs_len)) => {
+                lhs_to == rhs_to && lhs_len == rhs_len
+            }
+            (
+                TypeNode::Func(ref _lhs_ret, ref _lhs_args),
+                TypeNode::Func(ref _rhs_ret, ref _rhs_args),
+            ) => unimplemented!(),
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self.head.borrow() {
