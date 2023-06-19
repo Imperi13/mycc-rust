@@ -1,15 +1,13 @@
-use crate::ast::ASTBlockStmt;
 use crate::ast::ASTExpr;
 use crate::ast::ASTExprNode;
-use crate::ast::ASTGlobal;
-use crate::ast::ASTStmt;
-use crate::ast::ASTStmtNode;
 use crate::ast::AssignKind;
 use crate::ast::AssignNode;
 use crate::ast::BinaryOpKind;
 use crate::ast::BinaryOpNode;
 use crate::ast::UnaryOpKind;
 use crate::ast::UnaryOpNode;
+use crate::cfg::CFGFunction;
+use crate::cfg::CFGGlobal;
 use crate::obj::Obj;
 use crate::types::Type;
 use crate::types::TypeNode;
@@ -37,9 +35,9 @@ pub struct CodegenArena<'ctx> {
     builder: Builder<'ctx>,
 
     current_func: Option<FunctionValue<'ctx>>,
+    return_block: Option<BasicBlock<'ctx>>,
+    blocks: HashMap<usize, BasicBlock<'ctx>>,
     objs_ptr: HashMap<usize, PointerValue<'ctx>>,
-    break_block: HashMap<usize, BasicBlock<'ctx>>,
-    continue_block: HashMap<usize, BasicBlock<'ctx>>,
 }
 
 impl<'ctx> CodegenArena<'ctx> {
@@ -51,17 +49,17 @@ impl<'ctx> CodegenArena<'ctx> {
             module,
             builder,
             current_func: None,
+            return_block: None,
+            blocks: HashMap::new(),
             objs_ptr: HashMap::new(),
-            break_block: HashMap::new(),
-            continue_block: HashMap::new(),
         }
     }
 
-    pub fn codegen_all(&mut self, globals: &Vec<ASTGlobal>, output_path: &str) {
-        for obj in globals.iter() {
-            match obj {
-                ASTGlobal::Function(_, _, _) => self.codegen_func(obj),
-                ASTGlobal::Variable(_) => self.codegen_global_variable(obj),
+    pub fn codegen_all(&mut self, globals: &Vec<CFGGlobal>, output_path: &str) {
+        for global in globals.iter() {
+            match global {
+                CFGGlobal::Function(ref func) => self.codegen_func(func),
+                CFGGlobal::Variable(ref obj) => self.codegen_global_variable(obj),
             };
         }
 
@@ -178,64 +176,9 @@ impl<'ctx> CodegenArena<'ctx> {
         self.objs_ptr.get(&obj.borrow().id).unwrap().clone()
     }
 
-    fn get_break_block(&self, stmt_id: usize) -> BasicBlock {
-        if !self.break_block.contains_key(&stmt_id) {
-            panic!("not found obj");
-        }
+    fn codegen_func(&mut self, func: &CFGFunction) {}
 
-        self.break_block.get(&stmt_id).unwrap().clone()
-    }
-
-    fn get_continue_block(&self, stmt_id: usize) -> BasicBlock {
-        if !self.continue_block.contains_key(&stmt_id) {
-            panic!("not found obj");
-        }
-
-        self.continue_block.get(&stmt_id).unwrap().clone()
-    }
-
-    fn codegen_func(&mut self, func: &ASTGlobal) {
-        let ASTGlobal::Function(ref obj,ref args, ref stmts) = func else{panic!()};
-
-        let main_fn_type = self
-            .convert_llvm_anytype(&obj.borrow().obj_type)
-            .try_into()
-            .unwrap();
-        let main_fn = self
-            .module
-            .add_function(&obj.borrow().name, main_fn_type, None);
-        let frame_pointer_attribute = self.context.create_string_attribute("frame-pointer", "all");
-        main_fn.add_attribute(AttributeLoc::Function, frame_pointer_attribute);
-
-        let basic_block = self.context.append_basic_block(main_fn, "entry");
-
-        self.current_func = Some(main_fn);
-        self.objs_ptr.insert(
-            obj.borrow().id,
-            main_fn.as_global_value().as_pointer_value(),
-        );
-        self.builder.position_at_end(basic_block);
-        for (i, arg) in main_fn.get_param_iter().enumerate() {
-            let ptr = self.alloc_local_obj(&args[i]);
-            self.builder.build_store(ptr, arg);
-        }
-
-        for stmt in stmts.iter() {
-            match stmt {
-                ASTBlockStmt::Declaration(ref obj) => {
-                    self.alloc_local_obj(obj);
-                }
-                ASTBlockStmt::Stmt(ref stmt) => self.codegen_stmt(stmt),
-            }
-        }
-
-        self.builder.build_unreachable();
-        self.current_func = None;
-    }
-
-    fn codegen_global_variable(&mut self, var_decl: &ASTGlobal) {
-        let ASTGlobal::Variable(ref obj) = var_decl else {panic!()};
-
+    fn codegen_global_variable(&mut self, obj: &Obj) {
         if obj.borrow().obj_type.is_function_type() {
             let main_fn_type = self
                 .convert_llvm_anytype(&obj.borrow().obj_type)
@@ -292,189 +235,6 @@ impl<'ctx> CodegenArena<'ctx> {
                     .unwrap()
             }
             _ => panic!(),
-        }
-    }
-
-    fn codegen_stmt(&mut self, ast: &ASTStmt) {
-        match ast.get_node() {
-            ASTStmtNode::Return(ref expr) => {
-                let val = self.codegen_expr(expr);
-                self.builder.build_return(Some(&val));
-            }
-            ASTStmtNode::Break(stmt_id) => {
-                let break_block = self.get_break_block(stmt_id);
-                self.builder.build_unconditional_branch(break_block);
-            }
-            ASTStmtNode::Continue(stmt_id) => {
-                let continue_block = self.get_continue_block(stmt_id);
-                self.builder.build_unconditional_branch(continue_block);
-            }
-            ASTStmtNode::ExprStmt(ref expr) => {
-                self.codegen_expr(expr);
-            }
-            ASTStmtNode::Block(ref stmts) => {
-                for stmt in stmts.iter() {
-                    match stmt {
-                        ASTBlockStmt::Declaration(ref obj) => {
-                            self.alloc_local_obj(obj);
-                        }
-                        ASTBlockStmt::Stmt(ref stmt) => self.codegen_stmt(stmt),
-                    }
-                }
-            }
-            ASTStmtNode::If(ref cond, ref then_stmt, ref else_stmt) => {
-                let func = self.current_func.unwrap();
-                let zero = self
-                    .convert_llvm_basictype(&cond.expr_type)
-                    .into_int_type()
-                    .const_int(0, false);
-
-                let cond = self.codegen_expr(cond);
-                let cond = self.builder.build_int_compare(
-                    inkwell::IntPredicate::NE,
-                    cond.into_int_value(),
-                    zero,
-                    "if_cond",
-                );
-
-                let then_bb = self.context.append_basic_block(func, "if_then");
-                let else_bb = self.context.append_basic_block(func, "if_else");
-                let after_bb = self.context.append_basic_block(func, "if_after");
-
-                self.builder
-                    .build_conditional_branch(cond, then_bb, else_bb);
-
-                self.builder.position_at_end(then_bb);
-                self.codegen_stmt(then_stmt);
-                self.builder.build_unconditional_branch(after_bb);
-
-                self.builder.position_at_end(else_bb);
-                if else_stmt.is_some() {
-                    let else_stmt = else_stmt.as_ref().unwrap();
-                    self.codegen_stmt(else_stmt);
-                }
-                self.builder.build_unconditional_branch(after_bb);
-
-                self.builder.position_at_end(after_bb);
-            }
-            ASTStmtNode::While(ref cond, ref stmt, stmt_id) => {
-                let func = self.current_func.unwrap();
-                let zero = self
-                    .convert_llvm_basictype(&cond.expr_type)
-                    .into_int_type()
-                    .const_int(0, false);
-
-                let cond_bb = self.context.append_basic_block(func, "cond");
-                let loop_bb = self.context.append_basic_block(func, "loop");
-                let after_bb = self.context.append_basic_block(func, "after");
-
-                // push break_block
-                self.break_block.insert(stmt_id, after_bb);
-                self.continue_block.insert(stmt_id, cond_bb);
-
-                self.builder.build_unconditional_branch(cond_bb);
-                self.builder.position_at_end(cond_bb);
-                let cond = self.codegen_expr(cond);
-                let cond = self.builder.build_int_compare(
-                    inkwell::IntPredicate::NE,
-                    cond.into_int_value(),
-                    zero,
-                    "if_cond",
-                );
-
-                self.builder
-                    .build_conditional_branch(cond, loop_bb, after_bb);
-
-                self.builder.position_at_end(loop_bb);
-                self.codegen_stmt(stmt);
-                self.builder.build_unconditional_branch(cond_bb);
-
-                self.builder.position_at_end(after_bb);
-            }
-            ASTStmtNode::DoWhile(ref cond, ref stmt, stmt_id) => {
-                let func = self.current_func.unwrap();
-                let zero = self
-                    .convert_llvm_basictype(&cond.expr_type)
-                    .into_int_type()
-                    .const_int(0, false);
-
-                let loop_bb = self.context.append_basic_block(func, "loop");
-                let cond_bb = self.context.append_basic_block(func, "cond");
-                let after_bb = self.context.append_basic_block(func, "after");
-
-                self.break_block.insert(stmt_id, after_bb);
-                self.continue_block.insert(stmt_id, cond_bb);
-
-                self.builder.build_unconditional_branch(loop_bb);
-                self.builder.position_at_end(loop_bb);
-                self.codegen_stmt(stmt);
-
-                self.builder.build_unconditional_branch(cond_bb);
-                self.builder.position_at_end(cond_bb);
-                let cond = self.codegen_expr(cond);
-                let cond = self.builder.build_int_compare(
-                    inkwell::IntPredicate::NE,
-                    cond.into_int_value(),
-                    zero,
-                    "if_cond",
-                );
-
-                self.builder
-                    .build_conditional_branch(cond, loop_bb, after_bb);
-
-                self.builder.position_at_end(after_bb);
-            }
-            ASTStmtNode::For(ref start, ref cond, ref step, ref stmt, stmt_id) => {
-                let func = self.current_func.unwrap();
-
-                let cond_bb = self.context.append_basic_block(func, "cond");
-                let step_bb = self.context.append_basic_block(func, "step");
-                let loop_bb = self.context.append_basic_block(func, "loop");
-                let after_bb = self.context.append_basic_block(func, "after");
-
-                // push break_block
-                self.break_block.insert(stmt_id, after_bb);
-                self.continue_block.insert(stmt_id, step_bb);
-
-                if start.is_some() {
-                    let start = start.as_ref().unwrap();
-                    self.codegen_expr(start);
-                }
-                self.builder.build_unconditional_branch(cond_bb);
-
-                self.builder.position_at_end(cond_bb);
-                if cond.is_some() {
-                    let cond = cond.as_ref().unwrap();
-                    let zero = self
-                        .convert_llvm_basictype(&cond.expr_type)
-                        .into_int_type()
-                        .const_int(0, false);
-                    let cond = self.codegen_expr(cond);
-                    let cond = self.builder.build_int_compare(
-                        inkwell::IntPredicate::NE,
-                        cond.into_int_value(),
-                        zero,
-                        "if_cond",
-                    );
-
-                    self.builder
-                        .build_conditional_branch(cond, loop_bb, after_bb);
-                } else {
-                    self.builder.build_unconditional_branch(loop_bb);
-                }
-
-                self.builder.position_at_end(loop_bb);
-                self.codegen_stmt(stmt);
-                self.builder.build_unconditional_branch(step_bb);
-
-                self.builder.position_at_end(step_bb);
-                if step.is_some() {
-                    self.codegen_expr(step.as_ref().unwrap());
-                }
-                self.builder.build_unconditional_branch(cond_bb);
-
-                self.builder.position_at_end(after_bb);
-            }
         }
     }
 

@@ -33,10 +33,9 @@ pub fn compile(code: &str, output_path: &str) {
         }
     };
 
-    let cfg = gen_cfg_all(&mut obj_arena,&ast);
-    eprintln!("{:?}", cfg);
+    let cfg = gen_cfg_all(&mut obj_arena, &ast);
 
     let context = Context::create();
     let mut codegen_arena = CodegenArena::new(&context);
-    codegen_arena.codegen_all(&ast, output_path);
+    codegen_arena.codegen_all(&cfg, output_path);
 }
