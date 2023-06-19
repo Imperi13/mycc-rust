@@ -28,7 +28,7 @@ pub enum BlockID {
 #[derive(Clone, Debug)]
 pub enum CFGJump {
     None,
-    Return(Obj),
+    Return,
     Unconditional(BlockID),
     Conditional(ASTExpr, BlockID, BlockID),
 }
@@ -69,6 +69,7 @@ impl fmt::Debug for CFGBlock {
 pub struct CFGFunction {
     pub func_obj: Obj,
     pub args: Vec<Obj>,
+    pub retval: Obj,
 
     pub entry_block: CFGBlock,
     pub return_block: CFGBlock,
@@ -177,11 +178,12 @@ impl CFGArena {
         self.next_id += 1;
         self.current_stmts = Vec::new();
 
-        self.return_block.jump_to = CFGJump::Return(self.retval.clone());
+        self.return_block.jump_to = CFGJump::Return;
 
         CFGFunction {
             func_obj: func_obj.clone(),
             args: args.clone(),
+            retval: self.retval.clone(),
             entry_block: self.entry_block.clone(),
             return_block: self.return_block.clone(),
             blocks: self.blocks.clone(),
