@@ -42,6 +42,7 @@ pub struct CodegenArena<'ctx> {
 
     // for function
     current_func: Option<FunctionValue<'ctx>>,
+    entry_block: Option<BasicBlock<'ctx>>,
     return_block: Option<BasicBlock<'ctx>>,
     blocks: HashMap<usize, BasicBlock<'ctx>>,
 }
@@ -55,6 +56,7 @@ impl<'ctx> CodegenArena<'ctx> {
             module,
             builder,
             current_func: None,
+            entry_block: None,
             return_block: None,
             blocks: HashMap::new(),
             objs_ptr: HashMap::new(),
@@ -209,6 +211,7 @@ impl<'ctx> CodegenArena<'ctx> {
             self.blocks.insert(index.clone(), block);
         }
 
+        self.entry_block = Some(entry_block);
         self.return_block = Some(return_block);
 
         // codegen entry_block
@@ -222,6 +225,8 @@ impl<'ctx> CodegenArena<'ctx> {
         for stmt in func.entry_block.stmts.iter() {
             self.codegen_stmt(stmt);
         }
+
+        self.codegen_jump(&func.entry_block.jump_to);
 
         // codegen return_block
         self.builder.position_at_end(return_block);
@@ -238,9 +243,30 @@ impl<'ctx> CodegenArena<'ctx> {
 
         // codegen other block
 
+        for (_, cfg_block) in func.blocks.iter() {
+            self.codegen_block(cfg_block);
+        }
+
         self.current_func = None;
+        self.entry_block = None;
         self.return_block = None;
         self.blocks = HashMap::new();
+    }
+
+    fn codegen_block(&mut self, cfg_block: &CFGBlock) {
+        let block = match cfg_block.id {
+            BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
+            BlockID::Entry => panic!(),
+            BlockID::Return => panic!(),
+        };
+
+        self.builder.position_at_end(block);
+
+        for stmt in cfg_block.stmts.iter() {
+            self.codegen_stmt(stmt);
+        }
+
+        self.codegen_jump(&cfg_block.jump_to);
     }
 
     fn codegen_stmt(&mut self, stmt: &CFGStmt) {
@@ -251,6 +277,51 @@ impl<'ctx> CodegenArena<'ctx> {
             CFGStmt::Expr(ref expr) => {
                 self.codegen_expr(expr);
             }
+        }
+    }
+
+    fn codegen_jump(&mut self, jump: &CFGJump) {
+        match jump {
+            CFGJump::Unconditional(ref block_id) => {
+                let block = match block_id {
+                    BlockID::Entry => self.entry_block.unwrap(),
+                    BlockID::Return => self.return_block.unwrap(),
+                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
+                };
+
+                self.builder.build_unconditional_branch(block);
+            }
+            CFGJump::Conditional(ref cond, ref then_id, ref else_id) => {
+                let then_block = match then_id {
+                    BlockID::Entry => self.entry_block.unwrap(),
+                    BlockID::Return => self.return_block.unwrap(),
+                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
+                };
+
+                let else_block = match else_id {
+                    BlockID::Entry => self.entry_block.unwrap(),
+                    BlockID::Return => self.return_block.unwrap(),
+                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
+                };
+
+                let zero = self
+                    .convert_llvm_basictype(&cond.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+
+                let cond = self.codegen_expr(cond);
+                let cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond.into_int_value(),
+                    zero,
+                    "if_cond",
+                );
+
+                self.builder
+                    .build_conditional_branch(cond, then_block, else_block);
+            }
+            CFGJump::Return => panic!(),
+            CFGJump::None => panic!(),
         }
     }
 
