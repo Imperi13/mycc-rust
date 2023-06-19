@@ -107,7 +107,15 @@ impl ASTExpr {
         (*self.head).clone()
     }
 
+    pub fn is_castable(&self, cast_to: &Type) -> bool {
+        &self.expr_type == cast_to
+            || (self.expr_type.is_int_type() && cast_to.is_int_type())
+            || (self.expr_type.is_int_type() && cast_to.is_bool_type())
+            || (self.expr_type.is_array_type() && cast_to.is_ptr_type())
+    }
+
     pub fn cast_to(&self, cast_to: &Type) -> ASTExpr {
+        assert!(self.is_castable(cast_to));
         ASTExpr::new(
             ASTExprNode::Cast(cast_to.clone(), self.clone()),
             cast_to.clone(),
