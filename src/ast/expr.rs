@@ -132,7 +132,31 @@ impl ASTExpr {
             self.clone()
         }
     }
+}
 
+#[derive(Clone, PartialEq, Eq)]
+pub enum ConstValue {
+    Integer(i64),
+}
+
+impl ASTExpr {
+    pub fn is_consteval(&self) -> bool {
+        match *self.head {
+            ASTExprNode::Number(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn eval_const(&self) -> ConstValue {
+        assert!(self.is_consteval());
+        match *self.head {
+            ASTExprNode::Number(num) => ConstValue::Integer(num as i64),
+            _ => panic!(),
+        }
+    }
+}
+
+impl ASTExpr {
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
         match *self.head {
             ASTExprNode::Conditional(ref cond, ref then_expr, ref else_expr) => {
