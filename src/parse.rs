@@ -267,18 +267,23 @@ impl<'a> ParseArena<'a> {
                 .expect_keyword(KeywordKind::Return)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let expr;
-            (tok_seq, expr) = self.parse_expr(tok_seq)?;
+            if tok_seq.equal_punct(PunctKind::SemiColon) {
+                tok_seq = tok_seq.next();
+                Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(None))))
+            } else {
+                let expr;
+                (tok_seq, expr) = self.parse_expr(tok_seq)?;
 
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::SemiColon)
-                .ok_or(ParseError::SyntaxError(tok_seq))?;
+                tok_seq = tok_seq
+                    .expect_punct(PunctKind::SemiColon)
+                    .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let return_type = self.return_type.clone().unwrap();
+                let return_type = self.return_type.clone().unwrap();
 
-            let cast = expr.cast_to(&return_type);
+                let cast = expr.cast_to(&return_type);
 
-            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(cast))))
+                Ok((tok_seq, ASTStmt::new(ASTStmtNode::Return(Some(cast)))))
+            }
         } else if tok_seq.expect_keyword(KeywordKind::Break).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Break)

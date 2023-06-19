@@ -222,7 +222,10 @@ impl<'ctx> CodegenArena<'ctx> {
 
         // codegen entry_block
         self.builder.position_at_end(entry_block);
-        self.alloc_local_obj(&func.retval);
+        if func.retval.is_some() {
+            let retval = func.retval.as_ref().unwrap();
+            self.alloc_local_obj(retval);
+        }
         for (i, arg) in main_fn.get_param_iter().enumerate() {
             let ptr = self.alloc_local_obj(&func.args[i]);
             self.builder.build_store(ptr, arg);
@@ -241,11 +244,17 @@ impl<'ctx> CodegenArena<'ctx> {
             self.codegen_stmt(stmt);
         }
 
-        let ptr = self.get_local_obj(&func.retval);
-        let ret_type = &func.retval.borrow().obj_type;
-        let llvm_type = self.convert_llvm_basictype(&ret_type);
-        let retval = self.builder.build_load(llvm_type, ptr, "retval");
-        self.builder.build_return(Some(&retval));
+        if func.retval.is_some() {
+            let retval = func.retval.as_ref().unwrap();
+
+            let ptr = self.get_local_obj(retval);
+            let ret_type = &retval.borrow().obj_type;
+            let llvm_type = self.convert_llvm_basictype(&ret_type);
+            let retval = self.builder.build_load(llvm_type, ptr, "retval");
+            self.builder.build_return(Some(&retval));
+        } else {
+            self.builder.build_return(None);
+        }
 
         // codegen other block
 
@@ -503,11 +512,24 @@ impl<'ctx> CodegenArena<'ctx> {
                 let fn_type = self
                     .convert_llvm_anytype(&func_expr.expr_type)
                     .into_function_type();
-                self.builder
-                    .build_indirect_call(fn_type, func_ptr, &arg_val, "func_call")
-                    .try_as_basic_value()
-                    .left()
+
+                if func_expr
+                    .expr_type
+                    .get_return_type()
                     .unwrap()
+                    .is_void_type()
+                {
+                    self.builder
+                        .build_indirect_call(fn_type, func_ptr, &arg_val, "func_call");
+                    // return 0 instead of void return
+                    self.context.i8_type().const_zero().into()
+                } else {
+                    self.builder
+                        .build_indirect_call(fn_type, func_ptr, &arg_val, "func_call")
+                        .try_as_basic_value()
+                        .left()
+                        .unwrap()
+                }
             }
             ASTExprNode::Dot(ref _st_expr, _index) => {
                 let ptr = self.codegen_addr(ast);

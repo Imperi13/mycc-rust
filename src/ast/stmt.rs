@@ -6,7 +6,7 @@ use std::fmt;
 #[derive(Clone)]
 pub enum ASTStmtNode {
     ExprStmt(ASTExpr),
-    Return(ASTExpr),
+    Return(Option<ASTExpr>),
     Break(usize),
     Continue(usize),
     Block(Vec<ASTBlockStmt>),
@@ -43,7 +43,11 @@ impl ASTStmt {
             ASTStmtNode::Return(ref expr) => {
                 writeln!(f, "{}Return", indent)?;
                 writeln!(f, "{}expr:", indent)?;
-                expr.fmt_with_indent(f, &format!("{}\t", indent))
+                if expr.is_some() {
+                    let expr = expr.as_ref().unwrap();
+                    expr.fmt_with_indent(f, &format!("{}\t", indent))?;
+                }
+                Ok(())
             }
             ASTStmtNode::Break(ref stmt_id) => {
                 writeln!(f, "{}Break: id{}", indent, stmt_id)
