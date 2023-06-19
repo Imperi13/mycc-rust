@@ -1,8 +1,6 @@
-use crate::parse::Obj;
+use crate::obj::Obj;
 use crate::types::Type;
-use std::cell::RefCell;
 use std::fmt;
-use std::rc::Rc;
 
 #[derive(Clone, Debug)]
 pub enum BinaryOpKind {
@@ -82,29 +80,31 @@ pub enum ASTExprNode {
     UnaryOp(UnaryOpNode),
     Cast(Type, ASTExpr),
     FuncCall(ASTExpr, Vec<ASTExpr>),
+    Dot(ASTExpr, usize),
+    Arrow(ASTExpr, usize),
     PostIncrement(ASTExpr),
     PostDecrement(ASTExpr),
     Number(u64),
     StrLiteral(String),
-    Var(Rc<RefCell<Obj>>),
+    Var(Obj),
 }
 
 #[derive(Clone)]
 pub struct ASTExpr {
-    head: Rc<RefCell<ASTExprNode>>,
+    head: Box<ASTExprNode>,
     pub expr_type: Type,
 }
 
 impl ASTExpr {
     pub fn new(node: ASTExprNode, expr_type: Type) -> ASTExpr {
         ASTExpr {
-            head: Rc::new(RefCell::new(node)),
+            head: Box::new(node),
             expr_type,
         }
     }
 
     pub fn get_node(&self) -> ASTExprNode {
-        (*self.head).borrow().clone()
+        (*self.head).clone()
     }
 
     pub fn cast_to(&self, cast_to: &Type) -> ASTExpr {
@@ -125,7 +125,7 @@ impl ASTExpr {
     }
 
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
-        match *self.head.borrow() {
+        match *self.head {
             ASTExprNode::Conditional(ref cond, ref then_expr, ref else_expr) => {
                 writeln!(f, "{}Conditional", indent)?;
                 writeln!(f, "{}cond:", indent)?;
@@ -168,6 +168,16 @@ impl ASTExpr {
                 writeln!(f, "{}func_expr:", indent)?;
                 func_expr.fmt_with_indent(f, &format!("{}\t", indent))
             }
+            ASTExprNode::Dot(ref st_expr, index) => {
+                writeln!(f, "{}Dot index:{}", indent, index)?;
+                writeln!(f, "{}st_expr:", indent)?;
+                st_expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTExprNode::Arrow(ref st_expr, index) => {
+                writeln!(f, "{}Arrow index:{}", indent, index)?;
+                writeln!(f, "{}st_expr:", indent)?;
+                st_expr.fmt_with_indent(f, &format!("{}\t", indent))
+            }
             ASTExprNode::PostIncrement(ref expr) => {
                 writeln!(f, "{}PostIncrement", indent)?;
                 writeln!(f, "{}expr:", indent)?;
@@ -183,7 +193,7 @@ impl ASTExpr {
             }
             ASTExprNode::StrLiteral(ref text) => writeln!(f, "{}Number {}", indent, text),
             ASTExprNode::Var(ref obj) => {
-                writeln!(f, "{}Var {}", indent, &*obj.borrow().name)
+                writeln!(f, "{}Var {}", indent, obj.borrow().name)
             }
         }
     }
@@ -197,12 +207,11 @@ impl fmt::Debug for ASTExpr {
 
 #[derive(Clone)]
 pub enum ASTStmtNode {
+    ExprStmt(ASTExpr),
     Return(ASTExpr),
     Break(usize),
     Continue(usize),
-    Declaration(Rc<RefCell<Obj>>),
-    ExprStmt(ASTExpr),
-    Block(Vec<ASTStmt>),
+    Block(Vec<ASTBlockStmt>),
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
     While(ASTExpr, ASTStmt, usize),
     DoWhile(ASTExpr, ASTStmt, usize),
@@ -217,22 +226,22 @@ pub enum ASTStmtNode {
 
 #[derive(Clone)]
 pub struct ASTStmt {
-    head: Rc<RefCell<ASTStmtNode>>,
+    head: Box<ASTStmtNode>,
 }
 
 impl ASTStmt {
     pub fn new(node: ASTStmtNode) -> ASTStmt {
         ASTStmt {
-            head: Rc::new(RefCell::new(node)),
+            head: Box::new(node),
         }
     }
 
     pub fn get_node(&self) -> ASTStmtNode {
-        (*self.head).borrow().clone()
+        (*self.head).clone()
     }
 
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
-        match *self.head.borrow() {
+        match *self.head {
             ASTStmtNode::Return(ref expr) => {
                 writeln!(f, "{}Return", indent)?;
                 writeln!(f, "{}expr:", indent)?;
@@ -243,9 +252,6 @@ impl ASTStmt {
             }
             ASTStmtNode::Continue(ref stmt_id) => {
                 writeln!(f, "{}Continue: id{}", indent, stmt_id)
-            }
-            ASTStmtNode::Declaration(ref obj) => {
-                writeln!(f, "{}Declaration :{}", indent, &*obj.borrow().name)
             }
             ASTStmtNode::ExprStmt(ref expr) => {
                 writeln!(f, "{}ExprStmt", indent)?;
@@ -321,16 +327,37 @@ impl fmt::Debug for ASTStmt {
 }
 
 #[derive(Clone)]
+pub enum ASTBlockStmt {
+    Declaration(Obj),
+    Stmt(ASTStmt),
+}
+
+impl ASTBlockStmt {
+    pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
+        match self {
+            ASTBlockStmt::Declaration(ref _obj) => writeln!(f, "{}Declaration", indent),
+            ASTBlockStmt::Stmt(ref stmt) => stmt.fmt_with_indent(f, indent),
+        }
+    }
+}
+
+impl fmt::Debug for ASTBlockStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_with_indent(f, "")
+    }
+}
+
+#[derive(Clone)]
 pub enum ASTGlobal {
-    Function(Rc<RefCell<Obj>>, Vec<Rc<RefCell<Obj>>>, Vec<ASTStmt>),
-    Variable(Rc<RefCell<Obj>>),
+    Function(Obj, Vec<Obj>, Vec<ASTBlockStmt>),
+    Variable(Obj),
 }
 
 impl ASTGlobal {
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
         match self {
             ASTGlobal::Function(ref func_obj, ref _args, ref stmts) => {
-                writeln!(f, "{}Function {}", indent, &*func_obj.borrow().name)?;
+                writeln!(f, "{}Function {}", indent, func_obj.borrow().name)?;
                 for (i, stmt) in stmts.iter().enumerate() {
                     writeln!(f, "{} {}th stmt:", indent, i)?;
                     stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
@@ -338,7 +365,7 @@ impl ASTGlobal {
                 Ok(())
             }
             ASTGlobal::Variable(ref obj) => {
-                writeln!(f, "{}Variable {}", indent, &*obj.borrow().name)
+                writeln!(f, "{}Variable {}", indent, obj.borrow().name)
             }
         }
     }

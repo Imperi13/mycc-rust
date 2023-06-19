@@ -213,6 +213,20 @@ test_function!(
     0x30
 );
 
+test_function!(
+    arrow_1,
+    "struct A{char a; int b;}; int main(){struct A a; struct A *ptr;ptr = &a; ptr->a = 74; return a.a;}",
+    74
+);
+test_function!(
+    arrow_2,
+    "struct A{char a; int b;}; int main(){struct A a; struct A *ptr;ptr = &a; ptr->a = 174; return ptr->a;}",
+    174
+);
+
+test_function!(bool_1,"int main() {_Bool test; test = 1; if(test)return 174;else return 170;}",174);
+test_function!(bool_2,"int main() {_Bool test; test = 256; if(test)return 174;else return 170;}",174);
+
 test_function!(ex_001, "int main(){return 123;}", 123);
 test_function!(ex_002, "int main(){return (123);}", 123);
 test_function!(ex_003, "int main(){return ((((123))));}", 123);
@@ -626,8 +640,16 @@ test_function!(ex_138,"char a;char foo(char *p){*p = 5; a = 3; return a;} int ma
 test_function!(ex_139,"int foo(char a){int d;d = 3;char c;c = a+d;return c;} int main(){char f;f=3;return foo(f)*4+150;}",174);
 test_function!(ex_140,"int foo(char a){int d;d = 3;char c;c = a+d;return c*4;} int main(){char f;f=3;return foo(f)+150;}",174);
 
-test_function!(ex_143,"int foo(char a, char b){return 23;} int main(){char f;f=3;return foo(f,4)+151;}",174);
-test_function!(ex_144,"int foo(char a, char b){return a*4+11;} int main(){char f;f=3;return foo(f,4)+151;}",174);
+test_function!(
+    ex_143,
+    "int foo(char a, char b){return 23;} int main(){char f;f=3;return foo(f,4)+151;}",
+    174
+);
+test_function!(
+    ex_144,
+    "int foo(char a, char b){return a*4+11;} int main(){char f;f=3;return foo(f,4)+151;}",
+    174
+);
 test_function!(
     ex_145,
     "int foo(char a, char b){return a*4+12;} int main(){char f;f=3;return foo(f,4)+150;}",
@@ -642,3 +664,127 @@ test_function!(ex_147,"int foo(char a, char b){char c;c = a+3;return c*4;} int m
 test_function!(ex_148,"int foo(char a, char b){int d;d = 3;char c;c = a+d;return c*4;} int main(){char f;f=3;return foo(f,4)+150;}",174);
 test_function!(ex_149,"int foo(char a, char b){int d;d = 3;char c;c = a+d;return c*b;} int main(){char f;f=3;return foo(f,4)+150;}",174);
 test_function!(ex_150,"char foo() { char *x;x = \"1ab\"; return x[0]; }int main(){ char *y;y = \"a2b\"; int z;z = 12; char a;a = y[1]; return (a-foo())*z+162;}",174);
+
+test_function!(
+    ex_151,
+    "int printf();int main(){printf(\"%d %s\", 1, \"a\");return 174;}",
+    174
+);
+test_function!(ex_152,"int printf();int puts();int A[200][200];int main() {int i; for (i = 1; i <= 12; i++) { printf(\"%d %d\", i, i); puts(\"\"); } return 0;}",0);
+test_function!(ex_153,"int printf();int puts();int a(int b, int c) {return 3;}int main() {int i; for (i = 1; i <= 12; i++) { int j;j = a(0, i); printf(\"%d %d\", i, j); puts(\"\");} return 0;}",0);
+test_function!(ex_154,"int printf();int puts();int A[200][200];int dfs(int row, int N) { if (row == N) return 1; int ret;ret = 0; int col;for (col = 0; col < N; col++) { int ok; ok = 1; int i; for (i = 1; i < N; i++) { if (row - i >= 0 && col - i >= 0) { ok = ok && A[row - i][col - i] == 0; } if (row - i >= 0) { ok = ok && A[row - i][col] == 0; } if (row - i >= 0 && col + i < N) { ok = ok && A[row - i][col + i] == 0; } } if (ok) { A[row][col] = 1; ret += dfs(row + 1, N); A[row][col] = 0; } } return ret;}int main() {int i; for (i = 1; i < 11; i++) { int j; j = dfs(0, i); printf(\"%d queen: %d\", i, j); puts(\"\");} return 0;}",0);
+test_function!(ex_155,"int printf();int puts();int count;int solve(int n, int col, int *hist){if (col == n) {count+=1;return 0;}int i;int j;for (i = 0, j = 0; i < n; i++) {for (j = 0; j < col && hist [j] != i && (hist [j] - i) != col - j && (hist[j] - i) != j - col; j++){}if (j < col)continue;hist[col] = i;solve(n, col + 1, hist);}return 0;}int main(){int i; int hist[20]; for (i = 2; i < 11; i++) { count=0; solve(i, 0, hist); printf(\"%d queens: %d\", i, count); puts(\"\");} return 0;}",0);
+test_function!(ex_156, "int main(){/**/return 123;}", 123);
+test_function!(
+    ex_157,
+    "int main(){/*u89g3wihu-@w3erolk*/ return (123);}",
+    123
+);
+test_function!(
+    ex_158,
+    "int/*/* 0^[o;:._/-*/main(){return ((((123))));}",
+    123
+);
+test_function!(
+    ex_159,
+    "int a; int main(){int *p; p = &a; int i; for(i=0;i<174;i++){++*p;} return a;}",
+    174
+);
+test_function!(
+    ex_160,
+    "int a; int main(){int *p; p = &a; int i; for(i=0;i<174;((i))++){++*p;} return a;}",
+    174
+);
+
+test_function!(
+    ex_161,
+    "int main(){int a[10]; a[5] = 173; int b; b = a[5]++; return a[5]*!(a[5]-b-1);}",
+    174
+);
+
+test_function!(
+    ex_162,
+    "int printf();int a() {return 3;}int main() {int i; printf(\"%d %d\", i, a()); return 0;}",
+    0
+);
+test_function!(ex_163,"int foo(char *a, int b, int c){return 0;} int a(int N) {return 3;}int main() {int i; foo(\"%d %d\", i, a(i)); return 0;}",0);
+
+test_function!(ex_165,"int printf();int a(int N) {return 3;}int main() {int i; printf(\"%d %d\", i, a(i)); return 0;}",0);
+test_function!(ex_166,"int printf();int puts();int a(int N) {return 3;}int main() {int i; for (i = 1; i <= 12; i++) { printf(\"%d %d\", i, a(i)); puts(\"\");} return 0;}",0);
+test_function!(ex_167,"int printf();int puts();int A[200][200];int a(int row, int N) {return 3;}int main() {int i; for (i = 1; i <= 12; i++) { printf(\"%d %d\", i, a(0, i)); puts(\"\");} return 0;}",0);
+test_function!(ex_168,"int printf();int puts();int A[200][200];int dfs(int row, int N) { if (row == N) return 1; int ret;ret = 0; int col;for (col = 0; col < N; col++) { int ok; ok = 1; int i; for (i = 1; i < N; i++) { if (row - i >= 0 && col - i >= 0) { ok = ok && A[row - i][col - i] == 0; } if (row - i >= 0) { ok = ok && A[row - i][col] == 0; } if (row - i >= 0 && col + i < N) { ok = ok && A[row - i][col + i] == 0; } } if (ok) { A[row][col] = 1; ret += dfs(row + 1, N); A[row][col] = 0; } } return ret;}int main() {int i; for (i = 1; i < 12; i++) { printf(\"%d queen: %d\", i, dfs(0, i)); puts(\"\");} return 0;}",0);
+
+test_function!(
+    ex_169,
+    "int a(int b){ return b; }int main(){int i; i=1; a(i == 1? 1 : 2); return 0;}",
+    0
+);
+test_function!(ex_170,"int a(int b){ return b; }int main(){int i; for (i = 1; i < 11; i++) { a(i == 1? 1 : 2); } return 0;}",0);
+
+test_function!(
+    ex_171,
+    "int a(int b){ return b; }int main(){int i; i=1; return a(i == 1? 174 : 2);}",
+    174
+);
+
+test_function!(ex_172,"int printf();int puts();int count;int main(){int i; int hist[20]; for (i = 1; i < 11; i++) { printf(i == 1? \"a\" : \"b\"); puts(\"\");} return 0;}",0);
+test_function!(ex_173,"int printf();int puts();int count;int main(){int i; int hist[20]; for (i = 1; i < 11; i++) { printf(\"%s\", (i == 1? \"a\" : \"b\")); puts(\"\");} return 0;}",0);
+test_function!(ex_174,"int printf();int puts();int count;int main(){int i; int hist[20]; for (i = 1; i < 11; i++) { printf(\"%d %s: %d\", i, (i == 1? \" \" : \"s \"), i); puts(\"\");} return 0;}",0);
+test_function!(ex_175,"int printf();int puts();int count;int solve(int n, int col, int *hist){if (col == n) {count+=1;return 0;}int i;int j;for (i = 0, j = 0; i < n; i++) {for (j = 0; j < col && hist [j] != i && (hist [j] - i) != col - j && (hist[j] - i) != j - col; j++){}if (j < col)continue;hist[col] = i;solve(n, col + 1, hist);}return 0;}int main(){int i; int hist[20]; for (i = 1; i < 11; i++) { count=0; solve(i, 0, hist); printf(\"%d queen%s: %d\", i, (i == 1? \" \" : \"s \"), count); puts(\"\");} return 0;}",0);
+test_function!(
+    ex_176,
+    "int main(){int a; int *p; p = &a; *p = 2; int *q; q = &*p; *q = 174; return a;}",
+    174
+);
+test_function!(
+    ex_177,
+    "int main(){int a; int *p; p = &a; *p = 2; int *q; q = &(*p); *q = 174; return a;}",
+    174
+);
+test_function!(
+    ex_178,
+    "char foo(char *p){char a; return a;} int main(){char q; foo(&(q)); return 174;}",
+    174
+);
+
+test_function!(ex_179,"char; char     ; char; int; int ; int; int;int;char foo(char *p){char a; return a;} int main(){char q; foo(&(q)); return 174;}",174);
+test_function!(ex_180," struct A; char; char     ; char; int; int ; int; struct B;  int;int;  struct C; int main(){return 174;}",174);
+test_function!(ex_181," struct A{int a; int b;}; char; char     ; char; int; int ; int; struct B{int c; int b;};  int;int;  struct C; int main(){return 174;}",174);
+test_function!(ex_182, "int main(){ int; return 174;}", 174);
+test_function!(
+    ex_183,
+    "struct A{int a; int b;}; int main(){ struct A; return 174;}",
+    174
+);
+test_function!(
+    ex_184,
+    "struct A{int a; int b;}; int main(){ struct A a; return 174;}",
+    174
+);
+test_function!(
+    ex_185,
+    "struct A{int a; int b;}; int main(){ struct A a[10]; return 174;}",
+    174
+);
+test_function!(
+    ex_186,
+    "struct A{int a; int b;};  struct A a[10]; int main(){return 174;}",
+    174
+);
+
+test_function!(ex_196,"int *f(int *p){return p;} int main(){int a[4]; a[0] = 1; f(a)[0]++; f(a)[1] = 172; return a[1]+a[0];}",174);
+test_function!(
+    ex_197,
+    "struct A{char a; int b;}; int main(){struct A a; a.a = 74; return a.a;}",
+    74
+);
+test_function!(
+    ex_198,
+    "struct A{int a; int b;}; int main(){struct A a; a.a = 174; return a.a;}",
+    174
+);
+test_function!(
+    ex_199,
+    "struct A{int a; int b;}; int main(){struct A a; a.a = 174; return a.a;}",
+    174
+);

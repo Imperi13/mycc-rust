@@ -5,19 +5,17 @@ use crate::tokenize::TokenKind;
 use crate::tokenize::TokenList;
 use crate::types::Type;
 
-use std::rc::Rc;
-
 #[derive(Clone)]
 enum DeclaratorNest {
     Name(String),
-    Nest(Rc<Declarator>),
+    Nest(Box<Declarator>),
 }
 
 #[derive(Clone)]
 enum DeclaratorSuffix {
     None,
     Array(Vec<u32>),
-    Function(Vec<(Type, Declarator)>),
+    Function(Option<Vec<(Type, Declarator)>>),
 }
 
 #[derive(Clone)]
@@ -51,17 +49,23 @@ impl Declarator {
                 ty
             }
             DeclaratorSuffix::Function(ref arg) => {
-                let mut arg_type = Vec::new();
-                for (ref decl_spec_type, ref declarator) in arg.iter() {
-                    let ty = declarator.get_type(decl_spec_type.clone());
-                    let ty = if ty.is_array_type() {
-                        Type::new_ptr_type(ty.get_array_to().unwrap())
-                    } else {
-                        ty
-                    };
+                let arg_type = if arg.is_some() {
+                    let mut arg_type = Vec::new();
+                    for (ref decl_spec_type, ref declarator) in arg.clone().unwrap().iter() {
+                        let ty = declarator.get_type(decl_spec_type.clone());
+                        let ty = if ty.is_array_type() {
+                            Type::new_ptr_type(ty.get_array_to().unwrap())
+                        } else {
+                            ty
+                        };
 
-                    arg_type.push(ty);
-                }
+                        arg_type.push(ty);
+                    }
+                    Some(arg_type)
+                } else {
+                    None
+                };
+
                 Type::new_fn_type(ret_type, arg_type)
             }
         };
@@ -72,17 +76,17 @@ impl Declarator {
         }
     }
 
-    pub fn get_args(&self) -> Vec<(Type, Declarator)> {
+    pub fn get_args(&self) -> Option<Vec<(Type, Declarator)>> {
         match self.suffix {
-            DeclaratorSuffix::Function(ref args) => args.to_vec(),
+            DeclaratorSuffix::Function(ref args) => args.clone(),
             _ => panic!(),
         }
     }
 }
 
-impl ParseArena {
+impl<'a> ParseArena<'a> {
     pub fn parse_declarator(
-        &self,
+        &mut self,
         mut tok_seq: TokenList,
     ) -> Result<(TokenList, Declarator), ParseError> {
         let mut pointer_cnt = 0;
@@ -101,7 +105,7 @@ impl ParseArena {
                 .expect_punct(PunctKind::CloseParenthesis)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            DeclaratorNest::Nest(Rc::new(declarator))
+            DeclaratorNest::Nest(Box::new(declarator))
         } else if let TokenKind::Ident(name) = tok_seq.get_token() {
             tok_seq = tok_seq.next();
             DeclaratorNest::Name(name)
@@ -132,25 +136,32 @@ impl ParseArena {
         } else if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
             tok_seq = tok_seq.next();
 
-            let mut args = Vec::new();
+            let args = if tok_seq.expect_punct(PunctKind::CloseParenthesis).is_some() {
+                tok_seq = tok_seq.next();
+                None
+            } else {
+                let mut args = Vec::new();
 
-            while tok_seq.expect_punct(PunctKind::CloseParenthesis).is_none() {
-                let decl_spec_type;
-                (tok_seq, decl_spec_type) = self.parse_decl_spec(tok_seq)?;
+                while tok_seq.expect_punct(PunctKind::CloseParenthesis).is_none() {
+                    let decl_spec;
+                    (tok_seq, decl_spec) = self.parse_decl_spec(tok_seq)?;
 
-                let declarator;
-                (tok_seq, declarator) = self.parse_declarator(tok_seq)?;
+                    let declarator;
+                    (tok_seq, declarator) = self.parse_declarator(tok_seq)?;
 
-                args.push((decl_spec_type, declarator));
+                    args.push((decl_spec, declarator));
 
-                if tok_seq.expect_punct(PunctKind::Comma).is_some() {
-                    tok_seq = tok_seq.next();
+                    if tok_seq.expect_punct(PunctKind::Comma).is_some() {
+                        tok_seq = tok_seq.next();
+                    }
                 }
-            }
 
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::CloseParenthesis)
-                .ok_or(ParseError::SyntaxError(tok_seq))?;
+                tok_seq = tok_seq
+                    .expect_punct(PunctKind::CloseParenthesis)
+                    .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+                Some(args)
+            };
 
             DeclaratorSuffix::Function(args)
         } else {

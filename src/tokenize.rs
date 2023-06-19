@@ -11,6 +11,7 @@ pub enum PunctKind {
     Asterisk,
     Slash,
     Percent,
+    Dot,
     Comma,
     Ampersand,
     Exclamation,
@@ -47,6 +48,7 @@ pub enum PunctKind {
     GreaterEqual,
     LeftShift,
     RightShift,
+    Arrow,
     Increment,
     Decrement,
 }
@@ -54,6 +56,7 @@ pub enum PunctKind {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum KeywordKind {
     Return,
+    Bool,
     Int,
     Char,
     If,
@@ -65,6 +68,7 @@ pub enum KeywordKind {
     Continue,
     Sizeof,
     Alignof,
+    Struct,
 }
 
 #[derive(Debug, Clone)]
@@ -304,6 +308,7 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
             "*=" => return Some((PunctKind::MulAssign, &code[2..])),
             "/=" => return Some((PunctKind::DivAssign, &code[2..])),
             "%=" => return Some((PunctKind::ModAssign, &code[2..])),
+            "->" => return Some((PunctKind::Arrow, &code[2..])),
             "++" => return Some((PunctKind::Increment, &code[2..])),
             "--" => return Some((PunctKind::Decrement, &code[2..])),
             _ => (),
@@ -319,6 +324,7 @@ fn tokenize_punct(code: &str) -> Option<(PunctKind, &str)> {
         "/" => Some((PunctKind::Slash, &code[1..])),
         "%" => Some((PunctKind::Percent, &code[1..])),
         "," => Some((PunctKind::Comma, &code[1..])),
+        "." => Some((PunctKind::Dot, &code[1..])),
         "&" => Some((PunctKind::Ampersand, &code[1..])),
         "!" => Some((PunctKind::Exclamation, &code[1..])),
         "?" => Some((PunctKind::Question, &code[1..])),
@@ -353,6 +359,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
         match &code[..6] {
             "return" => return Some((KeywordKind::Return, &code[6..])),
             "sizeof" => return Some((KeywordKind::Sizeof, &code[6..])),
+            "struct" => return Some((KeywordKind::Struct, &code[6..])),
             _ => (),
         }
     }
@@ -361,6 +368,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
         match &code[..5] {
             "while" => return Some((KeywordKind::While, &code[5..])),
             "break" => return Some((KeywordKind::Break, &code[5..])),
+            "_Bool" => return Some((KeywordKind::Bool, &code[5..])),
             _ => (),
         }
     }
@@ -401,6 +409,20 @@ pub fn tokenize(mut code: &str) -> TokenList {
 
         if code.chars().nth(0) == Some(' ') || code.chars().nth(0) == Some('\t') {
             code = &code[1..];
+            continue;
+        }
+
+        if code.len() >= 2 && &code[..2] == "/*" {
+            let mut index = 2;
+
+            loop {
+                if &code[index..index + 2] == "*/" {
+                    break;
+                }
+                index += 1;
+            }
+
+            code = &code[index + 2..];
             continue;
         }
 
