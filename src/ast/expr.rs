@@ -113,6 +113,7 @@ impl ASTExpr {
             || (self.expr_type.is_int_type() && cast_to.is_int_type())
             || (self.expr_type.is_int_type() && cast_to.is_bool_type())
             || (self.expr_type.is_array_type() && cast_to.is_ptr_type())
+            || (self.is_const_zero() && cast_to.is_ptr_type())
     }
 
     pub fn cast_to(&self, cast_to: &Type) -> ASTExpr {
@@ -153,6 +154,10 @@ impl ASTExpr {
             ASTExprNode::Number(num) => ConstValue::Integer(num as i64),
             _ => panic!(),
         }
+    }
+
+    pub fn is_const_zero(&self) -> bool {
+        self.is_consteval() && (self.eval_const() == ConstValue::Integer(0))
     }
 }
 
