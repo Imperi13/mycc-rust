@@ -18,7 +18,7 @@ pub enum CFGStmt {
     Expr(ASTExpr),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BlockID {
     Entry,
     Return,
@@ -74,6 +74,54 @@ pub struct CFGFunction {
     pub entry_block: CFGBlock,
     pub return_block: CFGBlock,
     pub blocks: HashMap<usize, CFGBlock>,
+}
+
+impl CFGFunction {
+    pub fn is_valid_blocks(&self) -> bool {
+        let size = self.blocks.len();
+
+        for i in 0..size {
+            let Some(ref block) = self.blocks.get(&i) else {return false;};
+            if block.id != BlockID::Block(i) {
+                return false;
+            }
+
+            match block.jump_to {
+                CFGJump::Unconditional(ref id) => match id {
+                    BlockID::Block(num) => {
+                        if num >= &size {
+                            return false;
+                        }
+                    }
+                    _ => (),
+                },
+                CFGJump::Conditional(_, ref then_id, ref else_id) => {
+                    match then_id {
+                        BlockID::Block(num) => {
+                            if num >= &size {
+                                return false;
+                            }
+                        }
+                        _ => (),
+                    }
+                    match else_id {
+                        BlockID::Block(num) => {
+                            if num >= &size {
+                                return false;
+                            }
+                        }
+                        _ => (),
+                    }
+                }
+
+                _ => {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
 }
 
 #[derive(Clone)]
@@ -180,14 +228,18 @@ impl CFGArena {
 
         self.return_block.jump_to = CFGJump::Return;
 
-        CFGFunction {
+        let cfg_func = CFGFunction {
             func_obj: func_obj.clone(),
             args: args.clone(),
             retval: self.retval.clone(),
             entry_block: self.entry_block.clone(),
             return_block: self.return_block.clone(),
             blocks: self.blocks.clone(),
-        }
+        };
+
+        assert!(cfg_func.is_valid_blocks());
+
+        cfg_func
     }
 
     pub fn push_stmt(&mut self, stmt: &ASTStmt) {
