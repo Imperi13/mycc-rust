@@ -358,6 +358,7 @@ impl<'a> ParseArena<'a> {
 
             let cond;
             (tok_seq, cond) = self.parse_expr(tok_seq)?;
+            let cond = cond.cast_to(&Type::new(TypeNode::Bool));
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
@@ -408,6 +409,7 @@ impl<'a> ParseArena<'a> {
 
             let cond;
             (tok_seq, cond) = self.parse_expr(tok_seq)?;
+            let cond = cond.cast_to(&Type::new(TypeNode::Bool));
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
@@ -447,6 +449,7 @@ impl<'a> ParseArena<'a> {
             } else {
                 let tmp;
                 (tok_seq, tmp) = self.parse_expr(tok_seq)?;
+                let tmp = tmp.cast_to(&Type::new(TypeNode::Bool));
                 Some(tmp)
             };
 
