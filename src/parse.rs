@@ -790,13 +790,15 @@ impl<'a> ParseArena<'a> {
         &self,
         mut tok_seq: TokenList,
     ) -> Result<(TokenList, ASTExpr), ParseError> {
-        let cond;
-        (tok_seq, cond) = self.parse_logical_or(tok_seq)?;
+        let node;
+        (tok_seq, node) = self.parse_logical_or(tok_seq)?;
 
         if tok_seq.expect_punct(PunctKind::Question).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Question)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+            let cond = node.cast_to(&Type::new(TypeNode::Bool));
 
             let then_expr;
             let else_expr;
@@ -818,7 +820,7 @@ impl<'a> ParseArena<'a> {
                 ),
             ))
         } else {
-            Ok((tok_seq, cond))
+            Ok((tok_seq, node))
         }
     }
 
