@@ -32,6 +32,7 @@ pub enum CFGJump {
     Return,
     Unconditional(BlockID),
     Conditional(ASTExpr, BlockID, BlockID),
+    Switch(ASTExpr, Vec<(ASTExpr, BlockID)>, BlockID),
 }
 
 #[derive(Clone)]
@@ -139,6 +140,28 @@ impl CFGFunction {
                         _ => (),
                     }
                     match else_id.clone() {
+                        BlockID::Block(num) => {
+                            if !visit[num] {
+                                visit[num] = true;
+                                queue.push_back(num);
+                            }
+                        }
+                        _ => (),
+                    }
+                }
+                CFGJump::Switch(_, ref cases, ref default) => {
+                    for (_, case_to) in cases.iter() {
+                        match case_to.clone() {
+                            BlockID::Block(num) => {
+                                if !visit[num] {
+                                    visit[num] = true;
+                                    queue.push_back(num);
+                                }
+                            }
+                            _ => (),
+                        }
+                    }
+                    match default.clone() {
                         BlockID::Block(num) => {
                             if !visit[num] {
                                 visit[num] = true;
@@ -427,7 +450,42 @@ impl<'a> CFGArena<'a> {
                     self.current_stmts = Vec::new();
                 }
             }
-            ASTStmtNode::Switch(ref _switch_node) => todo!(),
+            ASTStmtNode::Switch(ref switch_node) => {
+                let stmt_id = self.next_id;
+                let after_id = self.next_id + 1;
+                self.next_id += 2;
+
+                self.break_map.insert(switch_node.break_id, after_id);
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Switch(
+                        switch_node.cond.clone(),
+                        Vec::new(),
+                        BlockID::Block(after_id),
+                    ),
+                };
+
+                self.blocks.insert(self.current_id, block);
+
+                // stmt
+                self.current_id = stmt_id;
+                self.current_stmts = Vec::new();
+
+                self.push_stmt(&switch_node.stmt);
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(after_id)),
+                };
+                self.blocks.insert(self.current_id, block);
+
+                // after
+                self.current_id = after_id;
+                self.current_stmts = Vec::new();
+            }
             ASTStmtNode::While(ref while_node) => {
                 let cond_id = self.next_id;
                 let loop_id = self.next_id + 1;

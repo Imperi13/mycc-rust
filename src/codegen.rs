@@ -330,6 +330,30 @@ impl<'ctx> CodegenArena<'ctx> {
                 self.builder
                     .build_conditional_branch(cond, then_block, else_block);
             }
+            CFGJump::Switch(ref cond, ref cases, ref default_id) => {
+                let mut llvm_cases = Vec::new();
+
+                for (case_expr, case_id) in cases.iter() {
+                    let case_value = self.codegen_expr(case_expr).into_int_value();
+                    let block = match case_id {
+                        BlockID::Entry => self.entry_block.unwrap(),
+                        BlockID::Return => self.return_block.unwrap(),
+                        BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
+                    };
+                    llvm_cases.push((case_value, block));
+                }
+
+                let default_block = match default_id {
+                    BlockID::Entry => self.entry_block.unwrap(),
+                    BlockID::Return => self.return_block.unwrap(),
+                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
+                };
+
+                let cond_value = self.codegen_expr(cond).into_int_value();
+
+                self.builder
+                    .build_switch(cond_value, default_block, &llvm_cases);
+            }
             CFGJump::Return => panic!(),
             CFGJump::None => panic!(),
         }
