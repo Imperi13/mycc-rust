@@ -4,6 +4,33 @@ use crate::ast::ASTExpr;
 use std::fmt;
 
 #[derive(Clone)]
+pub struct WhileStmt {
+    pub cond: ASTExpr,
+    pub loop_stmt: ASTStmt,
+    pub continue_id: usize,
+    pub break_id: usize,
+}
+
+#[derive(Clone)]
+pub struct DoWhileStmt {
+    pub cond: ASTExpr,
+    pub loop_stmt: ASTStmt,
+    pub continue_id: usize,
+    pub break_id: usize,
+}
+
+#[derive(Clone)]
+pub struct ForStmt {
+    pub start: Option<ASTExpr>,
+    pub cond: Option<ASTExpr>,
+    pub step: Option<ASTExpr>,
+    pub loop_stmt: ASTStmt,
+
+    pub continue_id: usize,
+    pub break_id: usize,
+}
+
+#[derive(Clone)]
 pub enum ASTStmtNode {
     ExprStmt(ASTExpr),
     Return(Option<ASTExpr>),
@@ -11,15 +38,9 @@ pub enum ASTStmtNode {
     Continue(usize),
     Block(Vec<ASTBlockStmt>),
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
-    While(ASTExpr, ASTStmt, usize),
-    DoWhile(ASTExpr, ASTStmt, usize),
-    For(
-        Option<ASTExpr>,
-        Option<ASTExpr>,
-        Option<ASTExpr>,
-        ASTStmt,
-        usize,
-    ),
+    While(WhileStmt),
+    DoWhile(DoWhileStmt),
+    For(ForStmt),
 }
 
 #[derive(Clone)]
@@ -84,39 +105,49 @@ impl ASTStmt {
                     Ok(())
                 }
             }
-            ASTStmtNode::While(ref cond, ref stmt, ref stmt_id) => {
-                writeln!(f, "{}While: id{}", indent, stmt_id)?;
+            ASTStmtNode::While(ref while_node) => {
+                writeln!(f, "{}While: ", indent)?;
                 writeln!(f, "{}cond:", indent)?;
-                cond.fmt_with_indent(f, &format!("{}\t", indent))?;
+                while_node
+                    .cond
+                    .fmt_with_indent(f, &format!("{}\t", indent))?;
                 writeln!(f, "{}stmt:", indent)?;
-                stmt.fmt_with_indent(f, &format!("{}\t", indent))
+                while_node
+                    .loop_stmt
+                    .fmt_with_indent(f, &format!("{}\t", indent))
             }
-            ASTStmtNode::DoWhile(ref cond, ref stmt, ref stmt_id) => {
-                writeln!(f, "{}DoWhile: id{}", indent, stmt_id)?;
+            ASTStmtNode::DoWhile(ref dowhile_node) => {
+                writeln!(f, "{}DoWhile: ", indent)?;
                 writeln!(f, "{}cond:", indent)?;
-                cond.fmt_with_indent(f, &format!("{}\t", indent))?;
+                dowhile_node
+                    .cond
+                    .fmt_with_indent(f, &format!("{}\t", indent))?;
                 writeln!(f, "{}stmt:", indent)?;
-                stmt.fmt_with_indent(f, &format!("{}\t", indent))
+                dowhile_node
+                    .loop_stmt
+                    .fmt_with_indent(f, &format!("{}\t", indent))
             }
-            ASTStmtNode::For(ref start, ref cond, ref step, ref stmt, ref stmt_id) => {
-                writeln!(f, "{}For: id{}", indent, stmt_id)?;
-                if start.is_some() {
+            ASTStmtNode::For(ref for_node) => {
+                writeln!(f, "{}For: ", indent)?;
+                if for_node.start.is_some() {
                     writeln!(f, "{}start:", indent)?;
-                    let start = start.as_ref().unwrap();
+                    let start = for_node.start.as_ref().unwrap();
                     start.fmt_with_indent(f, &format!("{}\t", indent))?;
                 }
-                if cond.is_some() {
+                if for_node.cond.is_some() {
                     writeln!(f, "{}cond:", indent)?;
-                    let cond = cond.as_ref().unwrap();
+                    let cond = for_node.cond.as_ref().unwrap();
                     cond.fmt_with_indent(f, &format!("{}\t", indent))?;
                 }
-                if step.is_some() {
+                if for_node.step.is_some() {
                     writeln!(f, "{}step:", indent)?;
-                    let step = step.as_ref().unwrap();
+                    let step = for_node.step.as_ref().unwrap();
                     step.fmt_with_indent(f, &format!("{}\t", indent))?;
                 }
                 writeln!(f, "{}stmt:", indent)?;
-                stmt.fmt_with_indent(f, &format!("{}\t", indent))
+                for_node
+                    .loop_stmt
+                    .fmt_with_indent(f, &format!("{}\t", indent))
             }
         }
     }

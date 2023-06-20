@@ -11,8 +11,11 @@ use crate::ast::AssignKind;
 use crate::ast::AssignNode;
 use crate::ast::BinaryOpKind;
 use crate::ast::BinaryOpNode;
+use crate::ast::DoWhileStmt;
+use crate::ast::ForStmt;
 use crate::ast::UnaryOpKind;
 use crate::ast::UnaryOpNode;
+use crate::ast::WhileStmt;
 use crate::error::ParseError;
 use crate::obj::Obj;
 use crate::obj::ObjArena;
@@ -44,6 +47,35 @@ pub fn parse_all(
     Ok(ret)
 }
 
+struct IDStack {
+    id: usize,
+    id_stack: VecDeque<usize>,
+}
+
+impl IDStack {
+    pub fn new() -> Self {
+        IDStack {
+            id: 0,
+            id_stack: VecDeque::new(),
+        }
+    }
+
+    pub fn get_current_id(&self) -> usize {
+        self.id_stack.back().unwrap().clone()
+    }
+
+    pub fn push_id(&mut self) -> usize {
+        let id = self.id;
+        self.id += 1;
+        self.id_stack.push_back(id);
+        id
+    }
+
+    pub fn pop_id(&mut self) {
+        self.id_stack.pop_back();
+    }
+}
+
 struct ParseArena<'a> {
     return_type: Option<Type>,
 
@@ -55,9 +87,8 @@ struct ParseArena<'a> {
     struct_id: usize,
     global_structs: HashMap<String, Type>,
 
-    stmt_id: usize,
-    break_stack: VecDeque<usize>,
-    continue_stack: VecDeque<usize>,
+    break_id: IDStack,
+    continue_id: IDStack,
 }
 
 impl<'a> ParseArena<'a> {
@@ -69,9 +100,8 @@ impl<'a> ParseArena<'a> {
             local_objs: VecDeque::new(),
             struct_id: 0,
             global_structs: HashMap::new(),
-            stmt_id: 0,
-            break_stack: VecDeque::new(),
-            continue_stack: VecDeque::new(),
+            break_id: IDStack::new(),
+            continue_id: IDStack::new(),
         }
     }
 
@@ -293,12 +323,9 @@ impl<'a> ParseArena<'a> {
                 .expect_punct(PunctKind::SemiColon)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let stmt_id = self
-                .break_stack
-                .back()
-                .ok_or(ParseError::SemanticError(tok_seq.clone()))?;
+            let break_id = self.break_id.get_current_id();
 
-            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Break(stmt_id.clone()))))
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Break(break_id))))
         } else if tok_seq.expect_keyword(KeywordKind::Continue).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Continue)
@@ -308,15 +335,9 @@ impl<'a> ParseArena<'a> {
                 .expect_punct(PunctKind::SemiColon)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let stmt_id = self
-                .continue_stack
-                .back()
-                .ok_or(ParseError::SemanticError(tok_seq.clone()))?;
+            let continue_id = self.continue_id.get_current_id();
 
-            Ok((
-                tok_seq,
-                ASTStmt::new(ASTStmtNode::Continue(stmt_id.clone())),
-            ))
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Continue(continue_id))))
         } else if tok_seq.expect_keyword(KeywordKind::If).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::If)
@@ -370,21 +391,23 @@ impl<'a> ParseArena<'a> {
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             // push stmt_id
-            let stmt_id = self.stmt_id;
-            self.stmt_id += 1;
+            let break_id = self.break_id.push_id();
+            let continue_id = self.continue_id.push_id();
 
-            self.break_stack.push_back(stmt_id);
-            self.continue_stack.push_back(stmt_id);
+            let loop_stmt;
+            (tok_seq, loop_stmt) = self.parse_stmt(tok_seq)?;
 
-            let stmt;
-            (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
-
-            self.break_stack.pop_back();
-            self.continue_stack.pop_back();
+            self.break_id.pop_id();
+            self.continue_id.pop_id();
 
             Ok((
                 tok_seq,
-                ASTStmt::new(ASTStmtNode::While(cond, stmt, stmt_id)),
+                ASTStmt::new(ASTStmtNode::While(WhileStmt {
+                    cond,
+                    loop_stmt,
+                    break_id,
+                    continue_id,
+                })),
             ))
         } else if tok_seq.expect_keyword(KeywordKind::Do).is_some() {
             tok_seq = tok_seq
@@ -392,17 +415,14 @@ impl<'a> ParseArena<'a> {
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             // push stmt_id
-            let stmt_id = self.stmt_id;
-            self.stmt_id += 1;
+            let break_id = self.break_id.push_id();
+            let continue_id = self.continue_id.push_id();
 
-            self.break_stack.push_back(stmt_id);
-            self.continue_stack.push_back(stmt_id);
+            let loop_stmt;
+            (tok_seq, loop_stmt) = self.parse_stmt(tok_seq)?;
 
-            let stmt;
-            (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
-
-            self.break_stack.pop_back();
-            self.continue_stack.pop_back();
+            self.break_id.pop_id();
+            self.continue_id.pop_id();
 
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::While)
@@ -426,7 +446,12 @@ impl<'a> ParseArena<'a> {
 
             Ok((
                 tok_seq,
-                ASTStmt::new(ASTStmtNode::DoWhile(cond, stmt, stmt_id)),
+                ASTStmt::new(ASTStmtNode::DoWhile(DoWhileStmt {
+                    cond,
+                    loop_stmt,
+                    break_id,
+                    continue_id,
+                })),
             ))
         } else if tok_seq.expect_keyword(KeywordKind::For).is_some() {
             tok_seq = tok_seq
@@ -475,21 +500,25 @@ impl<'a> ParseArena<'a> {
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             // push stmt_id
-            let stmt_id = self.stmt_id;
-            self.stmt_id += 1;
+            let break_id = self.break_id.push_id();
+            let continue_id = self.continue_id.push_id();
 
-            self.break_stack.push_back(stmt_id);
-            self.continue_stack.push_back(stmt_id);
+            let loop_stmt;
+            (tok_seq, loop_stmt) = self.parse_stmt(tok_seq)?;
 
-            let stmt;
-            (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
-
-            self.break_stack.pop_back();
-            self.continue_stack.pop_back();
+            self.break_id.pop_id();
+            self.continue_id.pop_id();
 
             Ok((
                 tok_seq,
-                ASTStmt::new(ASTStmtNode::For(start, cond, step, stmt, stmt_id)),
+                ASTStmt::new(ASTStmtNode::For(ForStmt {
+                    start,
+                    cond,
+                    step,
+                    loop_stmt,
+                    break_id,
+                    continue_id,
+                })),
             ))
         } else if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
             tok_seq = tok_seq

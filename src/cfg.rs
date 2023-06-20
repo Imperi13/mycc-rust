@@ -427,14 +427,14 @@ impl<'a> CFGArena<'a> {
                     self.current_stmts = Vec::new();
                 }
             }
-            ASTStmtNode::While(ref cond, ref stmt, stmt_id) => {
+            ASTStmtNode::While(ref while_node) => {
                 let cond_id = self.next_id;
                 let loop_id = self.next_id + 1;
                 let after_id = self.next_id + 2;
                 self.next_id += 3;
 
-                self.break_map.insert(stmt_id, after_id);
-                self.continue_map.insert(stmt_id, cond_id);
+                self.break_map.insert(while_node.break_id, after_id);
+                self.continue_map.insert(while_node.continue_id, cond_id);
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
@@ -452,7 +452,7 @@ impl<'a> CFGArena<'a> {
                     id: BlockID::Block(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Conditional(
-                        cond.clone(),
+                        while_node.cond.clone(),
                         BlockID::Block(loop_id),
                         BlockID::Block(after_id),
                     ),
@@ -464,7 +464,7 @@ impl<'a> CFGArena<'a> {
                 self.current_id = loop_id;
                 self.current_stmts = Vec::new();
 
-                self.push_stmt(stmt);
+                self.push_stmt(&while_node.loop_stmt);
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
@@ -477,14 +477,14 @@ impl<'a> CFGArena<'a> {
                 self.current_id = after_id;
                 self.current_stmts = Vec::new();
             }
-            ASTStmtNode::DoWhile(ref cond, ref stmt, stmt_id) => {
+            ASTStmtNode::DoWhile(ref dowhile_node) => {
                 let loop_id = self.next_id;
                 let cond_id = self.next_id + 1;
                 let after_id = self.next_id + 2;
                 self.next_id += 3;
 
-                self.break_map.insert(stmt_id, after_id);
-                self.continue_map.insert(stmt_id, cond_id);
+                self.break_map.insert(dowhile_node.break_id, after_id);
+                self.continue_map.insert(dowhile_node.continue_id, cond_id);
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
@@ -498,7 +498,7 @@ impl<'a> CFGArena<'a> {
                 self.current_id = loop_id;
                 self.current_stmts = Vec::new();
 
-                self.push_stmt(stmt);
+                self.push_stmt(&dowhile_node.loop_stmt);
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
@@ -515,7 +515,7 @@ impl<'a> CFGArena<'a> {
                     id: BlockID::Block(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Conditional(
-                        cond.clone(),
+                        dowhile_node.cond.clone(),
                         BlockID::Block(loop_id),
                         BlockID::Block(after_id),
                     ),
@@ -527,18 +527,18 @@ impl<'a> CFGArena<'a> {
                 self.current_id = after_id;
                 self.current_stmts = Vec::new();
             }
-            ASTStmtNode::For(ref start, ref cond, ref step, ref stmt, stmt_id) => {
+            ASTStmtNode::For(ref for_node) => {
                 let cond_id = self.next_id;
                 let step_id = self.next_id + 1;
                 let loop_id = self.next_id + 2;
                 let after_id = self.next_id + 3;
                 self.next_id += 4;
 
-                self.break_map.insert(stmt_id, after_id);
-                self.continue_map.insert(stmt_id, step_id);
+                self.break_map.insert(for_node.break_id, after_id);
+                self.continue_map.insert(for_node.continue_id, step_id);
 
-                if start.is_some() {
-                    let start = start.as_ref().unwrap();
+                if for_node.start.is_some() {
+                    let start = for_node.start.as_ref().unwrap();
                     self.current_stmts.push(CFGStmt::Expr(start.clone()));
                 }
 
@@ -554,9 +554,9 @@ impl<'a> CFGArena<'a> {
                 self.current_id = cond_id;
                 self.current_stmts = Vec::new();
 
-                let jump_to = if cond.is_some() {
+                let jump_to = if for_node.cond.is_some() {
                     CFGJump::Conditional(
-                        cond.as_ref().unwrap().clone(),
+                        for_node.cond.as_ref().unwrap().clone(),
                         BlockID::Block(loop_id),
                         BlockID::Block(after_id),
                     )
@@ -576,7 +576,7 @@ impl<'a> CFGArena<'a> {
                 self.current_id = loop_id;
                 self.current_stmts = Vec::new();
 
-                self.push_stmt(stmt);
+                self.push_stmt(&for_node.loop_stmt);
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
@@ -589,8 +589,8 @@ impl<'a> CFGArena<'a> {
                 self.current_id = step_id;
                 self.current_stmts = Vec::new();
 
-                if step.is_some() {
-                    let step = step.as_ref().unwrap();
+                if for_node.step.is_some() {
+                    let step = for_node.step.as_ref().unwrap();
                     self.current_stmts.push(CFGStmt::Expr(step.clone()));
                 }
 
