@@ -66,6 +66,7 @@ pub enum KeywordKind {
     While,
     For,
     Switch,
+    Default,
     Break,
     Continue,
     Sizeof,
@@ -375,6 +376,13 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
         match &code[..8] {
             "_Alignof" => return Some((KeywordKind::Alignof, &code[8..])),
             "continue" => return Some((KeywordKind::Continue, &code[8..])),
+            _ => (),
+        }
+    }
+
+    if code.len() >= 7 {
+        match &code[..7] {
+            "default" => return Some((KeywordKind::Default, &code[7..])),
             _ => (),
         }
     }
