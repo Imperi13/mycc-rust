@@ -7,6 +7,7 @@ use std::fmt;
 pub struct SwitchStmt {
     pub cond: ASTExpr,
     pub stmt: ASTStmt,
+    pub switch_id: usize,
     pub break_id: usize,
 }
 

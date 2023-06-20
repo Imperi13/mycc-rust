@@ -88,6 +88,7 @@ struct ParseArena<'a> {
     struct_id: usize,
     global_structs: HashMap<String, Type>,
 
+    switch_id: IDStack,
     break_id: IDStack,
     continue_id: IDStack,
 }
@@ -101,6 +102,7 @@ impl<'a> ParseArena<'a> {
             local_objs: VecDeque::new(),
             struct_id: 0,
             global_structs: HashMap::new(),
+            switch_id: IDStack::new(),
             break_id: IDStack::new(),
             continue_id: IDStack::new(),
         }
@@ -147,6 +149,9 @@ impl<'a> ParseArena<'a> {
     fn initialize_local_scope(&mut self) {
         self.local_objs = VecDeque::new();
         self.push_local_scope();
+        self.switch_id = IDStack::new();
+        self.break_id = IDStack::new();
+        self.continue_id = IDStack::new();
     }
 
     fn push_local_scope(&mut self) {
@@ -389,17 +394,20 @@ impl<'a> ParseArena<'a> {
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             let break_id = self.break_id.push_id();
+            let switch_id = self.switch_id.push_id();
 
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
 
             self.break_id.pop_id();
+            self.switch_id.pop_id();
 
             Ok((
                 tok_seq,
                 ASTStmt::new(ASTStmtNode::Switch(SwitchStmt {
                     cond,
                     stmt,
+                    switch_id,
                     break_id,
                 })),
             ))
