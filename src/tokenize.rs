@@ -67,6 +67,7 @@ pub enum KeywordKind {
     For,
     Switch,
     Default,
+    Case,
     Break,
     Continue,
     Sizeof,
@@ -410,6 +411,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
         match &code[..4] {
             "else" => return Some((KeywordKind::Else, &code[4..])),
             "char" => return Some((KeywordKind::Char, &code[4..])),
+            "case" => return Some((KeywordKind::Case, &code[4..])),
             "void" => return Some((KeywordKind::Void, &code[4..])),
             _ => (),
         }
