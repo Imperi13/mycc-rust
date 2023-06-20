@@ -321,6 +321,7 @@ impl<'a> CFGArena<'a> {
             ASTStmtNode::ExprStmt(ref expr) => {
                 self.current_stmts.push(CFGStmt::Expr(expr.clone()));
             }
+            ASTStmtNode::Default(ref _stmt, _switch_id) => todo!(),
             ASTStmtNode::Block(ref stmts) => {
                 for block_stmt in stmts.iter() {
                     match block_stmt {

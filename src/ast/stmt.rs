@@ -42,6 +42,7 @@ pub struct ForStmt {
 pub enum ASTStmtNode {
     ExprStmt(ASTExpr),
     Return(Option<ASTExpr>),
+    Default(ASTStmt, usize),
     Break(usize),
     Continue(usize),
     Block(Vec<ASTBlockStmt>),
@@ -78,6 +79,11 @@ impl ASTStmt {
                     expr.fmt_with_indent(f, &format!("{}\t", indent))?;
                 }
                 Ok(())
+            }
+            ASTStmtNode::Default(ref stmt, ref stmt_id) => {
+                writeln!(f, "{}Default: id{}", indent, stmt_id)?;
+                writeln!(f, "{}stmt:", indent)?;
+                stmt.fmt_with_indent(f, &format!("{}\t", indent))
             }
             ASTStmtNode::Break(ref stmt_id) => {
                 writeln!(f, "{}Break: id{}", indent, stmt_id)
