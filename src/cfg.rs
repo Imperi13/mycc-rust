@@ -235,6 +235,7 @@ struct CFGArena<'a> {
 
     break_map: HashMap<usize, usize>,
     continue_map: HashMap<usize, usize>,
+    default_map: HashMap<usize, usize>,
 
     current_id: usize,
     next_id: usize,
@@ -251,6 +252,7 @@ impl<'a> CFGArena<'a> {
             blocks: HashMap::new(),
             break_map: HashMap::new(),
             continue_map: HashMap::new(),
+            default_map: HashMap::new(),
             current_id: 0,
             next_id: 1,
             current_stmts: Vec::new(),
@@ -321,7 +323,25 @@ impl<'a> CFGArena<'a> {
             ASTStmtNode::ExprStmt(ref expr) => {
                 self.current_stmts.push(CFGStmt::Expr(expr.clone()));
             }
-            ASTStmtNode::Default(ref _stmt, _switch_id) => todo!(),
+            ASTStmtNode::Default(ref stmt, switch_id) => {
+                let block_id = self.next_id;
+                self.next_id += 1;
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(block_id)),
+                };
+
+                self.blocks.insert(self.current_id, block);
+                self.default_map.insert(switch_id, block_id);
+
+                // stmt
+                self.current_id = block_id;
+                self.current_stmts = Vec::new();
+
+                self.push_stmt(stmt);
+            }
             ASTStmtNode::Block(ref stmts) => {
                 for block_stmt in stmts.iter() {
                     match block_stmt {
@@ -458,17 +478,8 @@ impl<'a> CFGArena<'a> {
 
                 self.break_map.insert(switch_node.break_id, after_id);
 
-                let block = CFGBlock {
-                    id: BlockID::Block(self.current_id),
-                    stmts: self.current_stmts.clone(),
-                    jump_to: CFGJump::Switch(
-                        switch_node.cond.clone(),
-                        Vec::new(),
-                        BlockID::Block(after_id),
-                    ),
-                };
-
-                self.blocks.insert(self.current_id, block);
+                let previous_id = self.current_id;
+                let previous_stmts = self.current_stmts.clone();
 
                 // stmt
                 self.current_id = stmt_id;
@@ -482,6 +493,27 @@ impl<'a> CFGArena<'a> {
                     jump_to: CFGJump::Unconditional(BlockID::Block(after_id)),
                 };
                 self.blocks.insert(self.current_id, block);
+
+                // switch jump
+
+                let default_block = if self.default_map.contains_key(&switch_node.switch_id) {
+                    BlockID::Block(
+                        self.default_map
+                            .get(&switch_node.switch_id)
+                            .unwrap()
+                            .clone(),
+                    )
+                } else {
+                    BlockID::Block(after_id)
+                };
+
+                let block = CFGBlock {
+                    id: BlockID::Block(previous_id),
+                    stmts: previous_stmts,
+                    jump_to: CFGJump::Switch(switch_node.cond.clone(), Vec::new(), default_block),
+                };
+
+                self.blocks.insert(previous_id, block);
 
                 // after
                 self.current_id = after_id;
