@@ -13,6 +13,7 @@ use crate::ast::BinaryOpKind;
 use crate::ast::BinaryOpNode;
 use crate::ast::DoWhileStmt;
 use crate::ast::ForStmt;
+use crate::ast::SwitchStmt;
 use crate::ast::UnaryOpKind;
 use crate::ast::UnaryOpNode;
 use crate::ast::WhileStmt;
@@ -373,6 +374,35 @@ impl<'a> ParseArena<'a> {
             } else {
                 Ok((tok_seq, ASTStmt::new(ASTStmtNode::If(cond, if_stmt, None))))
             }
+        } else if tok_seq.equal_keyword(KeywordKind::Switch) {
+            tok_seq = tok_seq.next();
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::OpenParenthesis)
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+            let cond;
+            (tok_seq, cond) = self.parse_expr(tok_seq)?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::CloseParenthesis)
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
+
+            let break_id = self.break_id.push_id();
+
+            let stmt;
+            (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+
+            self.break_id.pop_id();
+
+            Ok((
+                tok_seq,
+                ASTStmt::new(ASTStmtNode::Switch(SwitchStmt {
+                    cond,
+                    stmt,
+                    break_id,
+                })),
+            ))
         } else if tok_seq.expect_keyword(KeywordKind::While).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::While)

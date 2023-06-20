@@ -427,6 +427,7 @@ impl<'a> CFGArena<'a> {
                     self.current_stmts = Vec::new();
                 }
             }
+            ASTStmtNode::Switch(ref _switch_node) => todo!(),
             ASTStmtNode::While(ref while_node) => {
                 let cond_id = self.next_id;
                 let loop_id = self.next_id + 1;

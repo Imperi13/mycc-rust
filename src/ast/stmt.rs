@@ -4,6 +4,13 @@ use crate::ast::ASTExpr;
 use std::fmt;
 
 #[derive(Clone)]
+pub struct SwitchStmt {
+    pub cond: ASTExpr,
+    pub stmt: ASTStmt,
+    pub break_id: usize,
+}
+
+#[derive(Clone)]
 pub struct WhileStmt {
     pub cond: ASTExpr,
     pub loop_stmt: ASTStmt,
@@ -38,6 +45,7 @@ pub enum ASTStmtNode {
     Continue(usize),
     Block(Vec<ASTBlockStmt>),
     If(ASTExpr, ASTStmt, Option<ASTStmt>),
+    Switch(SwitchStmt),
     While(WhileStmt),
     DoWhile(DoWhileStmt),
     For(ForStmt),
@@ -104,6 +112,17 @@ impl ASTStmt {
                 } else {
                     Ok(())
                 }
+            }
+            ASTStmtNode::Switch(ref switch_node) => {
+                writeln!(f, "{}Switch: ", indent)?;
+                writeln!(f, "{}cond:", indent)?;
+                switch_node
+                    .cond
+                    .fmt_with_indent(f, &format!("{}\t", indent))?;
+                writeln!(f, "{}stmt:", indent)?;
+                switch_node
+                    .stmt
+                    .fmt_with_indent(f, &format!("{}\t", indent))
             }
             ASTStmtNode::While(ref while_node) => {
                 writeln!(f, "{}While: ", indent)?;

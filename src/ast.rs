@@ -8,7 +8,7 @@ pub use expr::{
     ASTExpr, ASTExprNode, AssignKind, AssignNode, BinaryOpKind, BinaryOpNode, UnaryOpKind,
     UnaryOpNode,
 };
-pub use stmt::{ASTStmt, ASTStmtNode, DoWhileStmt, ForStmt, WhileStmt};
+pub use stmt::{ASTStmt, ASTStmtNode, DoWhileStmt, ForStmt, SwitchStmt, WhileStmt};
 
 #[derive(Clone)]
 pub enum ASTBlockStmt {
