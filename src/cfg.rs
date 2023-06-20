@@ -342,6 +342,7 @@ impl<'a> CFGArena<'a> {
 
                 self.push_stmt(stmt);
             }
+            ASTStmtNode::Case(ref _expr, ref _stmt, _switch_id) => todo!(),
             ASTStmtNode::Block(ref stmts) => {
                 for block_stmt in stmts.iter() {
                     match block_stmt {

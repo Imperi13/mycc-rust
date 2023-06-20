@@ -43,6 +43,7 @@ pub enum ASTStmtNode {
     ExprStmt(ASTExpr),
     Return(Option<ASTExpr>),
     Default(ASTStmt, usize),
+    Case(ASTExpr, ASTStmt, usize),
     Break(usize),
     Continue(usize),
     Block(Vec<ASTBlockStmt>),
@@ -82,6 +83,13 @@ impl ASTStmt {
             }
             ASTStmtNode::Default(ref stmt, ref stmt_id) => {
                 writeln!(f, "{}Default: id{}", indent, stmt_id)?;
+                writeln!(f, "{}stmt:", indent)?;
+                stmt.fmt_with_indent(f, &format!("{}\t", indent))
+            }
+            ASTStmtNode::Case(ref expr, ref stmt, ref stmt_id) => {
+                writeln!(f, "{}Default: id{}", indent, stmt_id)?;
+                writeln!(f, "{}expr:", indent)?;
+                expr.fmt_with_indent(f, &format!("{}\t", indent))?;
                 writeln!(f, "{}stmt:", indent)?;
                 stmt.fmt_with_indent(f, &format!("{}\t", indent))
             }

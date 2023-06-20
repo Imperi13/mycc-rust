@@ -326,12 +326,31 @@ impl<'a> ParseArena<'a> {
                 .expect_punct(PunctKind::Colon)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
+            let switch_id = self.switch_id.get_current_id();
+
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
 
+            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Default(stmt, switch_id))))
+        } else if tok_seq.equal_keyword(KeywordKind::Case) {
+            tok_seq = tok_seq.next();
+
+            let expr;
+            (tok_seq, expr) = self.parse_expr(tok_seq)?;
+
+            tok_seq = tok_seq
+                .expect_punct(PunctKind::Colon)
+                .ok_or(ParseError::SyntaxError(tok_seq))?;
+
             let switch_id = self.switch_id.get_current_id();
 
-            Ok((tok_seq, ASTStmt::new(ASTStmtNode::Default(stmt, switch_id))))
+            let stmt;
+            (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
+
+            Ok((
+                tok_seq,
+                ASTStmt::new(ASTStmtNode::Case(expr, stmt, switch_id)),
+            ))
         } else if tok_seq.expect_keyword(KeywordKind::Break).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Break)
