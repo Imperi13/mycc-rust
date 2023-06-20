@@ -5,7 +5,7 @@ use tempfile::NamedTempFile;
 
 pub fn compile_code(code_str: &str, path: &str) {
     let mut tmpfile = NamedTempFile::new().unwrap();
-    write!(tmpfile, "{}\n", code_str).unwrap();
+    write!(tmpfile, "{}", code_str).unwrap();
 
     mycc_rust::compile_to_llvm_ir(tmpfile.path(), path);
 }
