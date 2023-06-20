@@ -65,6 +65,7 @@ pub enum KeywordKind {
     Do,
     While,
     For,
+    Switch,
     Break,
     Continue,
     Sizeof,
@@ -383,6 +384,7 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
             "return" => return Some((KeywordKind::Return, &code[6..])),
             "sizeof" => return Some((KeywordKind::Sizeof, &code[6..])),
             "struct" => return Some((KeywordKind::Struct, &code[6..])),
+            "switch" => return Some((KeywordKind::Switch, &code[6..])),
             _ => (),
         }
     }
