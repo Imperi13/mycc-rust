@@ -63,7 +63,7 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    pub fn codegen_all(&mut self, globals: &Vec<CFGGlobal>, output_path: &str) {
+    pub fn codegen_all<P: AsRef<Path>>(&mut self, globals: &Vec<CFGGlobal>, output_path: P) {
         for global in globals.iter() {
             match global {
                 CFGGlobal::Function(ref func) => self.codegen_func(func),
@@ -71,12 +71,7 @@ impl<'ctx> CodegenArena<'ctx> {
             };
         }
 
-        self.print_to_file(output_path);
-    }
-
-    fn print_to_file(&self, filepath: &str) {
-        let path = Path::new(filepath);
-        self.module.print_to_file(path).unwrap();
+        self.module.print_to_file(output_path).unwrap();
     }
 
     fn convert_llvm_anytype<'a>(&'a self, c_type: &Type) -> AnyTypeEnum<'ctx> {

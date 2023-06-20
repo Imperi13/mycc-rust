@@ -7,8 +7,6 @@ mod parse;
 mod tokenize;
 mod types;
 
-use inkwell::context::Context;
-
 use codegen::CodegenArena;
 use obj::ObjArena;
 use parse::parse_all;
@@ -16,7 +14,25 @@ use tokenize::tokenize;
 
 use cfg::gen_cfg_all;
 
-pub fn compile(code: &str, output_path: &str) {
+use inkwell::context::Context;
+use std::fs::read_to_string;
+use std::path::Path;
+use std::process;
+
+pub fn compile_to_llvm_ir<Pinput: AsRef<Path>, Poutput: AsRef<Path>>(
+    input_path: Pinput,
+    output_path: Poutput,
+) {
+    let file_read = read_to_string(input_path);
+
+    let code = match file_read {
+        Ok(content) => format!("{content}\n"),
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(1);
+        }
+    };
+
     let mut tok_seq = tokenize(&code);
 
     tok_seq.remove_newline();
