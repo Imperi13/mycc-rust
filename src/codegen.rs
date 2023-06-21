@@ -63,7 +63,7 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    pub fn codegen_all(&mut self, globals: &Vec<CFGGlobal>, output_path: &str) {
+    pub fn codegen_all<P: AsRef<Path>>(&mut self, globals: &Vec<CFGGlobal>, output_path: P) {
         for global in globals.iter() {
             match global {
                 CFGGlobal::Function(ref func) => self.codegen_func(func),
@@ -71,23 +71,24 @@ impl<'ctx> CodegenArena<'ctx> {
             };
         }
 
-        self.print_to_file(output_path);
-    }
-
-    fn print_to_file(&self, filepath: &str) {
-        let path = Path::new(filepath);
-        self.module.print_to_file(path).unwrap();
+        self.module.print_to_file(output_path).unwrap();
     }
 
     fn convert_llvm_anytype<'a>(&'a self, c_type: &Type) -> AnyTypeEnum<'ctx> {
         match *c_type.borrow() {
+            TypeNode::Void => self.context.void_type().into(),
             TypeNode::Bool => self.context.i8_type().into(),
             TypeNode::Int => self.context.i32_type().into(),
             TypeNode::Char => self.context.i8_type().into(),
             TypeNode::Ptr(ref c_ptr_to) => {
                 let ptr_to = self.convert_llvm_anytype(c_ptr_to);
                 match ptr_to.clone() {
-                    AnyTypeEnum::VoidType(_) => panic!(),
+                    // use i8* for void *
+                    AnyTypeEnum::VoidType(_) => self
+                        .context
+                        .i8_type()
+                        .ptr_type(AddressSpace::default())
+                        .into(),
                     AnyTypeEnum::FunctionType(fn_type) => {
                         fn_type.ptr_type(AddressSpace::default()).into()
                     }
@@ -216,7 +217,10 @@ impl<'ctx> CodegenArena<'ctx> {
 
         // codegen entry_block
         self.builder.position_at_end(entry_block);
-        self.alloc_local_obj(&func.retval);
+        if func.retval.is_some() {
+            let retval = func.retval.as_ref().unwrap();
+            self.alloc_local_obj(retval);
+        }
         for (i, arg) in main_fn.get_param_iter().enumerate() {
             let ptr = self.alloc_local_obj(&func.args[i]);
             self.builder.build_store(ptr, arg);
@@ -235,11 +239,17 @@ impl<'ctx> CodegenArena<'ctx> {
             self.codegen_stmt(stmt);
         }
 
-        let ptr = self.get_local_obj(&func.retval);
-        let ret_type = &func.retval.borrow().obj_type;
-        let llvm_type = self.convert_llvm_basictype(&ret_type);
-        let retval = self.builder.build_load(llvm_type, ptr, "retval");
-        self.builder.build_return(Some(&retval));
+        if func.retval.is_some() {
+            let retval = func.retval.as_ref().unwrap();
+
+            let ptr = self.get_local_obj(retval);
+            let ret_type = &retval.borrow().obj_type;
+            let llvm_type = self.convert_llvm_basictype(&ret_type);
+            let retval = self.builder.build_load(llvm_type, ptr, "retval");
+            self.builder.build_return(Some(&retval));
+        } else {
+            self.builder.build_return(None);
+        }
 
         // codegen other block
 
@@ -319,6 +329,30 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 self.builder
                     .build_conditional_branch(cond, then_block, else_block);
+            }
+            CFGJump::Switch(ref cond, ref cases, ref default_id) => {
+                let mut llvm_cases = Vec::new();
+
+                for (case_expr, case_id) in cases.iter() {
+                    let case_value = self.codegen_expr(case_expr).into_int_value();
+                    let block = match case_id {
+                        BlockID::Entry => self.entry_block.unwrap(),
+                        BlockID::Return => self.return_block.unwrap(),
+                        BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
+                    };
+                    llvm_cases.push((case_value, block));
+                }
+
+                let default_block = match default_id {
+                    BlockID::Entry => self.entry_block.unwrap(),
+                    BlockID::Return => self.return_block.unwrap(),
+                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
+                };
+
+                let cond_value = self.codegen_expr(cond).into_int_value();
+
+                self.builder
+                    .build_switch(cond_value, default_block, &llvm_cases);
             }
             CFGJump::Return => panic!(),
             CFGJump::None => panic!(),
@@ -481,6 +515,9 @@ impl<'ctx> CodegenArena<'ctx> {
                             "cast to bool",
                         )
                         .into()
+                } else if expr.is_const_zero() && cast_to.is_ptr_type() {
+                    let llvm_type = self.convert_llvm_basictype(cast_to).into_pointer_type();
+                    llvm_type.const_null().into()
                 } else {
                     val
                 }
@@ -494,11 +531,24 @@ impl<'ctx> CodegenArena<'ctx> {
                 let fn_type = self
                     .convert_llvm_anytype(&func_expr.expr_type)
                     .into_function_type();
-                self.builder
-                    .build_indirect_call(fn_type, func_ptr, &arg_val, "func_call")
-                    .try_as_basic_value()
-                    .left()
+
+                if func_expr
+                    .expr_type
+                    .get_return_type()
                     .unwrap()
+                    .is_void_type()
+                {
+                    self.builder
+                        .build_indirect_call(fn_type, func_ptr, &arg_val, "func_call");
+                    // return 0 instead of void return
+                    self.context.i8_type().const_zero().into()
+                } else {
+                    self.builder
+                        .build_indirect_call(fn_type, func_ptr, &arg_val, "func_call")
+                        .try_as_basic_value()
+                        .left()
+                        .unwrap()
+                }
             }
             ASTExprNode::Dot(ref _st_expr, _index) => {
                 let ptr = self.codegen_addr(ast);
@@ -803,6 +853,17 @@ impl<'ctx> CodegenArena<'ctx> {
                             )
                             .into()
                     }
+                } else if lhs_type.is_ptr_type() && rhs_type.is_ptr_type() {
+                    let ptr_to = lhs_type.get_ptr_to().unwrap();
+                    let llvm_type = self.convert_llvm_basictype(&ptr_to);
+                    self.builder
+                        .build_ptr_diff(
+                            llvm_type,
+                            lhs.into_pointer_value(),
+                            rhs.into_pointer_value(),
+                            "ptr diff",
+                        )
+                        .into()
                 } else {
                     unreachable!()
                 }

@@ -1,5 +1,6 @@
 use crate::error::ParseError;
 use crate::parse::ParseArena;
+use crate::tokenize::KeywordKind;
 use crate::tokenize::PunctKind;
 use crate::tokenize::TokenKind;
 use crate::tokenize::TokenList;
@@ -139,6 +140,11 @@ impl<'a> ParseArena<'a> {
             let args = if tok_seq.expect_punct(PunctKind::CloseParenthesis).is_some() {
                 tok_seq = tok_seq.next();
                 None
+            } else if tok_seq.equal_keyword(KeywordKind::Void)
+                && tok_seq.next().equal_punct(PunctKind::CloseParenthesis)
+            {
+                tok_seq = tok_seq.next().next();
+                Some(Vec::new())
             } else {
                 let mut args = Vec::new();
 

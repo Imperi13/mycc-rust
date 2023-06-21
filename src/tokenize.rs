@@ -55,15 +55,19 @@ pub enum PunctKind {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum KeywordKind {
-    Return,
     Bool,
     Int,
     Char,
+    Void,
+    Return,
     If,
     Else,
     Do,
     While,
     For,
+    Switch,
+    Default,
+    Case,
     Break,
     Continue,
     Sizeof,
@@ -108,6 +112,28 @@ impl TokenList {
             }
         } else {
             panic!("empty List")
+        }
+    }
+
+    pub fn equal_punct(&self, expect_punct: PunctKind) -> bool {
+        if let Link::More(ref node) = *self.head.clone().borrow() {
+            match &node.elem {
+                TokenKind::Punct(punct) => &expect_punct == punct,
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn equal_keyword(&self, expect_keyword: KeywordKind) -> bool {
+        if let Link::More(ref node) = *self.head.clone().borrow() {
+            match &node.elem {
+                TokenKind::Keyword(keyword) => &expect_keyword == keyword,
+                _ => false,
+            }
+        } else {
+            false
         }
     }
 
@@ -355,11 +381,19 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
         }
     }
 
+    if code.len() >= 7 {
+        match &code[..7] {
+            "default" => return Some((KeywordKind::Default, &code[7..])),
+            _ => (),
+        }
+    }
+
     if code.len() >= 6 {
         match &code[..6] {
             "return" => return Some((KeywordKind::Return, &code[6..])),
             "sizeof" => return Some((KeywordKind::Sizeof, &code[6..])),
             "struct" => return Some((KeywordKind::Struct, &code[6..])),
+            "switch" => return Some((KeywordKind::Switch, &code[6..])),
             _ => (),
         }
     }
@@ -377,6 +411,8 @@ fn tokenize_keyword(code: &str) -> Option<(KeywordKind, &str)> {
         match &code[..4] {
             "else" => return Some((KeywordKind::Else, &code[4..])),
             "char" => return Some((KeywordKind::Char, &code[4..])),
+            "case" => return Some((KeywordKind::Case, &code[4..])),
+            "void" => return Some((KeywordKind::Void, &code[4..])),
             _ => (),
         }
     }

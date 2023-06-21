@@ -12,6 +12,7 @@ pub struct StructDecl {
 
 #[derive(Clone)]
 pub enum TypeNode {
+    Void,
     Bool,
     Int,
     Char,
@@ -26,9 +27,32 @@ pub struct Type {
     head: Rc<RefCell<TypeNode>>,
 }
 
+impl PartialEq<Type> for Type {
+    #[inline]
+    fn eq(&self, rhs: &Type) -> bool {
+        match (&*self.head.borrow(), &*rhs.head.borrow()) {
+            (TypeNode::Void, TypeNode::Void) => true,
+            (TypeNode::Int, TypeNode::Int) => true,
+            (TypeNode::Char, TypeNode::Char) => true,
+            (TypeNode::Bool, TypeNode::Bool) => true,
+            (TypeNode::Ptr(ref lhs_to), TypeNode::Ptr(ref rhs_to)) => lhs_to == rhs_to,
+            (TypeNode::Struct(ref lhs_st), TypeNode::Struct(ref rhs_st)) => lhs_st.id == rhs_st.id,
+            (TypeNode::Array(ref lhs_to, lhs_len), TypeNode::Array(ref rhs_to, rhs_len)) => {
+                lhs_to == rhs_to && lhs_len == rhs_len
+            }
+            (
+                TypeNode::Func(ref _lhs_ret, ref _lhs_args),
+                TypeNode::Func(ref _rhs_ret, ref _rhs_args),
+            ) => unimplemented!(),
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self.head.borrow() {
+            TypeNode::Void => write!(f, "Void"),
             TypeNode::Bool => write!(f, "Bool"),
             TypeNode::Int => write!(f, "Int"),
             TypeNode::Char => write!(f, "Char"),
@@ -139,6 +163,14 @@ impl Type {
             || matches!(*self.head.borrow(), TypeNode::Char)
     }
 
+    pub fn is_void_type(&self) -> bool {
+        matches!(*self.head.borrow(), TypeNode::Void)
+    }
+
+    pub fn is_void_ptr_type(&self) -> bool {
+        self.is_ptr_type() && self.get_ptr_to().unwrap().is_void_type()
+    }
+
     pub fn is_bool_type(&self) -> bool {
         matches!(*self.head.borrow(), TypeNode::Bool)
     }
@@ -161,6 +193,7 @@ impl Type {
             TypeNode::Array(ref array_to, _) => array_to.is_complete_type(),
             TypeNode::Struct(ref st_decl) => st_decl.members.is_some(),
             TypeNode::Func(_, _) => false,
+            TypeNode::Void => false,
         }
     }
 }

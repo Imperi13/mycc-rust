@@ -1,12 +1,16 @@
-use std::env;
+use clap::Parser;
+use std::path::PathBuf;
+
+#[derive(Parser)]
+struct CliArg {
+    #[arg(short = 'o',default_value="main.ll")]
+    output_path: PathBuf,
+
+    input_path: PathBuf,
+}
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        panic!("incorrect argument count");
-    }
+    let arg = CliArg::parse();
 
-    let code = format!("{}\n", args[1]);
-
-    mycc_rust::compile(&code, "module.ll");
+    mycc_rust::compile_to_llvm_ir(arg.input_path, arg.output_path);
 }

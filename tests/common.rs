@@ -1,9 +1,13 @@
 use std::fs;
+use std::io::Write;
 use std::process::Command;
+use tempfile::NamedTempFile;
 
-pub fn compile(code_str: &str, path: &str) {
-    let code = format!("{}\n", code_str);
-    mycc_rust::compile(&code, path);
+pub fn compile_code(code_str: &str, path: &str) {
+    let mut tmpfile = NamedTempFile::new().unwrap();
+    write!(tmpfile, "{}", code_str).unwrap();
+
+    mycc_rust::compile_to_llvm_ir(tmpfile.path(), path);
 }
 
 pub fn exec_code(path: &str) -> i32 {
@@ -21,4 +25,3 @@ pub fn exec_code(path: &str) -> i32 {
 pub fn cleanup(path: &str) -> std::io::Result<()> {
     fs::remove_file(path)
 }
-
