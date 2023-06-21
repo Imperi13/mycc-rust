@@ -233,9 +233,9 @@ struct CFGArena<'a> {
     return_block: CFGBlock,
     blocks: HashMap<usize, CFGBlock>,
 
-    break_map: HashMap<usize, usize>,
-    continue_map: HashMap<usize, usize>,
-    default_map: HashMap<usize, usize>,
+    break_map: HashMap<usize, BlockID>,
+    continue_map: HashMap<usize, BlockID>,
+    default_map: HashMap<usize, BlockID>,
     case_map: HashMap<usize, Vec<(ASTExpr, BlockID)>>,
 
     current_id: usize,
@@ -336,7 +336,7 @@ impl<'a> CFGArena<'a> {
                 };
 
                 self.blocks.insert(self.current_id, block);
-                self.default_map.insert(switch_id, block_id);
+                self.default_map.insert(switch_id, BlockID::Block(block_id));
 
                 // stmt
                 self.current_id = block_id;
@@ -500,7 +500,8 @@ impl<'a> CFGArena<'a> {
                 let after_id = self.next_id + 1;
                 self.next_id += 2;
 
-                self.break_map.insert(switch_node.break_id, after_id);
+                self.break_map
+                    .insert(switch_node.break_id, BlockID::Block(after_id));
                 self.case_map.insert(switch_node.switch_id, Vec::new());
 
                 let previous_id = self.current_id;
@@ -522,17 +523,10 @@ impl<'a> CFGArena<'a> {
                 // switch jump
 
                 let cases = self.case_map.remove(&switch_node.switch_id).unwrap();
-
-                let default_block = if self.default_map.contains_key(&switch_node.switch_id) {
-                    BlockID::Block(
-                        self.default_map
-                            .get(&switch_node.switch_id)
-                            .unwrap()
-                            .clone(),
-                    )
-                } else {
-                    BlockID::Block(after_id)
-                };
+                let default_block = self
+                    .default_map
+                    .remove(&switch_node.switch_id)
+                    .unwrap_or(BlockID::Block(after_id));
 
                 let block = CFGBlock {
                     id: BlockID::Block(previous_id),
@@ -552,8 +546,10 @@ impl<'a> CFGArena<'a> {
                 let after_id = self.next_id + 2;
                 self.next_id += 3;
 
-                self.break_map.insert(while_node.break_id, after_id);
-                self.continue_map.insert(while_node.continue_id, cond_id);
+                self.break_map
+                    .insert(while_node.break_id, BlockID::Block(after_id));
+                self.continue_map
+                    .insert(while_node.continue_id, BlockID::Block(cond_id));
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
@@ -602,8 +598,10 @@ impl<'a> CFGArena<'a> {
                 let after_id = self.next_id + 2;
                 self.next_id += 3;
 
-                self.break_map.insert(dowhile_node.break_id, after_id);
-                self.continue_map.insert(dowhile_node.continue_id, cond_id);
+                self.break_map
+                    .insert(dowhile_node.break_id, BlockID::Block(after_id));
+                self.continue_map
+                    .insert(dowhile_node.continue_id, BlockID::Block(cond_id));
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
@@ -653,8 +651,10 @@ impl<'a> CFGArena<'a> {
                 let after_id = self.next_id + 3;
                 self.next_id += 4;
 
-                self.break_map.insert(for_node.break_id, after_id);
-                self.continue_map.insert(for_node.continue_id, step_id);
+                self.break_map
+                    .insert(for_node.break_id, BlockID::Block(after_id));
+                self.continue_map
+                    .insert(for_node.continue_id, BlockID::Block(step_id));
 
                 if for_node.start.is_some() {
                     let start = for_node.start.as_ref().unwrap();
@@ -725,11 +725,11 @@ impl<'a> CFGArena<'a> {
                 self.current_stmts = Vec::new();
             }
             ASTStmtNode::Break(ref stmt_id) => {
-                let break_id = self.break_map.get(stmt_id).unwrap().clone();
+                let break_block = self.break_map.get(stmt_id).unwrap().clone();
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
                     stmts: self.current_stmts.clone(),
-                    jump_to: CFGJump::Unconditional(BlockID::Block(break_id)),
+                    jump_to: CFGJump::Unconditional(break_block),
                 };
 
                 self.blocks.insert(self.current_id, block);
@@ -738,12 +738,12 @@ impl<'a> CFGArena<'a> {
                 self.current_stmts = Vec::new();
             }
             ASTStmtNode::Continue(ref stmt_id) => {
-                let continue_id = self.continue_map.get(stmt_id).unwrap().clone();
+                let continue_block = self.continue_map.get(stmt_id).unwrap().clone();
 
                 let block = CFGBlock {
                     id: BlockID::Block(self.current_id),
                     stmts: self.current_stmts.clone(),
-                    jump_to: CFGJump::Unconditional(BlockID::Block(continue_id)),
+                    jump_to: CFGJump::Unconditional(continue_block),
                 };
 
                 self.blocks.insert(self.current_id, block);
