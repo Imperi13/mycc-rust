@@ -419,6 +419,7 @@ impl<'a> ParseArena<'a> {
 
             let cond;
             (tok_seq, cond) = self.parse_expr(tok_seq)?;
+            let cond = cond.cast_to(&Type::new(TypeNode::Int));
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::CloseParenthesis)
