@@ -236,6 +236,7 @@ struct CFGArena<'a> {
     break_map: HashMap<usize, usize>,
     continue_map: HashMap<usize, usize>,
     default_map: HashMap<usize, usize>,
+    case_map: HashMap<usize, Vec<(ASTExpr, BlockID)>>,
 
     current_id: usize,
     next_id: usize,
@@ -253,6 +254,7 @@ impl<'a> CFGArena<'a> {
             break_map: HashMap::new(),
             continue_map: HashMap::new(),
             default_map: HashMap::new(),
+            case_map: HashMap::new(),
             current_id: 0,
             next_id: 1,
             current_stmts: Vec::new(),
@@ -342,7 +344,28 @@ impl<'a> CFGArena<'a> {
 
                 self.push_stmt(stmt);
             }
-            ASTStmtNode::Case(ref _expr, ref _stmt, _switch_id) => todo!(),
+            ASTStmtNode::Case(ref expr, ref stmt, switch_id) => {
+                let block_id = self.next_id;
+                self.next_id += 1;
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(block_id)),
+                };
+
+                self.blocks.insert(self.current_id, block);
+                self.case_map
+                    .get_mut(&switch_id)
+                    .unwrap()
+                    .push((expr.clone(), BlockID::Block(block_id)));
+
+                // stmt
+                self.current_id = block_id;
+                self.current_stmts = Vec::new();
+
+                self.push_stmt(stmt);
+            }
             ASTStmtNode::Block(ref stmts) => {
                 for block_stmt in stmts.iter() {
                     match block_stmt {
@@ -478,6 +501,7 @@ impl<'a> CFGArena<'a> {
                 self.next_id += 2;
 
                 self.break_map.insert(switch_node.break_id, after_id);
+                self.case_map.insert(switch_node.switch_id, Vec::new());
 
                 let previous_id = self.current_id;
                 let previous_stmts = self.current_stmts.clone();
@@ -497,6 +521,8 @@ impl<'a> CFGArena<'a> {
 
                 // switch jump
 
+                let cases = self.case_map.remove(&switch_node.switch_id).unwrap();
+
                 let default_block = if self.default_map.contains_key(&switch_node.switch_id) {
                     BlockID::Block(
                         self.default_map
@@ -511,7 +537,7 @@ impl<'a> CFGArena<'a> {
                 let block = CFGBlock {
                     id: BlockID::Block(previous_id),
                     stmts: previous_stmts,
-                    jump_to: CFGJump::Switch(switch_node.cond.clone(), Vec::new(), default_block),
+                    jump_to: CFGJump::Switch(switch_node.cond.clone(), cases, default_block),
                 };
 
                 self.blocks.insert(previous_id, block);
