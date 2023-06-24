@@ -113,7 +113,7 @@ impl<'a> ParseArena<'a> {
             return Err(());
         }
 
-        let obj = self.obj_arena.publish_obj(obj_name, obj_type);
+        let obj = self.obj_arena.publish_obj(obj_name, true, obj_type);
 
         self.global_objs.insert(String::from(obj_name), obj.clone());
 
@@ -125,7 +125,7 @@ impl<'a> ParseArena<'a> {
             return Err(());
         }
 
-        let obj = self.obj_arena.publish_obj(obj_name, obj_type);
+        let obj = self.obj_arena.publish_obj(obj_name, false, obj_type);
 
         self.local_objs
             .back_mut()

@@ -326,6 +326,7 @@ impl<'a> CFGArena<'a> {
         {
             let retval = self.obj_arena.publish_obj(
                 "retval",
+                false,
                 func_obj.borrow().obj_type.get_return_type().unwrap(),
             );
 
