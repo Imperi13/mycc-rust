@@ -23,6 +23,7 @@ use inkwell::types::AnyTypeEnum;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::types::BasicType;
 use inkwell::types::BasicTypeEnum;
+use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
 use inkwell::values::FunctionValue;
 use inkwell::values::PointerValue;
@@ -174,7 +175,7 @@ impl<'ctx> CodegenArena<'ctx> {
         ptr
     }
 
-    fn get_local_obj(&self, obj: &Obj) -> PointerValue {
+    fn get_local_obj<'a>(&'a self, obj: &Obj) -> PointerValue<'ctx> {
         if !self.objs_ptr.contains_key(&obj.borrow().id) {
             panic!("not found obj")
         }
@@ -276,7 +277,7 @@ impl<'ctx> CodegenArena<'ctx> {
         self.codegen_jump(&cfg_block.jump_to);
     }
 
-    fn codegen_stmt(&mut self, stmt: &CFGStmt) {
+    fn codegen_stmt<'a>(&'a mut self, stmt: &CFGStmt) {
         match stmt {
             CFGStmt::Decl(ref obj) => {
                 self.alloc_local_obj(obj);
@@ -287,7 +288,27 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 self.builder.build_store(lhs_ptr, rhs);
             }
-            CFGStmt::FuncCall(_, _, _) => todo!(),
+            CFGStmt::FuncCall(ref ret_obj, ref func_expr, ref args) => {
+                let func_ptr = self.codegen_expr(func_expr).into_pointer_value();
+                let arg_val = args
+                    .iter()
+                    .map(|val| self.codegen_expr(val).into())
+                    .collect::<Vec<BasicMetadataValueEnum>>();
+                let fn_type = self
+                    .convert_llvm_anytype(&func_expr.expr_type)
+                    .into_function_type();
+
+                let return_val =
+                    self.builder
+                        .build_indirect_call(fn_type, func_ptr, &arg_val, "func_call");
+
+                if ret_obj.is_some() {
+                    let ret_ptr = self.alloc_local_obj(ret_obj.as_ref().unwrap());
+
+                    self.builder
+                        .build_store(ret_ptr, return_val.try_as_basic_value().left().unwrap());
+                }
+            }
         }
     }
 
@@ -389,7 +410,7 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    fn codegen_addr(&self, ast: &CFGExpr) -> PointerValue {
+    fn codegen_addr<'a>(&'a self, ast: &CFGExpr) -> PointerValue<'ctx> {
         match ast.get_node() {
             CFGExprNode::Var(obj) => self.get_local_obj(&obj),
             CFGExprNode::UnaryOp(unary_node) => match unary_node.kind {
@@ -420,7 +441,7 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    fn codegen_expr(&self, ast: &CFGExpr) -> BasicValueEnum {
+    fn codegen_expr<'a>(&'a self, ast: &CFGExpr) -> BasicValueEnum<'ctx> {
         match ast.get_node() {
             CFGExprNode::Number(num) => {
                 let llvm_type = self.convert_llvm_basictype(&ast.expr_type).into_int_type();
@@ -543,7 +564,11 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    fn codegen_unary_op(&self, unary_node: &CFGUnaryOpNode, expr_type: &Type) -> BasicValueEnum {
+    fn codegen_unary_op<'a>(
+        &'a self,
+        unary_node: &CFGUnaryOpNode,
+        expr_type: &Type,
+    ) -> BasicValueEnum<'ctx> {
         match unary_node.kind {
             CFGUnaryOpKind::Plus => self.codegen_expr(&unary_node.expr),
             CFGUnaryOpKind::Minus => {
@@ -589,7 +614,11 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    fn codegen_binary_op(&self, binary_node: &CFGBinaryOpNode, expr_type: &Type) -> BasicValueEnum {
+    fn codegen_binary_op<'a>(
+        &'a self,
+        binary_node: &CFGBinaryOpNode,
+        expr_type: &Type,
+    ) -> BasicValueEnum<'ctx> {
         match binary_node.kind {
             CFGBinaryOpKind::Add => {
                 let lhs_type = &binary_node.lhs.expr_type;

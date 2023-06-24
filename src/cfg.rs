@@ -382,6 +382,34 @@ impl<'a> CFGArena<'a> {
                     expr.expr_type.clone(),
                 )
             }
+            ASTExprNode::FuncCall(ref func_expr, ref args) => {
+                let evaluated_func_expr = self.push_expr(func_expr);
+                let evaluated_args = args.iter().map(|e| self.push_expr(e)).collect();
+
+                let return_type = func_expr.expr_type.get_return_type().unwrap();
+
+                if return_type.is_void_type() {
+                    self.current_stmts.push(CFGStmt::FuncCall(
+                        None,
+                        evaluated_func_expr,
+                        evaluated_args,
+                    ));
+
+                    CFGExpr::new(CFGExprNode::Number(0), expr.expr_type.clone())
+                } else {
+                    let return_obj =
+                        self.obj_arena
+                            .publish_obj("func_call value", false, return_type.clone());
+
+                    self.current_stmts.push(CFGStmt::FuncCall(
+                        Some(return_obj.clone()),
+                        evaluated_func_expr,
+                        evaluated_args,
+                    ));
+
+                    CFGExpr::new(CFGExprNode::Var(return_obj), return_type)
+                }
+            }
             ASTExprNode::Assign(ref node) => self.push_assign(node, &expr.expr_type),
             ASTExprNode::UnaryOp(ref node) => self.push_unary_op(node, &expr.expr_type),
             ASTExprNode::BinaryOp(ref node) => self.push_binary_op(node, &expr.expr_type),
