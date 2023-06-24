@@ -357,13 +357,23 @@ impl<'a> CFGArena<'a> {
         match expr.get_node() {
             ASTExprNode::Cast(ref ty, ref expr) => {
                 let evaluated_expr = self.push_expr(expr);
-                CFGExpr::new(CFGExprNode::Cast(ty.clone(), evaluated_expr), ty.clone())
+                CFGExpr::new(
+                    CFGExprNode::Cast(ty.clone(), evaluated_expr),
+                    expr.expr_type.clone(),
+                )
             }
             ASTExprNode::Number(num) => {
                 CFGExpr::new(CFGExprNode::Number(num), expr.expr_type.clone())
             }
             ASTExprNode::Var(ref obj) => {
-                CFGExpr::new(CFGExprNode::Var(obj.clone()), obj.borrow().obj_type.clone())
+                CFGExpr::new(CFGExprNode::Var(obj.clone()), expr.expr_type.clone())
+            }
+            ASTExprNode::Arrow(ref expr, index) => {
+                let evaluated_expr = self.push_expr(expr);
+                CFGExpr::new(
+                    CFGExprNode::Arrow(evaluated_expr, index),
+                    expr.expr_type.clone(),
+                )
             }
             ASTExprNode::Assign(ref node) => self.push_assign(node, &expr.expr_type),
             ASTExprNode::UnaryOp(ref node) => self.push_unary_op(node, &expr.expr_type),
