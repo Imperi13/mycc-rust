@@ -89,7 +89,7 @@ impl fmt::Debug for CFGJump {
                 "Conditional ({:?}) then: {:?} else: {:?}",
                 cond, then_block, else_block
             ),
-            CFGJump::Switch(_, _, _) => write!(f, ""),
+            CFGJump::Switch(_, _, _) => write!(f, "Switch"),
             CFGJump::None => panic!(),
         }
     }
