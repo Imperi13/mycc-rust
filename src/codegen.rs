@@ -482,11 +482,7 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    fn codegen_binary_op(
-        &self,
-        binary_node: &CFGBinaryOpNode,
-        _expr_type: &Type,
-    ) -> BasicValueEnum {
+    fn codegen_binary_op(&self, binary_node: &CFGBinaryOpNode, expr_type: &Type) -> BasicValueEnum {
         match binary_node.kind {
             CFGBinaryOpKind::Add => {
                 let lhs_type = &binary_node.lhs.expr_type;
@@ -528,7 +524,215 @@ impl<'ctx> CodegenArena<'ctx> {
                     unreachable!()
                 }
             }
-            _ => todo!(),
+            CFGBinaryOpKind::Sub => {
+                let lhs_type = &binary_node.lhs.expr_type;
+                let rhs_type = &binary_node.rhs.expr_type;
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                    BasicValueEnum::IntValue(self.builder.build_int_sub(
+                        lhs.into_int_value(),
+                        rhs.into_int_value(),
+                        "sub node",
+                    ))
+                } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
+                    let ptr_to = lhs_type.get_ptr_to().unwrap();
+                    let neg_rhs = self.builder.build_int_neg(rhs.into_int_value(), "neg");
+                    unsafe {
+                        self.builder
+                            .build_gep(
+                                self.convert_llvm_basictype(&ptr_to),
+                                lhs.into_pointer_value(),
+                                &[neg_rhs],
+                                "ptr_add",
+                            )
+                            .into()
+                    }
+                } else if lhs_type.is_ptr_type() && rhs_type.is_ptr_type() {
+                    let ptr_to = lhs_type.get_ptr_to().unwrap();
+                    let llvm_type = self.convert_llvm_basictype(&ptr_to);
+                    self.builder
+                        .build_ptr_diff(
+                            llvm_type,
+                            lhs.into_pointer_value(),
+                            rhs.into_pointer_value(),
+                            "ptr diff",
+                        )
+                        .into()
+                } else {
+                    unreachable!()
+                }
+            }
+            CFGBinaryOpKind::Mul => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                BasicValueEnum::IntValue(self.builder.build_int_mul(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "mul node",
+                ))
+            }
+            CFGBinaryOpKind::Div => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                BasicValueEnum::IntValue(self.builder.build_int_signed_div(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "div node",
+                ))
+            }
+            CFGBinaryOpKind::Mod => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                self.builder
+                    .build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "mod node")
+                    .into()
+            }
+            CFGBinaryOpKind::BitOr => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                self.builder
+                    .build_or(lhs.into_int_value(), rhs.into_int_value(), "or node")
+                    .into()
+            }
+            CFGBinaryOpKind::BitXor => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                self.builder
+                    .build_xor(lhs.into_int_value(), rhs.into_int_value(), "or node")
+                    .into()
+            }
+            CFGBinaryOpKind::BitAnd => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                self.builder
+                    .build_and(lhs.into_int_value(), rhs.into_int_value(), "and node")
+                    .into()
+            }
+            CFGBinaryOpKind::Equal => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "equal node",
+                );
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
+                    false,
+                    "cast to i64",
+                ))
+            }
+            CFGBinaryOpKind::NotEqual => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "equal node",
+                );
+
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
+                    false,
+                    "cast to i64",
+                ))
+            }
+            CFGBinaryOpKind::Less => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SLT,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "equal node",
+                );
+
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
+                    false,
+                    "cast to i64",
+                ))
+            }
+            CFGBinaryOpKind::LessEqual => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SLE,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "equal node",
+                );
+
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
+                    false,
+                    "cast to i64",
+                ))
+            }
+            CFGBinaryOpKind::Greater => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SGT,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "equal node",
+                );
+
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
+                    false,
+                    "cast to i64",
+                ))
+            }
+            CFGBinaryOpKind::GreaterEqual => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                let cmp = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SGE,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "equal node",
+                );
+
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
+                    cmp,
+                    self.convert_llvm_basictype(expr_type).into_int_type(),
+                    false,
+                    "cast to i64",
+                ))
+            }
+            CFGBinaryOpKind::LeftShift => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                self.builder
+                    .build_left_shift(
+                        lhs.into_int_value(),
+                        rhs.into_int_value(),
+                        "left shift node",
+                    )
+                    .into()
+            }
+            CFGBinaryOpKind::RightShift => {
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+                self.builder
+                    .build_right_shift(
+                        lhs.into_int_value(),
+                        rhs.into_int_value(),
+                        false,
+                        "left shift node",
+                    )
+                    .into()
+            }
         }
     }
 }

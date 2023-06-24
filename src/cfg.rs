@@ -363,16 +363,47 @@ impl<'a> CFGArena<'a> {
 
     pub fn push_binary_op(&mut self, node: &ASTBinaryOpNode, expr_type: &Type) -> CFGExpr {
         match node.kind {
-            ASTBinaryOpKind::Add => {
+            ASTBinaryOpKind::Add
+            | ASTBinaryOpKind::Sub
+            | ASTBinaryOpKind::Mul
+            | ASTBinaryOpKind::Div
+            | ASTBinaryOpKind::Mod
+            | ASTBinaryOpKind::BitOr
+            | ASTBinaryOpKind::BitXor
+            | ASTBinaryOpKind::BitAnd
+            | ASTBinaryOpKind::Equal
+            | ASTBinaryOpKind::NotEqual
+            | ASTBinaryOpKind::Less
+            | ASTBinaryOpKind::LessEqual
+            | ASTBinaryOpKind::Greater
+            | ASTBinaryOpKind::GreaterEqual
+            | ASTBinaryOpKind::LeftShift
+            | ASTBinaryOpKind::RightShift => {
                 let lhs = self.push_expr(&node.lhs);
                 let rhs = self.push_expr(&node.rhs);
 
+                let kind = match node.kind {
+                    ASTBinaryOpKind::Add => CFGBinaryOpKind::Add,
+                    ASTBinaryOpKind::Sub => CFGBinaryOpKind::Sub,
+                    ASTBinaryOpKind::Mul => CFGBinaryOpKind::Mul,
+                    ASTBinaryOpKind::Div => CFGBinaryOpKind::Div,
+                    ASTBinaryOpKind::Mod => CFGBinaryOpKind::Mod,
+                    ASTBinaryOpKind::BitOr => CFGBinaryOpKind::BitOr,
+                    ASTBinaryOpKind::BitXor => CFGBinaryOpKind::BitXor,
+                    ASTBinaryOpKind::BitAnd => CFGBinaryOpKind::BitAnd,
+                    ASTBinaryOpKind::Equal => CFGBinaryOpKind::Equal,
+                    ASTBinaryOpKind::NotEqual => CFGBinaryOpKind::NotEqual,
+                    ASTBinaryOpKind::Less => CFGBinaryOpKind::Less,
+                    ASTBinaryOpKind::LessEqual => CFGBinaryOpKind::LessEqual,
+                    ASTBinaryOpKind::Greater => CFGBinaryOpKind::Greater,
+                    ASTBinaryOpKind::GreaterEqual => CFGBinaryOpKind::GreaterEqual,
+                    ASTBinaryOpKind::LeftShift => CFGBinaryOpKind::LeftShift,
+                    ASTBinaryOpKind::RightShift => CFGBinaryOpKind::RightShift,
+                    _ => panic!(),
+                };
+
                 CFGExpr::new(
-                    CFGExprNode::BinaryOp(CFGBinaryOpNode {
-                        lhs,
-                        rhs,
-                        kind: CFGBinaryOpKind::Add,
-                    }),
+                    CFGExprNode::BinaryOp(CFGBinaryOpNode { lhs, rhs, kind }),
                     expr_type.clone(),
                 )
             }
