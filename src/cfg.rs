@@ -399,6 +399,30 @@ impl<'a> CFGArena<'a> {
 
                 conditional_var
             }
+            ASTExprNode::PostIncrement(ref lhs) => {
+                let saved_obj =
+                    self.obj_arena
+                        .publish_obj("post_increment", false, expr.expr_type.clone());
+                let saved_var =
+                    CFGExpr::new(CFGExprNode::Var(saved_obj.clone()), expr.expr_type.clone());
+
+                self.current_stmts.push(CFGStmt::Decl(saved_obj.clone()));
+                let lhs = self.push_expr(lhs);
+                self.current_stmts
+                    .push(CFGStmt::Assign(saved_var.clone(), lhs.clone()));
+                let one = CFGExpr::new(CFGExprNode::Number(1), Type::new(TypeNode::Int));
+                let binary_expr = CFGExpr::new(
+                    CFGExprNode::BinaryOp(CFGBinaryOpNode {
+                        lhs: lhs.clone(),
+                        rhs: one,
+                        kind: CFGBinaryOpKind::Add,
+                    }),
+                    expr.expr_type.clone(),
+                );
+
+                self.current_stmts.push(CFGStmt::Assign(lhs, binary_expr));
+                saved_var
+            }
             ASTExprNode::FuncCall(ref func_expr, ref args) => {
                 let evaluated_func_expr = self.push_expr(func_expr);
                 let evaluated_args = args.iter().map(|e| self.push_expr(e)).collect();
