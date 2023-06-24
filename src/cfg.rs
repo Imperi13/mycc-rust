@@ -38,7 +38,7 @@ pub enum CFGStmt {
 impl fmt::Debug for CFGStmt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CFGStmt::Decl(ref obj) => write!(f, "{}_{}", obj.borrow().name, obj.borrow().id),
+            CFGStmt::Decl(ref obj) => write!(f, "Decl {}_{}", obj.borrow().name, obj.borrow().id),
             CFGStmt::Assign(ref lhs, ref rhs) => write!(f, "{:?} = {:?}", lhs, rhs),
             CFGStmt::FuncCall(ref ret_obj, ref func_expr, ref args) => {
                 if ret_obj.is_some() {
@@ -143,13 +143,25 @@ pub struct CFGFunction {
 
 impl fmt::Debug for CFGFunction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "--------------")?;
         writeln!(f, "Function {}:", self.func_obj.borrow().name)?;
+        write!(f, "args: ")?;
+        for arg in self.args.iter() {
+            write!(f, "{}_{},", arg.borrow().name, arg.borrow().id)?;
+        }
+        writeln!(f, "")?;
+        if self.retval.is_some() {
+            let retval = self.retval.as_ref().unwrap();
+            writeln!(f, "return: {}_{}", retval.borrow().name, retval.borrow().id)?;
+        }
+        writeln!(f, "")?;
 
         writeln!(f, "{:?}", self.entry_block)?;
         for (_, block) in self.blocks.iter() {
             writeln!(f, "{:?}", block)?;
         }
-        writeln!(f, "{:?}", self.return_block)
+        writeln!(f, "{:?}", self.return_block)?;
+        writeln!(f, "--------------")
     }
 }
 
