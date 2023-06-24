@@ -427,7 +427,14 @@ impl<'a> CFGArena<'a> {
                     expr_type.clone(),
                 )
             }
-            _ => todo!(),
+            ASTUnaryOpKind::Sizeof => CFGExpr::new(
+                CFGExprNode::Sizeof(node.expr.expr_type.clone()),
+                expr_type.clone(),
+            ),
+            ASTUnaryOpKind::Alignof => CFGExpr::new(
+                CFGExprNode::Alignof(node.expr.expr_type.clone()),
+                expr_type.clone(),
+            ),
         }
     }
 

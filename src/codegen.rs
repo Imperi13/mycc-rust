@@ -462,6 +462,30 @@ impl<'ctx> CodegenArena<'ctx> {
                     self.builder.build_load(llvm_type, ptr, "dot")
                 }
             }
+            CFGExprNode::Sizeof(ref ty) => {
+                let size_val = self.convert_llvm_basictype(ty).size_of().unwrap().into();
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
+                    size_val,
+                    self.context.i32_type(),
+                    false,
+                    "cast to i32",
+                ))
+            }
+            CFGExprNode::Alignof(ref ty) => {
+                let llvm_type = self.convert_llvm_basictype(ty);
+                let align_val = match llvm_type {
+                    BasicTypeEnum::IntType(ty) => ty.get_alignment().into(),
+                    BasicTypeEnum::PointerType(ty) => ty.get_alignment().into(),
+                    _ => unimplemented!(),
+                };
+
+                BasicValueEnum::IntValue(self.builder.build_int_cast_sign_flag(
+                    align_val,
+                    self.context.i32_type(),
+                    false,
+                    "cast to i32",
+                ))
+            }
             CFGExprNode::Cast(ref cast_to, ref expr) => {
                 let val = self.codegen_expr(expr);
 
@@ -516,7 +540,6 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             CFGExprNode::UnaryOp(ref node) => self.codegen_unary_op(node, &ast.expr_type),
             CFGExprNode::BinaryOp(ref node) => self.codegen_binary_op(node, &ast.expr_type),
-            _ => todo!(),
         }
     }
 
