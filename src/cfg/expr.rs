@@ -2,7 +2,7 @@ use crate::obj::Obj;
 use crate::types::Type;
 
 #[derive(Clone, Debug)]
-pub enum BinaryOpKind {
+pub enum CFGBinaryOpKind {
     Add,
     Sub,
     Mul,
@@ -22,14 +22,14 @@ pub enum BinaryOpKind {
 }
 
 #[derive(Clone)]
-pub struct BinaryOpNode {
+pub struct CFGBinaryOpNode {
     pub lhs: CFGExpr,
     pub rhs: CFGExpr,
-    pub kind: BinaryOpKind,
+    pub kind: CFGBinaryOpKind,
 }
 
 #[derive(Clone, Debug)]
-pub enum UnaryOpKind {
+pub enum CFGUnaryOpKind {
     Sizeof,
     Alignof,
     Plus,
@@ -41,15 +41,15 @@ pub enum UnaryOpKind {
 }
 
 #[derive(Clone)]
-pub struct UnaryOpNode {
+pub struct CFGUnaryOpNode {
     pub expr: CFGExpr,
-    pub kind: UnaryOpKind,
+    pub kind: CFGUnaryOpKind,
 }
 
 #[derive(Clone)]
 pub enum CFGExprNode {
-    BinaryOp(BinaryOpNode),
-    UnaryOp(UnaryOpNode),
+    BinaryOp(CFGBinaryOpNode),
+    UnaryOp(CFGUnaryOpNode),
     Cast(Type, CFGExpr),
     Dot(CFGExpr, usize),
     Arrow(CFGExpr, usize),

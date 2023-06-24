@@ -1,6 +1,6 @@
 use crate::cfg::expr::CFGExpr;
 use crate::cfg::expr::CFGExprNode;
-use crate::cfg::expr::UnaryOpKind;
+use crate::cfg::expr::CFGUnaryOpKind;
 use crate::cfg::BlockID;
 use crate::cfg::CFGBlock;
 use crate::cfg::CFGFunction;
@@ -390,7 +390,7 @@ impl<'ctx> CodegenArena<'ctx> {
         match ast.get_node() {
             CFGExprNode::Var(obj) => self.get_local_obj(&obj),
             CFGExprNode::UnaryOp(unary_node) => match unary_node.kind {
-                UnaryOpKind::Deref => self.codegen_expr(&unary_node.expr).into_pointer_value(),
+                CFGUnaryOpKind::Deref => self.codegen_expr(&unary_node.expr).into_pointer_value(),
                 _ => panic!(),
             },
             CFGExprNode::Dot(ref st_expr, index) => {
