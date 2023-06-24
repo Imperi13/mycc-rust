@@ -2,6 +2,7 @@ use super::BlockID;
 use super::CFGBlock;
 use super::CFGFunction;
 use super::CFGJump;
+use super::CFGStmt;
 
 use std::collections::VecDeque;
 
@@ -158,6 +159,27 @@ impl CFGFunction {
                 }
                 next_id += 1;
             }
+        }
+    }
+
+    pub fn move_declaration_to_entry(&mut self) {
+        for (_, block) in self.blocks.iter_mut() {
+            let decl_stmts: Vec<CFGStmt> = block
+                .stmts
+                .iter()
+                .filter(|s| matches!(s, CFGStmt::Decl(_)))
+                .map(|s| s.clone())
+                .collect();
+            let others: Vec<CFGStmt> = block
+                .stmts
+                .iter()
+                .filter(|s| !matches!(s, CFGStmt::Decl(_)))
+                .map(|s| s.clone())
+                .collect();
+
+            block.stmts = others;
+
+            self.entry_block.stmts.extend(decl_stmts);
         }
     }
 }

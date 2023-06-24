@@ -245,7 +245,7 @@ impl<'a> CFGArena<'a> {
             match block_stmt {
                 ASTBlockStmt::Stmt(ref stmt) => self.push_stmt(stmt),
                 ASTBlockStmt::Declaration(ref obj) => {
-                    self.entry_block.stmts.push(CFGStmt::Decl(obj.clone()));
+                    self.current_stmts.push(CFGStmt::Decl(obj.clone()));
                 }
             }
         }
@@ -273,6 +273,7 @@ impl<'a> CFGArena<'a> {
         };
 
         cfg_func.cleanup_unreachable_block();
+        cfg_func.move_declaration_to_entry();
 
         cfg_func
     }
