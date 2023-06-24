@@ -534,6 +534,91 @@ impl<'a> CFGArena<'a> {
                 self.push_expr(&node.lhs);
                 self.push_expr(&node.rhs)
             }
+            ASTBinaryOpKind::LogicalOr => {
+                let and_obj = self
+                    .obj_arena
+                    .publish_obj("logical_and", false, expr_type.clone());
+                let and_var = CFGExpr::new(CFGExprNode::Var(and_obj.clone()), expr_type.clone());
+
+                self.current_stmts.push(CFGStmt::Decl(and_obj.clone()));
+
+                let lhs = self.push_expr(&node.lhs);
+
+                let rhs_id = self.next_id;
+                let then_id = self.next_id + 1;
+                let else_id = self.next_id + 2;
+                let after_id = self.next_id + 3;
+                self.next_id += 4;
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Conditional(
+                        lhs,
+                        BlockID::Block(then_id),
+                        BlockID::Block(rhs_id),
+                    ),
+                };
+                self.blocks.insert(self.current_id, block);
+
+                // rhs
+                self.current_id = rhs_id;
+                self.current_stmts = Vec::new();
+
+                let rhs = self.push_expr(&node.rhs);
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Conditional(
+                        rhs,
+                        BlockID::Block(then_id),
+                        BlockID::Block(else_id),
+                    ),
+                };
+
+                self.blocks.insert(self.current_id, block);
+
+                // then
+                self.current_id = then_id;
+                self.current_stmts = Vec::new();
+
+                self.current_stmts.push(CFGStmt::Assign(
+                    and_var.clone(),
+                    CFGExpr::new(CFGExprNode::Number(1), Type::new(TypeNode::Int)),
+                ));
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(after_id)),
+                };
+
+                self.blocks.insert(self.current_id, block);
+
+                // else
+                self.current_id = else_id;
+                self.current_stmts = Vec::new();
+
+                self.current_stmts.push(CFGStmt::Assign(
+                    and_var.clone(),
+                    CFGExpr::new(CFGExprNode::Number(0), Type::new(TypeNode::Int)),
+                ));
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(after_id)),
+                };
+
+                self.blocks.insert(self.current_id, block);
+
+                // after
+                self.current_id = after_id;
+                self.current_stmts = Vec::new();
+
+                and_var
+            }
             ASTBinaryOpKind::LogicalAnd => {
                 let or_obj = self
                     .obj_arena
@@ -619,7 +704,6 @@ impl<'a> CFGArena<'a> {
 
                 or_var
             }
-            _ => todo!(),
         }
     }
 
