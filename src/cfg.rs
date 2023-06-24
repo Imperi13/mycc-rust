@@ -1,22 +1,24 @@
+pub mod expr;
+
 use crate::ast::expr::ASTExpr;
 use crate::ast::expr::ASTExprNode;
-use crate::ast::expr::AssignKind;
-use crate::ast::expr::AssignNode;
 use crate::ast::stmt::ASTStmt;
 use crate::ast::stmt::ASTStmtNode;
 use crate::ast::ASTBlockStmt;
 use crate::ast::ASTGlobal;
 use crate::obj::Obj;
 use crate::obj::ObjArena;
+use expr::CFGExpr;
+use expr::CFGExprNode;
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::fmt;
 
 #[derive(Clone)]
 pub enum CFGStmt {
     Decl(Obj),
-    Expr(ASTExpr),
+    Assign(CFGExpr, CFGExpr),
+    FuncCall(Option<Obj>, CFGExpr, Vec<CFGExpr>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -26,13 +28,13 @@ pub enum BlockID {
     Block(usize),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum CFGJump {
     None,
     Return,
     Unconditional(BlockID),
-    Conditional(ASTExpr, BlockID, BlockID),
-    Switch(ASTExpr, Vec<(ASTExpr, BlockID)>, BlockID),
+    Conditional(CFGExpr, BlockID, BlockID),
+    Switch(CFGExpr, Vec<(CFGExpr, BlockID)>, BlockID),
 }
 
 #[derive(Clone)]
@@ -49,21 +51,6 @@ impl CFGBlock {
             stmts: Vec::new(),
             jump_to: CFGJump::None,
         }
-    }
-}
-
-impl fmt::Debug for CFGBlock {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "ID: {:?}", self.id)?;
-        writeln!(f, "stmts:")?;
-        for stmt in self.stmts.iter() {
-            match stmt {
-                CFGStmt::Decl(ref _obj) => writeln!(f, "Decl "),
-                CFGStmt::Expr(ref expr) => expr.fmt_with_indent(f, "\t"),
-            }?;
-        }
-
-        writeln!(f, "jump_to: {:?}", self.jump_to)
     }
 }
 
@@ -241,23 +228,6 @@ pub enum CFGGlobal {
     Variable(Obj),
 }
 
-impl fmt::Debug for CFGGlobal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CFGGlobal::Function(ref func) => {
-                writeln!(f, "{:?}", func.entry_block)?;
-                for (_, block) in func.blocks.iter() {
-                    writeln!(f, "{:?}", block)?;
-                }
-                writeln!(f, "{:?}", func.return_block)
-            }
-            CFGGlobal::Variable(ref obj) => {
-                writeln!(f, "Variable {}", obj.borrow().name)
-            }
-        }
-    }
-}
-
 pub fn gen_cfg_all(obj_arena: &mut ObjArena, ast_all: &Vec<ASTGlobal>) -> Vec<CFGGlobal> {
     let mut cfg_globals = Vec::new();
     for ast in ast_all.iter() {
@@ -286,7 +256,7 @@ struct CFGArena<'a> {
     break_map: HashMap<usize, BlockID>,
     continue_map: HashMap<usize, BlockID>,
     default_map: HashMap<usize, BlockID>,
-    case_map: HashMap<usize, Vec<(ASTExpr, BlockID)>>,
+    case_map: HashMap<usize, Vec<(CFGExpr, BlockID)>>,
 
     current_id: usize,
     next_id: usize,
@@ -371,10 +341,23 @@ impl<'a> CFGArena<'a> {
         cfg_func
     }
 
+    pub fn push_expr(&mut self, expr: &ASTExpr) -> CFGExpr {
+        match expr.get_node() {
+            ASTExprNode::Cast(ref ty, ref expr) => {
+                let evaluated_expr = self.push_expr(expr);
+                CFGExpr::new(CFGExprNode::Cast(ty.clone(), evaluated_expr), ty.clone())
+            }
+            ASTExprNode::Number(num) => {
+                CFGExpr::new(CFGExprNode::Number(num), expr.expr_type.clone())
+            }
+            _ => todo!(),
+        }
+    }
+
     pub fn push_stmt(&mut self, stmt: &ASTStmt) {
         match stmt.get_node() {
             ASTStmtNode::ExprStmt(ref expr) => {
-                self.current_stmts.push(CFGStmt::Expr(expr.clone()));
+                self.push_expr(expr);
             }
             ASTStmtNode::Default(ref stmt, switch_id) => {
                 let block_id = self.next_id;
@@ -396,6 +379,8 @@ impl<'a> CFGArena<'a> {
                 self.push_stmt(stmt);
             }
             ASTStmtNode::Case(ref expr, ref stmt, switch_id) => {
+                let evaluated_expr = self.push_expr(expr);
+
                 let block_id = self.next_id;
                 self.next_id += 1;
 
@@ -409,7 +394,7 @@ impl<'a> CFGArena<'a> {
                 self.case_map
                     .get_mut(&switch_id)
                     .unwrap()
-                    .push((expr.clone(), BlockID::Block(block_id)));
+                    .push((evaluated_expr, BlockID::Block(block_id)));
 
                 // stmt
                 self.current_id = block_id;
@@ -432,19 +417,15 @@ impl<'a> CFGArena<'a> {
                     let expr = expr.as_ref().unwrap();
                     let retval = self.retval.clone().unwrap();
 
-                    let retval_expr = ASTExpr::new(
-                        ASTExprNode::Var(retval.clone()),
+                    let retval_expr = CFGExpr::new(
+                        CFGExprNode::Var(retval.clone()),
                         retval.borrow().obj_type.clone(),
                     );
-                    let assign_expr = ASTExpr::new(
-                        ASTExprNode::Assign(AssignNode {
-                            lhs: retval_expr,
-                            rhs: expr.clone(),
-                            kind: AssignKind::Assign,
-                        }),
-                        retval.borrow().obj_type.clone(),
-                    );
-                    self.current_stmts.push(CFGStmt::Expr(assign_expr));
+
+                    let evaluated_expr = self.push_expr(expr);
+
+                    self.current_stmts
+                        .push(CFGStmt::Assign(retval_expr, evaluated_expr));
                 }
 
                 let block = CFGBlock {
@@ -459,6 +440,8 @@ impl<'a> CFGArena<'a> {
                 self.current_stmts = Vec::new();
             }
             ASTStmtNode::If(ref cond, ref then_stmt, ref else_stmt) => {
+                let evaluated_cond = self.push_expr(cond);
+
                 if else_stmt.is_some() {
                     let else_stmt = else_stmt.as_ref().unwrap();
 
@@ -471,7 +454,7 @@ impl<'a> CFGArena<'a> {
                         id: BlockID::Block(self.current_id),
                         stmts: self.current_stmts.clone(),
                         jump_to: CFGJump::Conditional(
-                            cond.clone(),
+                            evaluated_cond,
                             BlockID::Block(then_id),
                             BlockID::Block(else_id),
                         ),
@@ -519,7 +502,7 @@ impl<'a> CFGArena<'a> {
                         id: BlockID::Block(self.current_id),
                         stmts: self.current_stmts.clone(),
                         jump_to: CFGJump::Conditional(
-                            cond.clone(),
+                            evaluated_cond,
                             BlockID::Block(then_id),
                             BlockID::Block(after_id),
                         ),
@@ -547,6 +530,8 @@ impl<'a> CFGArena<'a> {
                 }
             }
             ASTStmtNode::Switch(ref switch_node) => {
+                let evaluated_cond = self.push_expr(&switch_node.cond);
+
                 let stmt_id = self.next_id;
                 let after_id = self.next_id + 1;
                 self.next_id += 2;
@@ -582,7 +567,7 @@ impl<'a> CFGArena<'a> {
                 let block = CFGBlock {
                     id: BlockID::Block(previous_id),
                     stmts: previous_stmts,
-                    jump_to: CFGJump::Switch(switch_node.cond.clone(), cases, default_block),
+                    jump_to: CFGJump::Switch(evaluated_cond, cases, default_block),
                 };
 
                 self.blocks.insert(previous_id, block);
@@ -592,6 +577,8 @@ impl<'a> CFGArena<'a> {
                 self.current_stmts = Vec::new();
             }
             ASTStmtNode::While(ref while_node) => {
+                let evaluated_cond = self.push_expr(&while_node.cond);
+
                 let cond_id = self.next_id;
                 let loop_id = self.next_id + 1;
                 let after_id = self.next_id + 2;
@@ -618,7 +605,7 @@ impl<'a> CFGArena<'a> {
                     id: BlockID::Block(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Conditional(
-                        while_node.cond.clone(),
+                        evaluated_cond,
                         BlockID::Block(loop_id),
                         BlockID::Block(after_id),
                     ),
@@ -644,6 +631,8 @@ impl<'a> CFGArena<'a> {
                 self.current_stmts = Vec::new();
             }
             ASTStmtNode::DoWhile(ref dowhile_node) => {
+                let evaluated_cond = self.push_expr(&dowhile_node.cond);
+
                 let loop_id = self.next_id;
                 let cond_id = self.next_id + 1;
                 let after_id = self.next_id + 2;
@@ -683,7 +672,7 @@ impl<'a> CFGArena<'a> {
                     id: BlockID::Block(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Conditional(
-                        dowhile_node.cond.clone(),
+                        evaluated_cond,
                         BlockID::Block(loop_id),
                         BlockID::Block(after_id),
                     ),
@@ -709,7 +698,7 @@ impl<'a> CFGArena<'a> {
 
                 if for_node.start.is_some() {
                     let start = for_node.start.as_ref().unwrap();
-                    self.current_stmts.push(CFGStmt::Expr(start.clone()));
+                    self.push_expr(start);
                 }
 
                 let block = CFGBlock {
@@ -725,8 +714,10 @@ impl<'a> CFGArena<'a> {
                 self.current_stmts = Vec::new();
 
                 let jump_to = if for_node.cond.is_some() {
+                    let evaluated_cond = self.push_expr(for_node.cond.as_ref().unwrap());
+
                     CFGJump::Conditional(
-                        for_node.cond.as_ref().unwrap().clone(),
+                        evaluated_cond,
                         BlockID::Block(loop_id),
                         BlockID::Block(after_id),
                     )
@@ -761,7 +752,7 @@ impl<'a> CFGArena<'a> {
 
                 if for_node.step.is_some() {
                     let step = for_node.step.as_ref().unwrap();
-                    self.current_stmts.push(CFGStmt::Expr(step.clone()));
+                    self.push_expr(step);
                 }
 
                 let block = CFGBlock {
