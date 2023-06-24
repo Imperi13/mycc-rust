@@ -4,6 +4,8 @@ use crate::ast::expr::ASTBinaryOpKind;
 use crate::ast::expr::ASTBinaryOpNode;
 use crate::ast::expr::ASTExpr;
 use crate::ast::expr::ASTExprNode;
+use crate::ast::expr::ASTUnaryOpKind;
+use crate::ast::expr::ASTUnaryOpNode;
 use crate::ast::stmt::ASTStmt;
 use crate::ast::stmt::ASTStmtNode;
 use crate::ast::ASTBlockStmt;
@@ -16,6 +18,8 @@ use expr::CFGBinaryOpKind;
 use expr::CFGBinaryOpNode;
 use expr::CFGExpr;
 use expr::CFGExprNode;
+use expr::CFGUnaryOpKind;
+use expr::CFGUnaryOpNode;
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -356,7 +360,37 @@ impl<'a> CFGArena<'a> {
             ASTExprNode::Number(num) => {
                 CFGExpr::new(CFGExprNode::Number(num), expr.expr_type.clone())
             }
+            ASTExprNode::UnaryOp(ref node) => self.push_unary_op(node, &expr.expr_type),
             ASTExprNode::BinaryOp(ref node) => self.push_binary_op(node, &expr.expr_type),
+            _ => todo!(),
+        }
+    }
+
+    pub fn push_unary_op(&mut self, node: &ASTUnaryOpNode, expr_type: &Type) -> CFGExpr {
+        match node.kind {
+            ASTUnaryOpKind::Plus
+            | ASTUnaryOpKind::Minus
+            | ASTUnaryOpKind::Addr
+            | ASTUnaryOpKind::Deref
+            | ASTUnaryOpKind::LogicalNot
+            | ASTUnaryOpKind::BitNot => {
+                let expr = self.push_expr(&node.expr);
+
+                let kind = match node.kind {
+                    ASTUnaryOpKind::Plus => CFGUnaryOpKind::Plus,
+                    ASTUnaryOpKind::Minus => CFGUnaryOpKind::Minus,
+                    ASTUnaryOpKind::Addr => CFGUnaryOpKind::Addr,
+                    ASTUnaryOpKind::Deref => CFGUnaryOpKind::Deref,
+                    ASTUnaryOpKind::LogicalNot => CFGUnaryOpKind::LogicalNot,
+                    ASTUnaryOpKind::BitNot => CFGUnaryOpKind::BitNot,
+                    _ => panic!(),
+                };
+
+                CFGExpr::new(
+                    CFGExprNode::UnaryOp(CFGUnaryOpNode { expr, kind }),
+                    expr_type.clone(),
+                )
+            }
             _ => todo!(),
         }
     }

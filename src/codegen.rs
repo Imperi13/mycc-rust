@@ -3,6 +3,7 @@ use crate::cfg::expr::CFGBinaryOpNode;
 use crate::cfg::expr::CFGExpr;
 use crate::cfg::expr::CFGExprNode;
 use crate::cfg::expr::CFGUnaryOpKind;
+use crate::cfg::expr::CFGUnaryOpNode;
 use crate::cfg::BlockID;
 use crate::cfg::CFGBlock;
 use crate::cfg::CFGFunction;
@@ -477,8 +478,55 @@ impl<'ctx> CodegenArena<'ctx> {
                     val
                 }
             }
+            CFGExprNode::UnaryOp(ref node) => self.codegen_unary_op(node, &ast.expr_type),
             CFGExprNode::BinaryOp(ref node) => self.codegen_binary_op(node, &ast.expr_type),
             _ => todo!(),
+        }
+    }
+
+    fn codegen_unary_op(&self, unary_node: &CFGUnaryOpNode, expr_type: &Type) -> BasicValueEnum {
+        match unary_node.kind {
+            CFGUnaryOpKind::Plus => self.codegen_expr(&unary_node.expr),
+            CFGUnaryOpKind::Minus => {
+                let expr = self.codegen_expr(&unary_node.expr);
+                BasicValueEnum::IntValue(self.builder.build_int_neg(expr.into_int_value(), "neg"))
+            }
+            CFGUnaryOpKind::Addr => {
+                BasicValueEnum::PointerValue(self.codegen_addr(&unary_node.expr))
+            }
+            CFGUnaryOpKind::Deref => {
+                assert!(&unary_node.expr.expr_type.is_ptr_type());
+                let llvm_type = self.convert_llvm_basictype(expr_type);
+                let ptr = self.codegen_expr(&unary_node.expr).into_pointer_value();
+                if expr_type.is_array_type() {
+                    ptr.into()
+                } else {
+                    self.builder.build_load(llvm_type, ptr, "var")
+                }
+            }
+            CFGUnaryOpKind::LogicalNot => {
+                let expr = self.codegen_expr(&unary_node.expr);
+                let zero = self
+                    .convert_llvm_basictype(&unary_node.expr.expr_type)
+                    .into_int_type()
+                    .const_int(0, false);
+
+                let cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    expr.into_int_value(),
+                    zero,
+                    "logical not",
+                );
+                self.builder
+                    .build_int_cast_sign_flag(cond, self.context.i32_type(), false, "cast to i32")
+                    .into()
+            }
+            CFGUnaryOpKind::BitNot => {
+                let expr = self.codegen_expr(&unary_node.expr);
+                self.builder
+                    .build_not(expr.into_int_value(), "bit not")
+                    .into()
+            }
         }
     }
 

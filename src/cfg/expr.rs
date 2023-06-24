@@ -30,8 +30,6 @@ pub struct CFGBinaryOpNode {
 
 #[derive(Clone, Debug)]
 pub enum CFGUnaryOpKind {
-    Sizeof,
-    Alignof,
     Plus,
     Minus,
     Addr,
@@ -56,6 +54,8 @@ pub enum CFGExprNode {
     Number(u64),
     StrLiteral(String),
     Var(Obj),
+    Sizeof(Type),
+    Alignof(Type),
 }
 
 #[derive(Clone)]
