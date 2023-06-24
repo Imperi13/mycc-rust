@@ -1,3 +1,5 @@
+use crate::cfg::expr::CFGBinaryOpKind;
+use crate::cfg::expr::CFGBinaryOpNode;
 use crate::cfg::expr::CFGExpr;
 use crate::cfg::expr::CFGExprNode;
 use crate::cfg::expr::CFGUnaryOpKind;
@@ -473,6 +475,57 @@ impl<'ctx> CodegenArena<'ctx> {
                     llvm_type.const_null().into()
                 } else {
                     val
+                }
+            }
+            CFGExprNode::BinaryOp(ref node) => self.codegen_binary_op(node, &ast.expr_type),
+            _ => todo!(),
+        }
+    }
+
+    fn codegen_binary_op(
+        &self,
+        binary_node: &CFGBinaryOpNode,
+        _expr_type: &Type,
+    ) -> BasicValueEnum {
+        match binary_node.kind {
+            CFGBinaryOpKind::Add => {
+                let lhs_type = &binary_node.lhs.expr_type;
+                let rhs_type = &binary_node.rhs.expr_type;
+                let lhs = self.codegen_expr(&binary_node.lhs);
+                let rhs = self.codegen_expr(&binary_node.rhs);
+
+                if lhs_type.is_int_type() && rhs_type.is_int_type() {
+                    BasicValueEnum::IntValue(self.builder.build_int_add(
+                        lhs.into_int_value(),
+                        rhs.into_int_value(),
+                        "add node",
+                    ))
+                } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
+                    let ptr_to = lhs_type.get_ptr_to().unwrap();
+                    unsafe {
+                        self.builder
+                            .build_gep(
+                                self.convert_llvm_basictype(&ptr_to),
+                                lhs.into_pointer_value(),
+                                &[rhs.into_int_value()],
+                                "ptr_add",
+                            )
+                            .into()
+                    }
+                } else if lhs_type.is_int_type() && rhs_type.is_ptr_type() {
+                    let ptr_to = rhs_type.get_ptr_to().unwrap();
+                    unsafe {
+                        self.builder
+                            .build_gep(
+                                self.convert_llvm_basictype(&ptr_to),
+                                rhs.into_pointer_value(),
+                                &[lhs.into_int_value()],
+                                "ptr_add",
+                            )
+                            .into()
+                    }
+                } else {
+                    unreachable!()
                 }
             }
             _ => todo!(),

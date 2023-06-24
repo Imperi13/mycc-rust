@@ -1,5 +1,7 @@
 pub mod expr;
 
+use crate::ast::expr::ASTBinaryOpKind;
+use crate::ast::expr::ASTBinaryOpNode;
 use crate::ast::expr::ASTExpr;
 use crate::ast::expr::ASTExprNode;
 use crate::ast::stmt::ASTStmt;
@@ -8,6 +10,10 @@ use crate::ast::ASTBlockStmt;
 use crate::ast::ASTGlobal;
 use crate::obj::Obj;
 use crate::obj::ObjArena;
+use crate::types::Type;
+
+use expr::CFGBinaryOpKind;
+use expr::CFGBinaryOpNode;
 use expr::CFGExpr;
 use expr::CFGExprNode;
 
@@ -349,6 +355,26 @@ impl<'a> CFGArena<'a> {
             }
             ASTExprNode::Number(num) => {
                 CFGExpr::new(CFGExprNode::Number(num), expr.expr_type.clone())
+            }
+            ASTExprNode::BinaryOp(ref node) => self.push_binary_op(node, &expr.expr_type),
+            _ => todo!(),
+        }
+    }
+
+    pub fn push_binary_op(&mut self, node: &ASTBinaryOpNode, expr_type: &Type) -> CFGExpr {
+        match node.kind {
+            ASTBinaryOpKind::Add => {
+                let lhs = self.push_expr(&node.lhs);
+                let rhs = self.push_expr(&node.rhs);
+
+                CFGExpr::new(
+                    CFGExprNode::BinaryOp(CFGBinaryOpNode {
+                        lhs,
+                        rhs,
+                        kind: CFGBinaryOpKind::Add,
+                    }),
+                    expr_type.clone(),
+                )
             }
             _ => todo!(),
         }
