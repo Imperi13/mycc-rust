@@ -1,14 +1,14 @@
 mod decl_spec;
 mod declarator;
 
+use crate::ast::expr::ASTAssignKind;
+use crate::ast::expr::ASTAssignNode;
+use crate::ast::expr::ASTBinaryOpKind;
+use crate::ast::expr::ASTBinaryOpNode;
 use crate::ast::expr::ASTExpr;
 use crate::ast::expr::ASTExprNode;
-use crate::ast::expr::AssignKind;
-use crate::ast::expr::AssignNode;
-use crate::ast::expr::BinaryOpKind;
-use crate::ast::expr::BinaryOpNode;
-use crate::ast::expr::UnaryOpKind;
-use crate::ast::expr::UnaryOpNode;
+use crate::ast::expr::ASTUnaryOpKind;
+use crate::ast::expr::ASTUnaryOpNode;
 use crate::ast::stmt::ASTStmt;
 use crate::ast::stmt::ASTStmtNode;
 use crate::ast::stmt::DoWhileStmt;
@@ -659,7 +659,7 @@ impl<'a> ParseArena<'a> {
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
-                    PunctKind::Comma => BinaryOpKind::Comma,
+                    PunctKind::Comma => ASTBinaryOpKind::Comma,
                     _ => break,
                 };
 
@@ -671,7 +671,7 @@ impl<'a> ParseArena<'a> {
                 let rhs_type = rhs.expr_type.clone();
 
                 lhs = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                     rhs_type,
                 );
             } else {
@@ -697,10 +697,10 @@ impl<'a> ParseArena<'a> {
             Ok((
                 tok_seq,
                 ASTExpr::new(
-                    ASTExprNode::Assign(AssignNode {
+                    ASTExprNode::Assign(ASTAssignNode {
                         lhs,
                         rhs,
-                        kind: AssignKind::Assign,
+                        kind: ASTAssignKind::Assign,
                     }),
                     lhs_type,
                 ),
@@ -715,10 +715,10 @@ impl<'a> ParseArena<'a> {
             Ok((
                 tok_seq,
                 ASTExpr::new(
-                    ASTExprNode::Assign(AssignNode {
+                    ASTExprNode::Assign(ASTAssignNode {
                         lhs,
                         rhs,
-                        kind: AssignKind::LeftShiftAssign,
+                        kind: ASTAssignKind::LeftShiftAssign,
                     }),
                     expr_type,
                 ),
@@ -733,10 +733,10 @@ impl<'a> ParseArena<'a> {
             Ok((
                 tok_seq,
                 ASTExpr::new(
-                    ASTExprNode::Assign(AssignNode {
+                    ASTExprNode::Assign(ASTAssignNode {
                         lhs,
                         rhs,
-                        kind: AssignKind::RightShiftAssign,
+                        kind: ASTAssignKind::RightShiftAssign,
                     }),
                     expr_type,
                 ),
@@ -751,10 +751,10 @@ impl<'a> ParseArena<'a> {
             Ok((
                 tok_seq,
                 ASTExpr::new(
-                    ASTExprNode::Assign(AssignNode {
+                    ASTExprNode::Assign(ASTAssignNode {
                         lhs,
                         rhs,
-                        kind: AssignKind::OrAssign,
+                        kind: ASTAssignKind::OrAssign,
                     }),
                     expr_type,
                 ),
@@ -769,10 +769,10 @@ impl<'a> ParseArena<'a> {
             Ok((
                 tok_seq,
                 ASTExpr::new(
-                    ASTExprNode::Assign(AssignNode {
+                    ASTExprNode::Assign(ASTAssignNode {
                         lhs,
                         rhs,
-                        kind: AssignKind::XorAssign,
+                        kind: ASTAssignKind::XorAssign,
                     }),
                     expr_type,
                 ),
@@ -787,10 +787,10 @@ impl<'a> ParseArena<'a> {
             Ok((
                 tok_seq,
                 ASTExpr::new(
-                    ASTExprNode::Assign(AssignNode {
+                    ASTExprNode::Assign(ASTAssignNode {
                         lhs,
                         rhs,
-                        kind: AssignKind::AndAssign,
+                        kind: ASTAssignKind::AndAssign,
                     }),
                     expr_type,
                 ),
@@ -805,10 +805,10 @@ impl<'a> ParseArena<'a> {
             Ok((
                 tok_seq,
                 ASTExpr::new(
-                    ASTExprNode::Assign(AssignNode {
+                    ASTExprNode::Assign(ASTAssignNode {
                         lhs,
                         rhs,
-                        kind: AssignKind::AddAssign,
+                        kind: ASTAssignKind::AddAssign,
                     }),
                     expr_type,
                 ),
@@ -823,10 +823,10 @@ impl<'a> ParseArena<'a> {
             Ok((
                 tok_seq,
                 ASTExpr::new(
-                    ASTExprNode::Assign(AssignNode {
+                    ASTExprNode::Assign(ASTAssignNode {
                         lhs,
                         rhs,
-                        kind: AssignKind::SubAssign,
+                        kind: ASTAssignKind::SubAssign,
                     }),
                     expr_type,
                 ),
@@ -841,10 +841,10 @@ impl<'a> ParseArena<'a> {
             Ok((
                 tok_seq,
                 ASTExpr::new(
-                    ASTExprNode::Assign(AssignNode {
+                    ASTExprNode::Assign(ASTAssignNode {
                         lhs,
                         rhs,
-                        kind: AssignKind::MulAssign,
+                        kind: ASTAssignKind::MulAssign,
                     }),
                     expr_type,
                 ),
@@ -859,10 +859,10 @@ impl<'a> ParseArena<'a> {
             Ok((
                 tok_seq,
                 ASTExpr::new(
-                    ASTExprNode::Assign(AssignNode {
+                    ASTExprNode::Assign(ASTAssignNode {
                         lhs,
                         rhs,
-                        kind: AssignKind::DivAssign,
+                        kind: ASTAssignKind::DivAssign,
                     }),
                     expr_type,
                 ),
@@ -877,10 +877,10 @@ impl<'a> ParseArena<'a> {
             Ok((
                 tok_seq,
                 ASTExpr::new(
-                    ASTExprNode::Assign(AssignNode {
+                    ASTExprNode::Assign(ASTAssignNode {
                         lhs,
                         rhs,
-                        kind: AssignKind::ModAssign,
+                        kind: ASTAssignKind::ModAssign,
                     }),
                     expr_type,
                 ),
@@ -935,7 +935,7 @@ impl<'a> ParseArena<'a> {
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
-                    PunctKind::LogicalOr => BinaryOpKind::LogicalOr,
+                    PunctKind::LogicalOr => ASTBinaryOpKind::LogicalOr,
                     _ => break,
                 };
 
@@ -948,7 +948,7 @@ impl<'a> ParseArena<'a> {
                 let rhs = rhs.cast_to(&Type::new(TypeNode::Bool));
 
                 node = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                     Type::new(TypeNode::Int),
                 );
             } else {
@@ -969,7 +969,7 @@ impl<'a> ParseArena<'a> {
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
-                    PunctKind::LogicalAnd => BinaryOpKind::LogicalAnd,
+                    PunctKind::LogicalAnd => ASTBinaryOpKind::LogicalAnd,
                     _ => break,
                 };
 
@@ -982,7 +982,7 @@ impl<'a> ParseArena<'a> {
                 let rhs = rhs.cast_to(&Type::new(TypeNode::Bool));
 
                 node = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                     Type::new(TypeNode::Int),
                 );
             } else {
@@ -1000,7 +1000,7 @@ impl<'a> ParseArena<'a> {
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
-                    PunctKind::BitOr => BinaryOpKind::BitOr,
+                    PunctKind::BitOr => ASTBinaryOpKind::BitOr,
                     _ => break,
                 };
 
@@ -1017,7 +1017,7 @@ impl<'a> ParseArena<'a> {
                 }
 
                 lhs = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                     lhs_type,
                 );
             } else {
@@ -1034,7 +1034,7 @@ impl<'a> ParseArena<'a> {
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
-                    PunctKind::Caret => BinaryOpKind::BitXor,
+                    PunctKind::Caret => ASTBinaryOpKind::BitXor,
                     _ => break,
                 };
 
@@ -1051,7 +1051,7 @@ impl<'a> ParseArena<'a> {
                 }
 
                 lhs = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                     lhs_type,
                 );
             } else {
@@ -1069,7 +1069,7 @@ impl<'a> ParseArena<'a> {
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
-                    PunctKind::Ampersand => BinaryOpKind::BitAnd,
+                    PunctKind::Ampersand => ASTBinaryOpKind::BitAnd,
                     _ => break,
                 };
 
@@ -1086,7 +1086,7 @@ impl<'a> ParseArena<'a> {
                 }
 
                 lhs = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                     lhs_type,
                 );
             } else {
@@ -1104,8 +1104,8 @@ impl<'a> ParseArena<'a> {
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
-                    PunctKind::Equal => BinaryOpKind::Equal,
-                    PunctKind::NotEqual => BinaryOpKind::NotEqual,
+                    PunctKind::Equal => ASTBinaryOpKind::Equal,
+                    PunctKind::NotEqual => ASTBinaryOpKind::NotEqual,
                     _ => break,
                 };
 
@@ -1122,7 +1122,7 @@ impl<'a> ParseArena<'a> {
                 }
 
                 lhs = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                     lhs_type,
                 );
             } else {
@@ -1140,10 +1140,10 @@ impl<'a> ParseArena<'a> {
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
-                    PunctKind::Less => BinaryOpKind::Less,
-                    PunctKind::LessEqual => BinaryOpKind::LessEqual,
-                    PunctKind::Greater => BinaryOpKind::Greater,
-                    PunctKind::GreaterEqual => BinaryOpKind::GreaterEqual,
+                    PunctKind::Less => ASTBinaryOpKind::Less,
+                    PunctKind::LessEqual => ASTBinaryOpKind::LessEqual,
+                    PunctKind::Greater => ASTBinaryOpKind::Greater,
+                    PunctKind::GreaterEqual => ASTBinaryOpKind::GreaterEqual,
                     _ => break,
                 };
 
@@ -1160,7 +1160,7 @@ impl<'a> ParseArena<'a> {
                 }
 
                 lhs = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                     lhs_type,
                 );
             } else {
@@ -1178,8 +1178,8 @@ impl<'a> ParseArena<'a> {
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
-                    PunctKind::LeftShift => BinaryOpKind::LeftShift,
-                    PunctKind::RightShift => BinaryOpKind::RightShift,
+                    PunctKind::LeftShift => ASTBinaryOpKind::LeftShift,
+                    PunctKind::RightShift => ASTBinaryOpKind::RightShift,
                     _ => break,
                 };
 
@@ -1196,7 +1196,7 @@ impl<'a> ParseArena<'a> {
                 }
 
                 lhs = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                     lhs_type,
                 );
             } else {
@@ -1215,7 +1215,7 @@ impl<'a> ParseArena<'a> {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 match punct {
                     PunctKind::Plus => {
-                        let kind = BinaryOpKind::Add;
+                        let kind = ASTBinaryOpKind::Add;
                         tok_seq = tok_seq.next();
 
                         let rhs;
@@ -1232,17 +1232,17 @@ impl<'a> ParseArena<'a> {
                             let lhs = lhs.cast_to(&math_type);
                             let rhs = rhs.cast_to(&math_type);
                             node = ASTExpr::new(
-                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                                 math_type,
                             );
                         } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
                             node = ASTExpr::new(
-                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                                 lhs_type,
                             );
                         } else if lhs_type.is_int_type() && rhs_type.is_ptr_type() {
                             node = ASTExpr::new(
-                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                                 rhs_type,
                             );
                         } else {
@@ -1250,7 +1250,7 @@ impl<'a> ParseArena<'a> {
                         }
                     }
                     PunctKind::Minus => {
-                        let kind = BinaryOpKind::Sub;
+                        let kind = ASTBinaryOpKind::Sub;
                         tok_seq = tok_seq.next();
 
                         let rhs;
@@ -1267,17 +1267,17 @@ impl<'a> ParseArena<'a> {
                             let lhs = lhs.cast_to(&math_type);
                             let rhs = rhs.cast_to(&math_type);
                             node = ASTExpr::new(
-                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                                 math_type,
                             );
                         } else if lhs_type.is_ptr_type() && rhs_type.is_int_type() {
                             node = ASTExpr::new(
-                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                                 lhs_type,
                             );
                         } else if lhs_type.is_ptr_type() && rhs_type.is_ptr_type() {
                             node = ASTExpr::new(
-                                ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                                ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                                 Type::new(TypeNode::Int),
                             );
                         } else {
@@ -1301,9 +1301,9 @@ impl<'a> ParseArena<'a> {
         while !tok_seq.is_empty() {
             if let TokenKind::Punct(punct) = tok_seq.get_token() {
                 let kind = match punct {
-                    PunctKind::Asterisk => BinaryOpKind::Mul,
-                    PunctKind::Slash => BinaryOpKind::Div,
-                    PunctKind::Percent => BinaryOpKind::Mod,
+                    PunctKind::Asterisk => ASTBinaryOpKind::Mul,
+                    PunctKind::Slash => ASTBinaryOpKind::Div,
+                    PunctKind::Percent => ASTBinaryOpKind::Mod,
                     _ => break,
                 };
 
@@ -1324,7 +1324,7 @@ impl<'a> ParseArena<'a> {
                 let rhs = rhs.cast_to(&math_type);
 
                 node = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode { lhs, rhs, kind }),
+                    ASTExprNode::BinaryOp(ASTBinaryOpNode { lhs, rhs, kind }),
                     math_type,
                 );
             } else {
@@ -1349,9 +1349,9 @@ impl<'a> ParseArena<'a> {
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
 
             let node = ASTExpr::new(
-                ASTExprNode::UnaryOp(UnaryOpNode {
+                ASTExprNode::UnaryOp(ASTUnaryOpNode {
                     expr,
-                    kind: UnaryOpKind::Sizeof,
+                    kind: ASTUnaryOpKind::Sizeof,
                 }),
                 Type::new(TypeNode::Int),
             );
@@ -1366,9 +1366,9 @@ impl<'a> ParseArena<'a> {
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
 
             let node = ASTExpr::new(
-                ASTExprNode::UnaryOp(UnaryOpNode {
+                ASTExprNode::UnaryOp(ASTUnaryOpNode {
                     expr,
-                    kind: UnaryOpKind::Alignof,
+                    kind: ASTUnaryOpKind::Alignof,
                 }),
                 Type::new(TypeNode::Int),
             );
@@ -1386,9 +1386,9 @@ impl<'a> ParseArena<'a> {
             }
 
             let node = ASTExpr::new(
-                ASTExprNode::UnaryOp(UnaryOpNode {
+                ASTExprNode::UnaryOp(ASTUnaryOpNode {
                     expr,
-                    kind: UnaryOpKind::Plus,
+                    kind: ASTUnaryOpKind::Plus,
                 }),
                 expr_type,
             );
@@ -1406,9 +1406,9 @@ impl<'a> ParseArena<'a> {
             }
 
             let node = ASTExpr::new(
-                ASTExprNode::UnaryOp(UnaryOpNode {
+                ASTExprNode::UnaryOp(ASTUnaryOpNode {
                     expr,
-                    kind: UnaryOpKind::Minus,
+                    kind: ASTUnaryOpKind::Minus,
                 }),
                 expr_type,
             );
@@ -1428,10 +1428,10 @@ impl<'a> ParseArena<'a> {
             }
 
             let node = ASTExpr::new(
-                ASTExprNode::Assign(AssignNode {
+                ASTExprNode::Assign(ASTAssignNode {
                     lhs,
                     rhs: ASTExpr::new(ASTExprNode::Number(1), Type::new(TypeNode::Int)),
-                    kind: AssignKind::AddAssign,
+                    kind: ASTAssignKind::AddAssign,
                 }),
                 expr_type,
             );
@@ -1451,10 +1451,10 @@ impl<'a> ParseArena<'a> {
             }
 
             let node = ASTExpr::new(
-                ASTExprNode::Assign(AssignNode {
+                ASTExprNode::Assign(ASTAssignNode {
                     lhs,
                     rhs: ASTExpr::new(ASTExprNode::Number(1), Type::new(TypeNode::Int)),
-                    kind: AssignKind::SubAssign,
+                    kind: ASTAssignKind::SubAssign,
                 }),
                 expr_type,
             );
@@ -1470,9 +1470,9 @@ impl<'a> ParseArena<'a> {
             let expr_type = expr.expr_type.clone();
 
             let node = ASTExpr::new(
-                ASTExprNode::UnaryOp(UnaryOpNode {
+                ASTExprNode::UnaryOp(ASTUnaryOpNode {
                     expr,
-                    kind: UnaryOpKind::Addr,
+                    kind: ASTUnaryOpKind::Addr,
                 }),
                 Type::new_ptr_type(expr_type),
             );
@@ -1494,9 +1494,9 @@ impl<'a> ParseArena<'a> {
                 .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
 
             let node = ASTExpr::new(
-                ASTExprNode::UnaryOp(UnaryOpNode {
+                ASTExprNode::UnaryOp(ASTUnaryOpNode {
                     expr,
-                    kind: UnaryOpKind::Deref,
+                    kind: ASTUnaryOpKind::Deref,
                 }),
                 expr_type,
             );
@@ -1511,9 +1511,9 @@ impl<'a> ParseArena<'a> {
             (tok_seq, expr) = self.parse_unary(tok_seq)?;
 
             let node = ASTExpr::new(
-                ASTExprNode::UnaryOp(UnaryOpNode {
+                ASTExprNode::UnaryOp(ASTUnaryOpNode {
                     expr,
-                    kind: UnaryOpKind::LogicalNot,
+                    kind: ASTUnaryOpKind::LogicalNot,
                 }),
                 Type::new(TypeNode::Int),
             );
@@ -1529,9 +1529,9 @@ impl<'a> ParseArena<'a> {
             let expr_type = expr.expr_type.clone();
 
             let node = ASTExpr::new(
-                ASTExprNode::UnaryOp(UnaryOpNode {
+                ASTExprNode::UnaryOp(ASTUnaryOpNode {
                     expr,
-                    kind: UnaryOpKind::BitNot,
+                    kind: ASTUnaryOpKind::BitNot,
                 }),
                 expr_type,
             );
@@ -1618,8 +1618,8 @@ impl<'a> ParseArena<'a> {
                 };
 
                 let plus = ASTExpr::new(
-                    ASTExprNode::BinaryOp(BinaryOpNode {
-                        kind: BinaryOpKind::Add,
+                    ASTExprNode::BinaryOp(ASTBinaryOpNode {
+                        kind: ASTBinaryOpKind::Add,
                         lhs: cast,
                         rhs: index,
                     }),
@@ -1627,8 +1627,8 @@ impl<'a> ParseArena<'a> {
                 );
 
                 node = ASTExpr::new(
-                    ASTExprNode::UnaryOp(UnaryOpNode {
-                        kind: UnaryOpKind::Deref,
+                    ASTExprNode::UnaryOp(ASTUnaryOpNode {
+                        kind: ASTUnaryOpKind::Deref,
                         expr: plus,
                     }),
                     ptr_type.get_ptr_to().unwrap(),

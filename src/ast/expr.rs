@@ -4,7 +4,7 @@ use crate::types::Type;
 use std::fmt;
 
 #[derive(Clone, Debug)]
-pub enum BinaryOpKind {
+pub enum ASTBinaryOpKind {
     Comma,
     Add,
     Sub,
@@ -27,14 +27,14 @@ pub enum BinaryOpKind {
 }
 
 #[derive(Clone)]
-pub struct BinaryOpNode {
+pub struct ASTBinaryOpNode {
     pub lhs: ASTExpr,
     pub rhs: ASTExpr,
-    pub kind: BinaryOpKind,
+    pub kind: ASTBinaryOpKind,
 }
 
 #[derive(Clone, Debug)]
-pub enum UnaryOpKind {
+pub enum ASTUnaryOpKind {
     Sizeof,
     Alignof,
     Plus,
@@ -46,13 +46,13 @@ pub enum UnaryOpKind {
 }
 
 #[derive(Clone)]
-pub struct UnaryOpNode {
+pub struct ASTUnaryOpNode {
     pub expr: ASTExpr,
-    pub kind: UnaryOpKind,
+    pub kind: ASTUnaryOpKind,
 }
 
 #[derive(Clone, Debug)]
-pub enum AssignKind {
+pub enum ASTAssignKind {
     Assign,
     LeftShiftAssign,
     RightShiftAssign,
@@ -67,18 +67,18 @@ pub enum AssignKind {
 }
 
 #[derive(Clone)]
-pub struct AssignNode {
+pub struct ASTAssignNode {
     pub lhs: ASTExpr,
     pub rhs: ASTExpr,
-    pub kind: AssignKind,
+    pub kind: ASTAssignKind,
 }
 
 #[derive(Clone)]
 pub enum ASTExprNode {
     Conditional(ASTExpr, ASTExpr, ASTExpr),
-    Assign(AssignNode),
-    BinaryOp(BinaryOpNode),
-    UnaryOp(UnaryOpNode),
+    Assign(ASTAssignNode),
+    BinaryOp(ASTBinaryOpNode),
+    UnaryOp(ASTUnaryOpNode),
     Cast(Type, ASTExpr),
     FuncCall(ASTExpr, Vec<ASTExpr>),
     Dot(ASTExpr, usize),
