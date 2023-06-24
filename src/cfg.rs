@@ -1,5 +1,7 @@
 pub mod expr;
 
+use crate::ast::expr::ASTAssignKind;
+use crate::ast::expr::ASTAssignNode;
 use crate::ast::expr::ASTBinaryOpKind;
 use crate::ast::expr::ASTBinaryOpNode;
 use crate::ast::expr::ASTExpr;
@@ -360,8 +362,25 @@ impl<'a> CFGArena<'a> {
             ASTExprNode::Number(num) => {
                 CFGExpr::new(CFGExprNode::Number(num), expr.expr_type.clone())
             }
+            ASTExprNode::Var(ref obj) => {
+                CFGExpr::new(CFGExprNode::Var(obj.clone()), obj.borrow().obj_type.clone())
+            }
+            ASTExprNode::Assign(ref node) => self.push_assign(node, &expr.expr_type),
             ASTExprNode::UnaryOp(ref node) => self.push_unary_op(node, &expr.expr_type),
             ASTExprNode::BinaryOp(ref node) => self.push_binary_op(node, &expr.expr_type),
+            _ => todo!(),
+        }
+    }
+
+    pub fn push_assign(&mut self, node: &ASTAssignNode, _expr_type: &Type) -> CFGExpr {
+        match node.kind {
+            ASTAssignKind::Assign => {
+                let lhs = self.push_expr(&node.lhs);
+                let rhs = self.push_expr(&node.rhs);
+
+                self.current_stmts.push(CFGStmt::Assign(lhs.clone(), rhs));
+                lhs
+            }
             _ => todo!(),
         }
     }

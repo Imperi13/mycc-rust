@@ -426,6 +426,16 @@ impl<'ctx> CodegenArena<'ctx> {
                 let llvm_type = self.convert_llvm_basictype(&ast.expr_type).into_int_type();
                 llvm_type.const_int(num, false).into()
             }
+            CFGExprNode::Var(ref obj) => {
+                let ptr = self.codegen_addr(ast);
+                let obj_type = &obj.borrow().obj_type;
+                if obj_type.is_function_type() || obj_type.is_array_type() {
+                    BasicValueEnum::PointerValue(ptr)
+                } else {
+                    let llvm_type = self.convert_llvm_basictype(&obj_type);
+                    self.builder.build_load(llvm_type, ptr, "var")
+                }
+            }
             CFGExprNode::Cast(ref cast_to, ref expr) => {
                 let val = self.codegen_expr(expr);
 
