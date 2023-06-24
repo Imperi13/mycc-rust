@@ -51,6 +51,10 @@ pub fn compile_to_llvm_ir<Pinput: AsRef<Path>, Poutput: AsRef<Path>>(
 
     let cfg = gen_cfg_all(&mut obj_arena, &ast);
 
+    for c in cfg.iter() {
+        eprintln!("{:?}", c);
+    }
+
     let context = Context::create();
     let mut codegen_arena = CodegenArena::new(&context);
     codegen_arena.codegen_all(&cfg, output_path);

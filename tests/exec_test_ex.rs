@@ -614,11 +614,38 @@ test_function!(
     174
 );
 
-test_function!(ex_217,"int main(void){ int a; a = 174; switch(1){a = 2; 1;} return a;}",174);
-test_function!(ex_218,"int main(void){ int a; a = 174; switch(1){a = 2; break; a = 3;} return a;}",174);
+test_function!(
+    ex_217,
+    "int main(void){ int a; a = 174; switch(1){a = 2; 1;} return a;}",
+    174
+);
+test_function!(
+    ex_218,
+    "int main(void){ int a; a = 174; switch(1){a = 2; break; a = 3;} return a;}",
+    174
+);
 test_function!(ex_219,"int main(void){ int a; a = 1; int b; b = 0; switch(1){ b = 15; default: a = 174; break; a = 3;} return a+b ;}",174);
-test_function!(ex_220,"int main(void){ switch(1){ if(0){ default: return 174; } } return 3; }",174);
+test_function!(
+    ex_220,
+    "int main(void){ switch(1){ if(0){ default: return 174; } } return 3; }",
+    174
+);
 test_function!(ex_221,"int main(void){ int a; a = 1; switch(1){ default: a = 173; switch(0){ default: return a+1; } return 5; } return 3; }",174);
-test_function!(ex_222,"int main(void){ int a; a = 1; switch(1){ case 1: a = 174; } return a; }",174);
-test_function!(ex_223,"int main(void){ int a; a = 174; switch(2){ case 1: a = 1; } return a; }",174);
+test_function!(
+    ex_222,
+    "int main(void){ int a; a = 1; switch(1){ case 1: a = 174; } return a; }",
+    174
+);
+test_function!(
+    ex_223,
+    "int main(void){ int a; a = 174; switch(2){ case 1: a = 1; } return a; }",
+    174
+);
 test_function!(ex_224,"int f(int a){switch(a){case 1: return 3; case 2: return 5; default: return 8;}} int main(void){ return (f(1)-3) || (f(2)-5) || (f(3)-8) || (f(100)-8);}",0);
+
+test_function!(
+    ex_230,
+    "void f(int *p){*p = 174;} int main(void){ int a; f(&a); return a;}",
+    174
+);
+test_function!(ex_231,"int main(void){ char a; a = 0; switch(a){case 0: a = 174; break; case 256: a = 3; break; default: a = 5; break;}  return a;}",174);

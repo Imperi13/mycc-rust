@@ -224,6 +224,20 @@ test_function!(
     174
 );
 
-test_function!(bool_1,"int main() {_Bool test; test = 1; if(test)return 174;else return 170;}",174);
-test_function!(bool_2,"int main() {_Bool test; test = 256; if(test)return 174;else return 170;}",174);
+test_function!(
+    bool_1,
+    "int main() {_Bool test; test = 1; if(test)return 174;else return 170;}",
+    174
+);
+test_function!(
+    bool_2,
+    "int main() {_Bool test; test = 256; if(test)return 174;else return 170;}",
+    174
+);
 
+test_function!(post_decrement_1, "int main(){int a;a=10;a--;return a;}", 9);
+test_function!(
+    post_decrement_2,
+    "int main(){int a; int b; a=3; b=0; b+= a--; return !(b-3)+!(a-2)+172;}",
+    174
+);

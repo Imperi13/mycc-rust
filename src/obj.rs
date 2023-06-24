@@ -10,6 +10,8 @@ use std::rc::Rc;
 pub struct ObjNode {
     pub id: usize,
     pub name: String,
+
+    pub is_global: bool,
     pub obj_type: Type,
 }
 
@@ -45,10 +47,11 @@ impl ObjArena {
         ObjArena { current_id: 0 }
     }
 
-    pub fn publish_obj(&mut self, obj_name: &str, obj_type: Type) -> Obj {
+    pub fn publish_obj(&mut self, obj_name: &str, is_global: bool, obj_type: Type) -> Obj {
         let node = ObjNode {
             id: self.current_id,
             name: String::from(obj_name),
+            is_global,
             obj_type,
         };
 
