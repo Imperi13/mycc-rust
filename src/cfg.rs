@@ -357,10 +357,7 @@ impl<'a> CFGArena<'a> {
         match expr.get_node() {
             ASTExprNode::Cast(ref ty, ref expr) => {
                 let evaluated_expr = self.push_expr(expr);
-                CFGExpr::new(
-                    CFGExprNode::Cast(ty.clone(), evaluated_expr),
-                    expr.expr_type.clone(),
-                )
+                CFGExpr::new(CFGExprNode::Cast(ty.clone(), evaluated_expr), ty.clone())
             }
             ASTExprNode::Number(num) => {
                 CFGExpr::new(CFGExprNode::Number(num), expr.expr_type.clone())
