@@ -303,7 +303,7 @@ impl<'ctx> CodegenArena<'ctx> {
                         .build_indirect_call(fn_type, func_ptr, &arg_val, "func_call");
 
                 if ret_obj.is_some() {
-                    let ret_ptr = self.alloc_local_obj(ret_obj.as_ref().unwrap());
+                    let ret_ptr = self.get_local_obj(ret_obj.as_ref().unwrap());
 
                     self.builder
                         .build_store(ret_ptr, return_val.try_as_basic_value().left().unwrap());

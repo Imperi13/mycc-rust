@@ -1,6 +1,8 @@
 use crate::obj::Obj;
 use crate::types::Type;
 
+use std::fmt;
+
 #[derive(Clone, Debug)]
 pub enum CFGBinaryOpKind {
     Add,
@@ -26,6 +28,31 @@ pub struct CFGBinaryOpNode {
     pub lhs: CFGExpr,
     pub rhs: CFGExpr,
     pub kind: CFGBinaryOpKind,
+}
+
+impl fmt::Debug for CFGBinaryOpNode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let op = match self.kind {
+            CFGBinaryOpKind::Add => "+",
+            CFGBinaryOpKind::Sub => "-",
+            CFGBinaryOpKind::Mul => "*",
+            CFGBinaryOpKind::Div => "/",
+            CFGBinaryOpKind::Mod => "%",
+            CFGBinaryOpKind::BitOr => "|",
+            CFGBinaryOpKind::BitXor => "^",
+            CFGBinaryOpKind::BitAnd => "&",
+            CFGBinaryOpKind::Less => "<",
+            CFGBinaryOpKind::LessEqual => "<=",
+            CFGBinaryOpKind::Greater => ">",
+            CFGBinaryOpKind::GreaterEqual => ">=",
+            CFGBinaryOpKind::Equal => "==",
+            CFGBinaryOpKind::NotEqual => "!=",
+            CFGBinaryOpKind::LeftShift => "<<",
+            CFGBinaryOpKind::RightShift => ">>",
+        };
+
+        write!(f, "{:?} {} {:?}", self.lhs, op, self.rhs)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -74,6 +101,18 @@ impl CFGExpr {
 
     pub fn get_node(&self) -> CFGExprNode {
         (*self.head).clone()
+    }
+}
+
+impl fmt::Debug for CFGExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.get_node() {
+            CFGExprNode::Var(ref obj) => write!(f, "{}_{}", obj.borrow().name, obj.borrow().id),
+            CFGExprNode::Cast(ref ty, ref expr) => write!(f, "({:?})({:?})", ty, expr),
+            CFGExprNode::Number(num) => write!(f, "{num}"),
+            CFGExprNode::BinaryOp(ref node) => write!(f, "{:?}", node),
+            _ => write!(f, ""),
+        }
     }
 }
 

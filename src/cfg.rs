@@ -26,11 +26,41 @@ use expr::CFGUnaryOpNode;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
+use std::fmt;
+
 #[derive(Clone)]
 pub enum CFGStmt {
     Decl(Obj),
     Assign(CFGExpr, CFGExpr),
     FuncCall(Option<Obj>, CFGExpr, Vec<CFGExpr>),
+}
+
+impl fmt::Debug for CFGStmt {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            CFGStmt::Decl(ref obj) => write!(f, "{}_{}", obj.borrow().name, obj.borrow().id),
+            CFGStmt::Assign(ref lhs, ref rhs) => write!(f, "{:?} = {:?}", lhs, rhs),
+            CFGStmt::FuncCall(ref ret_obj, ref func_expr, ref args) => {
+                if ret_obj.is_some() {
+                    let ret_obj = ret_obj.as_ref().unwrap();
+                    write!(
+                        f,
+                        "{}_{} = {:?}(",
+                        ret_obj.borrow().name,
+                        ret_obj.borrow().id,
+                        func_expr
+                    )?;
+
+                    for arg in args.iter() {
+                        write!(f, "{:?},", arg)?;
+                    }
+                    write!(f, ")")
+                } else {
+                    write!(f, "{:?}( args )", func_expr)
+                }
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -47,6 +77,22 @@ pub enum CFGJump {
     Unconditional(BlockID),
     Conditional(CFGExpr, BlockID, BlockID),
     Switch(CFGExpr, Vec<(CFGExpr, BlockID)>, BlockID),
+}
+
+impl fmt::Debug for CFGJump {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            CFGJump::Return => write!(f, "Return"),
+            CFGJump::Unconditional(ref block) => write!(f, "Unconditional {:?}", block),
+            CFGJump::Conditional(ref cond, ref then_block, ref else_block) => write!(
+                f,
+                "Conditional ({:?}) then: {:?} else: {:?}",
+                cond, then_block, else_block
+            ),
+            CFGJump::Switch(_, _, _) => write!(f, ""),
+            CFGJump::None => panic!(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -66,6 +112,18 @@ impl CFGBlock {
     }
 }
 
+impl fmt::Debug for CFGBlock {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Block {:?}:", self.id)?;
+        writeln!(f, "Stmts:")?;
+        for stmt in self.stmts.iter() {
+            writeln!(f, "\t{:?}", stmt)?;
+        }
+
+        writeln!(f, "Jump: {:?}", self.jump_to)
+    }
+}
+
 #[derive(Clone)]
 pub struct CFGFunction {
     pub func_obj: Obj,
@@ -75,6 +133,18 @@ pub struct CFGFunction {
     pub entry_block: CFGBlock,
     pub return_block: CFGBlock,
     pub blocks: HashMap<usize, CFGBlock>,
+}
+
+impl fmt::Debug for CFGFunction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Function {}:", self.func_obj.borrow().name)?;
+
+        writeln!(f, "{:?}", self.entry_block)?;
+        for (_, block) in self.blocks.iter() {
+            writeln!(f, "{:?}", block)?;
+        }
+        writeln!(f, "{:?}", self.return_block)
+    }
 }
 
 impl CFGFunction {
@@ -240,6 +310,17 @@ pub enum CFGGlobal {
     Variable(Obj),
 }
 
+impl fmt::Debug for CFGGlobal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            CFGGlobal::Function(ref func) => writeln!(f, "{:?}", func),
+            CFGGlobal::Variable(ref obj) => {
+                writeln!(f, "GlobalObj {}_{}:", obj.borrow().name, obj.borrow().id)
+            }
+        }
+    }
+}
+
 pub fn gen_cfg_all(obj_arena: &mut ObjArena, ast_all: &Vec<ASTGlobal>) -> Vec<CFGGlobal> {
     let mut cfg_globals = Vec::new();
     for ast in ast_all.iter() {
@@ -399,7 +480,8 @@ impl<'a> CFGArena<'a> {
                 } else {
                     let return_obj =
                         self.obj_arena
-                            .publish_obj("func_call value", false, return_type.clone());
+                            .publish_obj("func_call", false, return_type.clone());
+                    self.current_stmts.push(CFGStmt::Decl(return_obj.clone()));
 
                     self.current_stmts.push(CFGStmt::FuncCall(
                         Some(return_obj.clone()),

@@ -121,10 +121,15 @@ impl ASTExpr {
 
     pub fn cast_to(&self, cast_to: &Type) -> ASTExpr {
         assert!(self.is_castable(cast_to));
-        ASTExpr::new(
-            ASTExprNode::Cast(cast_to.clone(), self.clone()),
-            cast_to.clone(),
-        )
+
+        if &self.expr_type == cast_to {
+            self.clone()
+        } else {
+            ASTExpr::new(
+                ASTExprNode::Cast(cast_to.clone(), self.clone()),
+                cast_to.clone(),
+            )
+        }
     }
 
     pub fn cast_array(&self) -> ASTExpr {
