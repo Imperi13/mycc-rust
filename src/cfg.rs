@@ -355,8 +355,8 @@ impl<'a> CFGArena<'a> {
 
     pub fn push_expr(&mut self, expr: &ASTExpr) -> CFGExpr {
         match expr.get_node() {
-            ASTExprNode::Cast(ref ty, ref expr) => {
-                let evaluated_expr = self.push_expr(expr);
+            ASTExprNode::Cast(ref ty, ref cast_expr) => {
+                let evaluated_expr = self.push_expr(cast_expr);
                 CFGExpr::new(CFGExprNode::Cast(ty.clone(), evaluated_expr), ty.clone())
             }
             ASTExprNode::Number(num) => {
@@ -365,8 +365,15 @@ impl<'a> CFGArena<'a> {
             ASTExprNode::Var(ref obj) => {
                 CFGExpr::new(CFGExprNode::Var(obj.clone()), expr.expr_type.clone())
             }
-            ASTExprNode::Arrow(ref expr, index) => {
-                let evaluated_expr = self.push_expr(expr);
+            ASTExprNode::Dot(ref dot_expr, index) => {
+                let evaluated_expr = self.push_expr(dot_expr);
+                CFGExpr::new(
+                    CFGExprNode::Dot(evaluated_expr, index),
+                    expr.expr_type.clone(),
+                )
+            }
+            ASTExprNode::Arrow(ref arrow_expr, index) => {
+                let evaluated_expr = self.push_expr(arrow_expr);
                 CFGExpr::new(
                     CFGExprNode::Arrow(evaluated_expr, index),
                     expr.expr_type.clone(),
