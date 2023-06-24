@@ -307,6 +307,79 @@ impl<'a> CFGArena<'a> {
                     expr.expr_type.clone(),
                 )
             }
+            ASTExprNode::Conditional(ref cond, ref then_expr, ref else_expr) => {
+                let conditional_obj =
+                    self.obj_arena
+                        .publish_obj("conditional", false, expr.expr_type.clone());
+                let conditional_var = CFGExpr::new(
+                    CFGExprNode::Var(conditional_obj.clone()),
+                    expr.expr_type.clone(),
+                );
+
+                self.current_stmts
+                    .push(CFGStmt::Decl(conditional_obj.clone()));
+
+                let evaluated_cond = self.push_expr(cond);
+
+                let then_id = self.next_id;
+                let else_id = self.next_id + 1;
+                let after_id = self.next_id + 2;
+                self.next_id += 3;
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Conditional(
+                        evaluated_cond,
+                        BlockID::Block(then_id),
+                        BlockID::Block(else_id),
+                    ),
+                };
+
+                self.blocks.insert(self.current_id, block);
+
+                // then_stmt
+                self.current_id = then_id;
+                self.current_stmts = Vec::new();
+
+                let evaluated_then_expr = self.push_expr(then_expr);
+                self.current_stmts.push(CFGStmt::Assign(
+                    conditional_var.clone(),
+                    evaluated_then_expr,
+                ));
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(after_id)),
+                };
+
+                self.blocks.insert(self.current_id, block);
+
+                // else_stmt
+                self.current_id = else_id;
+                self.current_stmts = Vec::new();
+
+                let evaluated_else_expr = self.push_expr(else_expr);
+                self.current_stmts.push(CFGStmt::Assign(
+                    conditional_var.clone(),
+                    evaluated_else_expr,
+                ));
+
+                let block = CFGBlock {
+                    id: BlockID::Block(self.current_id),
+                    stmts: self.current_stmts.clone(),
+                    jump_to: CFGJump::Unconditional(BlockID::Block(after_id)),
+                };
+
+                self.blocks.insert(self.current_id, block);
+
+                // after
+                self.current_id = after_id;
+                self.current_stmts = Vec::new();
+
+                conditional_var
+            }
             ASTExprNode::FuncCall(ref func_expr, ref args) => {
                 let evaluated_func_expr = self.push_expr(func_expr);
                 let evaluated_args = args.iter().map(|e| self.push_expr(e)).collect();
