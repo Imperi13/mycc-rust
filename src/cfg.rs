@@ -422,8 +422,8 @@ impl<'a> CFGArena<'a> {
                 let lhs = self.push_expr(&node.lhs);
                 let rhs = self.push_expr(&node.rhs);
 
-                self.current_stmts.push(CFGStmt::Assign(lhs.clone(), rhs));
-                lhs
+                self.current_stmts.push(CFGStmt::Assign(lhs, rhs.clone()));
+                rhs
             }
             _ => todo!(),
         }
