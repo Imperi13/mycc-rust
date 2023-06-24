@@ -1,14 +1,11 @@
-mod expr;
-mod stmt;
+pub mod expr;
+pub mod stmt;
+
+use expr::ASTExpr;
+use stmt::ASTStmt;
 
 use crate::obj::Obj;
 use std::fmt;
-
-pub use expr::{
-    ASTExpr, ASTExprNode, AssignKind, AssignNode, BinaryOpKind, BinaryOpNode, UnaryOpKind,
-    UnaryOpNode,
-};
-pub use stmt::{ASTStmt, ASTStmtNode, DoWhileStmt, ForStmt, SwitchStmt, WhileStmt};
 
 #[derive(Clone)]
 pub enum ASTBlockStmt {
