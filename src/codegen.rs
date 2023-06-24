@@ -426,6 +426,12 @@ impl<'ctx> CodegenArena<'ctx> {
                 let llvm_type = self.convert_llvm_basictype(&ast.expr_type).into_int_type();
                 llvm_type.const_int(num, false).into()
             }
+            CFGExprNode::StrLiteral(ref text) => unsafe {
+                self.builder
+                    .build_global_string(text, "str literal")
+                    .as_pointer_value()
+                    .into()
+            },
             CFGExprNode::Var(ref obj) => {
                 let ptr = self.codegen_addr(ast);
                 let obj_type = &obj.borrow().obj_type;

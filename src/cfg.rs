@@ -362,6 +362,9 @@ impl<'a> CFGArena<'a> {
             ASTExprNode::Number(num) => {
                 CFGExpr::new(CFGExprNode::Number(num), expr.expr_type.clone())
             }
+            ASTExprNode::StrLiteral(ref s) => {
+                CFGExpr::new(CFGExprNode::StrLiteral(s.clone()), expr.expr_type.clone())
+            }
             ASTExprNode::Var(ref obj) => {
                 CFGExpr::new(CFGExprNode::Var(obj.clone()), expr.expr_type.clone())
             }
