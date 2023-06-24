@@ -512,6 +512,10 @@ impl<'a> CFGArena<'a> {
                     expr_type.clone(),
                 )
             }
+            ASTBinaryOpKind::Comma => {
+                self.push_expr(&node.lhs);
+                self.push_expr(&node.rhs)
+            }
             _ => todo!(),
         }
     }
