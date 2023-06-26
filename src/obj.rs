@@ -43,6 +43,7 @@ impl fmt::Debug for Obj {
     }
 }
 
+#[derive(Clone)]
 pub struct GlobalObjArena {
     current_id: usize,
 }
@@ -64,6 +65,7 @@ impl GlobalObjArena {
     }
 }
 
+#[derive(Clone)]
 pub struct LocalObjArena {
     current_id: usize,
 }

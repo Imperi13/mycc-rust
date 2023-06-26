@@ -16,10 +16,12 @@ use crate::ast::stmt::ForStmt;
 use crate::ast::stmt::SwitchStmt;
 use crate::ast::stmt::WhileStmt;
 use crate::ast::ASTBlockStmt;
-use crate::ast::ASTGlobal;
+use crate::ast::ASTFunction;
+use crate::ast::AST;
 use crate::error::ParseError;
+use crate::obj::GlobalObjArena;
+use crate::obj::LocalObjArena;
 use crate::obj::Obj;
-use crate::obj::ObjArena;
 use crate::tokenize::KeywordKind;
 use crate::tokenize::PunctKind;
 use crate::tokenize::TokenKind;
@@ -30,22 +32,14 @@ use crate::types::TypeNode;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
-pub fn parse_all(
-    obj_arena: &mut ObjArena,
-    mut tok_seq: TokenList,
-) -> Result<Vec<ASTGlobal>, ParseError> {
-    let mut ret = Vec::new();
-    let mut arena = ParseArena::new(obj_arena);
+pub fn parse_all(mut tok_seq: TokenList) -> Result<AST, ParseError> {
+    let mut arena = ParseArena::new();
 
     while !tok_seq.is_empty() {
-        let node;
-        (tok_seq, node) = arena.parse_global(tok_seq)?;
-        if node.is_some() {
-            ret.push(node.unwrap());
-        }
+        tok_seq = arena.parse_global(tok_seq)?;
     }
 
-    Ok(ret)
+    Ok(arena.gen_ast())
 }
 
 struct IDStack {
@@ -77,59 +71,132 @@ impl IDStack {
     }
 }
 
-struct ParseArena<'a> {
-    return_type: Option<Type>,
+struct ParseArena {
+    obj_arena: GlobalObjArena,
+    variables: Vec<Obj>,
+    functions: Vec<ASTFunction>,
 
-    obj_arena: &'a mut ObjArena,
-
-    global_objs: HashMap<String, Obj>,
-    local_objs: VecDeque<HashMap<String, Obj>>,
+    global_obj_map: HashMap<String, Obj>,
 
     struct_id: usize,
     global_structs: HashMap<String, Type>,
+
+    func_arena: Option<ParseFunctionArena>,
+}
+
+struct ParseFunctionArena {
+    func_obj: Obj,
+
+    obj_arena: LocalObjArena,
+
+    local_objs: VecDeque<HashMap<String, Obj>>,
 
     switch_id: IDStack,
     break_id: IDStack,
     continue_id: IDStack,
 }
 
-impl<'a> ParseArena<'a> {
-    pub fn new(obj_arena: &'a mut ObjArena) -> ParseArena<'a> {
-        ParseArena {
-            return_type: None,
-            obj_arena,
-            global_objs: HashMap::new(),
-            local_objs: VecDeque::new(),
-            struct_id: 0,
-            global_structs: HashMap::new(),
+impl ParseFunctionArena {
+    pub fn new(func_obj: Obj) -> Self {
+        ParseFunctionArena {
+            func_obj,
+            obj_arena: LocalObjArena::new(),
+            local_objs: VecDeque::from([HashMap::new()]),
             switch_id: IDStack::new(),
             break_id: IDStack::new(),
             continue_id: IDStack::new(),
         }
     }
+}
 
-    fn insert_global_obj(&mut self, obj_name: &str, obj_type: Type) -> Result<Obj, ()> {
-        if self.global_objs.contains_key(obj_name) {
+impl ParseArena {
+    pub fn new() -> Self {
+        ParseArena {
+            obj_arena: GlobalObjArena::new(),
+            variables: Vec::new(),
+            functions: Vec::new(),
+            global_obj_map: HashMap::new(),
+            struct_id: 0,
+            global_structs: HashMap::new(),
+            func_arena: None,
+        }
+    }
+    pub fn gen_ast(self) -> AST {
+        AST {
+            global_objs: self.global_obj_map.into_values().collect(),
+            variables: self.variables,
+            functions: self.functions,
+            obj_arena: self.obj_arena,
+        }
+    }
+
+    fn insert_local_obj(&mut self, obj_name: &str, obj_type: Type) -> Result<Obj, ()> {
+        assert!(self.func_arena.is_some());
+
+        if self
+            .func_arena
+            .as_mut()
+            .unwrap()
+            .local_objs
+            .back_mut()
+            .unwrap()
+            .contains_key(obj_name)
+        {
             return Err(());
         }
 
-        let obj = self.obj_arena.publish_obj(obj_name, true, obj_type);
+        let obj = self
+            .func_arena
+            .as_mut()
+            .unwrap()
+            .obj_arena
+            .publish_obj(obj_name, obj_type);
 
-        self.global_objs.insert(String::from(obj_name), obj.clone());
+        self.func_arena
+            .as_mut()
+            .unwrap()
+            .local_objs
+            .back_mut()
+            .unwrap()
+            .insert(String::from(obj_name), obj.clone());
 
         Ok(obj)
     }
 
-    fn insert_local_obj(&mut self, obj_name: &str, obj_type: Type) -> Result<Obj, ()> {
-        if self.local_objs.back_mut().unwrap().contains_key(obj_name) {
+    fn push_local_scope(&mut self) {
+        self.func_arena
+            .as_mut()
+            .unwrap()
+            .local_objs
+            .push_back(HashMap::new());
+    }
+
+    fn pop_local_scope(&mut self) {
+        self.func_arena.as_mut().unwrap().local_objs.pop_back();
+    }
+
+    fn search_obj(&self, obj_name: &str) -> Option<Obj> {
+        for map in self.func_arena.as_ref().unwrap().local_objs.iter().rev() {
+            if map.contains_key(obj_name) {
+                return Some(map.get(obj_name).unwrap().clone());
+            }
+        }
+
+        if self.global_obj_map.contains_key(obj_name) {
+            return Some(self.global_obj_map.get(obj_name).unwrap().clone());
+        }
+
+        None
+    }
+
+    fn insert_global_obj(&mut self, obj_name: &str, obj_type: Type) -> Result<Obj, ()> {
+        if self.global_obj_map.contains_key(obj_name) {
             return Err(());
         }
 
-        let obj = self.obj_arena.publish_obj(obj_name, false, obj_type);
+        let obj = self.obj_arena.publish_obj(obj_name, obj_type);
 
-        self.local_objs
-            .back_mut()
-            .unwrap()
+        self.global_obj_map
             .insert(String::from(obj_name), obj.clone());
 
         Ok(obj)
@@ -146,40 +213,7 @@ impl<'a> ParseArena<'a> {
         struct_type.clone()
     }
 
-    fn initialize_local_scope(&mut self) {
-        self.local_objs = VecDeque::new();
-        self.push_local_scope();
-        self.switch_id = IDStack::new();
-        self.break_id = IDStack::new();
-        self.continue_id = IDStack::new();
-    }
-
-    fn push_local_scope(&mut self) {
-        self.local_objs.push_back(HashMap::new());
-    }
-
-    fn pop_local_scope(&mut self) {
-        self.local_objs.pop_back();
-    }
-
-    fn search_obj(&self, obj_name: &str) -> Option<Obj> {
-        for map in self.local_objs.iter().rev() {
-            if map.contains_key(obj_name) {
-                return Some(map.get(obj_name).unwrap().clone());
-            }
-        }
-
-        if self.global_objs.contains_key(obj_name) {
-            return Some(self.global_objs.get(obj_name).unwrap().clone());
-        }
-
-        None
-    }
-
-    fn parse_global(
-        &mut self,
-        mut tok_seq: TokenList,
-    ) -> Result<(TokenList, Option<ASTGlobal>), ParseError> {
+    fn parse_global(&mut self, mut tok_seq: TokenList) -> Result<TokenList, ParseError> {
         let decl_spec_type;
         (tok_seq, decl_spec_type) = self.parse_decl_spec(tok_seq)?;
 
@@ -190,7 +224,7 @@ impl<'a> ParseArena<'a> {
         if tok_seq.expect_punct(PunctKind::SemiColon).is_some() {
             tok_seq = tok_seq.next();
 
-            return Ok((tok_seq, None));
+            return Ok(tok_seq);
         }
 
         let declarator;
@@ -199,20 +233,19 @@ impl<'a> ParseArena<'a> {
         let obj_name = declarator.get_name();
         let obj_type = declarator.get_type(decl_spec_type);
 
-        if tok_seq.expect_punct(PunctKind::OpenBrace).is_some() {
-            if let TypeNode::Func(ref return_type, _) = *obj_type.borrow() {
-                self.return_type = Some(return_type.clone());
-            } else {
-                return Err(ParseError::SemanticError(tok_seq));
-            }
+        // todo!
+        // check conflict previous global_obj
+        //
 
-            let obj = self
-                .insert_global_obj(&obj_name, obj_type)
-                .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
+        let obj = self
+            .insert_global_obj(&obj_name, obj_type)
+            .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
 
-            // prepare parsing stmts
-            let mut args = Vec::new();
-            self.initialize_local_scope();
+        if tok_seq.equal_punct(PunctKind::OpenBrace) {
+            // args
+            self.func_arena = Some(ParseFunctionArena::new(obj.clone()));
+
+            let mut args_obj = Vec::new();
 
             let declarator_args = declarator.get_args();
 
@@ -231,7 +264,7 @@ impl<'a> ParseArena<'a> {
                         .insert_local_obj(&arg_name, arg_type)
                         .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
 
-                    args.push(arg_obj);
+                    args_obj.push(arg_obj);
                 }
             }
 
@@ -279,19 +312,24 @@ impl<'a> ParseArena<'a> {
                 .expect_punct(PunctKind::CloseBrace)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            self.return_type = None;
+            let ast_function = ASTFunction {
+                func_obj: self.func_arena.as_ref().unwrap().func_obj.clone(),
+                args_obj,
+                stmts,
 
-            Ok((tok_seq, Some(ASTGlobal::Function(obj, args, stmts))))
-        } else if tok_seq.expect_punct(PunctKind::SemiColon).is_some() {
-            tok_seq = tok_seq
-                .expect_punct(PunctKind::SemiColon)
-                .ok_or(ParseError::SyntaxError(tok_seq))?;
+                obj_arena: self.func_arena.as_ref().unwrap().obj_arena.clone(),
+            };
+            self.functions.push(ast_function);
 
-            let obj = self
-                .insert_global_obj(&obj_name, obj_type)
-                .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
+            self.func_arena = None;
+            Ok(tok_seq)
+        } else if tok_seq.equal_punct(PunctKind::SemiColon) {
+            tok_seq = tok_seq.next();
 
-            Ok((tok_seq, Some(ASTGlobal::Variable(obj))))
+            self.variables.push(obj);
+            Ok(tok_seq)
+        } else if tok_seq.equal_punct(PunctKind::Equal) {
+            todo!();
         } else {
             Err(ParseError::SyntaxError(tok_seq))
         }
@@ -314,7 +352,15 @@ impl<'a> ParseArena<'a> {
                     .expect_punct(PunctKind::SemiColon)
                     .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-                let return_type = self.return_type.clone().unwrap();
+                let return_type = self
+                    .func_arena
+                    .as_mut()
+                    .unwrap()
+                    .func_obj
+                    .borrow()
+                    .obj_type
+                    .get_return_type()
+                    .unwrap();
 
                 let cast = expr.cast_to(&return_type);
 
@@ -326,7 +372,7 @@ impl<'a> ParseArena<'a> {
                 .expect_punct(PunctKind::Colon)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let switch_id = self.switch_id.get_current_id();
+            let switch_id = self.func_arena.as_mut().unwrap().switch_id.get_current_id();
 
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
@@ -342,7 +388,7 @@ impl<'a> ParseArena<'a> {
                 .expect_punct(PunctKind::Colon)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let switch_id = self.switch_id.get_current_id();
+            let switch_id = self.func_arena.as_mut().unwrap().switch_id.get_current_id();
 
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
@@ -360,7 +406,7 @@ impl<'a> ParseArena<'a> {
                 .expect_punct(PunctKind::SemiColon)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let break_id = self.break_id.get_current_id();
+            let break_id = self.func_arena.as_mut().unwrap().break_id.get_current_id();
 
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::Break(break_id))))
         } else if tok_seq.expect_keyword(KeywordKind::Continue).is_some() {
@@ -372,7 +418,12 @@ impl<'a> ParseArena<'a> {
                 .expect_punct(PunctKind::SemiColon)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let continue_id = self.continue_id.get_current_id();
+            let continue_id = self
+                .func_arena
+                .as_mut()
+                .unwrap()
+                .continue_id
+                .get_current_id();
 
             Ok((tok_seq, ASTStmt::new(ASTStmtNode::Continue(continue_id))))
         } else if tok_seq.expect_keyword(KeywordKind::If).is_some() {
@@ -425,14 +476,14 @@ impl<'a> ParseArena<'a> {
                 .expect_punct(PunctKind::CloseParenthesis)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            let break_id = self.break_id.push_id();
-            let switch_id = self.switch_id.push_id();
+            let break_id = self.func_arena.as_mut().unwrap().break_id.push_id();
+            let switch_id = self.func_arena.as_mut().unwrap().switch_id.push_id();
 
             let stmt;
             (tok_seq, stmt) = self.parse_stmt(tok_seq)?;
 
-            self.break_id.pop_id();
-            self.switch_id.pop_id();
+            self.func_arena.as_mut().unwrap().break_id.pop_id();
+            self.func_arena.as_mut().unwrap().switch_id.pop_id();
 
             Ok((
                 tok_seq,
@@ -461,14 +512,14 @@ impl<'a> ParseArena<'a> {
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             // push stmt_id
-            let break_id = self.break_id.push_id();
-            let continue_id = self.continue_id.push_id();
+            let break_id = self.func_arena.as_mut().unwrap().break_id.push_id();
+            let continue_id = self.func_arena.as_mut().unwrap().continue_id.push_id();
 
             let loop_stmt;
             (tok_seq, loop_stmt) = self.parse_stmt(tok_seq)?;
 
-            self.break_id.pop_id();
-            self.continue_id.pop_id();
+            self.func_arena.as_mut().unwrap().break_id.pop_id();
+            self.func_arena.as_mut().unwrap().continue_id.pop_id();
 
             Ok((
                 tok_seq,
@@ -485,14 +536,14 @@ impl<'a> ParseArena<'a> {
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             // push stmt_id
-            let break_id = self.break_id.push_id();
-            let continue_id = self.continue_id.push_id();
+            let break_id = self.func_arena.as_mut().unwrap().break_id.push_id();
+            let continue_id = self.func_arena.as_mut().unwrap().continue_id.push_id();
 
             let loop_stmt;
             (tok_seq, loop_stmt) = self.parse_stmt(tok_seq)?;
 
-            self.break_id.pop_id();
-            self.continue_id.pop_id();
+            self.func_arena.as_mut().unwrap().break_id.pop_id();
+            self.func_arena.as_mut().unwrap().continue_id.pop_id();
 
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::While)
@@ -570,14 +621,14 @@ impl<'a> ParseArena<'a> {
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
             // push stmt_id
-            let break_id = self.break_id.push_id();
-            let continue_id = self.continue_id.push_id();
+            let break_id = self.func_arena.as_mut().unwrap().break_id.push_id();
+            let continue_id = self.func_arena.as_mut().unwrap().continue_id.push_id();
 
             let loop_stmt;
             (tok_seq, loop_stmt) = self.parse_stmt(tok_seq)?;
 
-            self.break_id.pop_id();
-            self.continue_id.pop_id();
+            self.func_arena.as_mut().unwrap().break_id.pop_id();
+            self.func_arena.as_mut().unwrap().continue_id.pop_id();
 
             Ok((
                 tok_seq,

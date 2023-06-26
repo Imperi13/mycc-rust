@@ -39,9 +39,9 @@ pub struct ASTFunction {
 }
 
 pub struct AST {
-    pub extern_globals: Vec<Obj>,
-    pub global_variables: Vec<Obj>,
-    pub funcs: Vec<Obj>,
+    pub global_objs: Vec<Obj>,
+    pub variables: Vec<Obj>,
+    pub functions: Vec<ASTFunction>,
 
     pub obj_arena: GlobalObjArena,
 }

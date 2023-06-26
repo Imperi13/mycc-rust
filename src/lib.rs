@@ -1,18 +1,17 @@
 mod ast;
-mod cfg;
-mod codegen;
+//mod cfg;
+//mod codegen;
 mod error;
 mod obj;
 mod parse;
 mod tokenize;
 mod types;
 
-use codegen::CodegenArena;
-use obj::ObjArena;
+//use codegen::CodegenArena;
 use parse::parse_all;
 use tokenize::tokenize;
 
-use cfg::gen_cfg_all;
+//use cfg::gen_cfg_all;
 
 use inkwell::context::Context;
 use std::fs::read_to_string;
@@ -37,9 +36,7 @@ pub fn compile_to_llvm_ir<Pinput: AsRef<Path>, Poutput: AsRef<Path>>(
 
     tok_seq.remove_newline();
 
-    let mut obj_arena = ObjArena::new();
-
-    let ast = parse_all(&mut obj_arena, tok_seq);
+    let ast = parse_all(tok_seq);
 
     let ast = match ast {
         Ok(ast) => ast,
@@ -49,7 +46,8 @@ pub fn compile_to_llvm_ir<Pinput: AsRef<Path>, Poutput: AsRef<Path>>(
         }
     };
 
-    let cfg = gen_cfg_all(&mut obj_arena, &ast);
+    /*
+    let cfg = gen_cfg_all(&ast);
 
     for c in cfg.iter() {
         eprintln!("{:?}", c);
@@ -58,4 +56,5 @@ pub fn compile_to_llvm_ir<Pinput: AsRef<Path>, Poutput: AsRef<Path>>(
     let context = Context::create();
     let mut codegen_arena = CodegenArena::new(&context);
     codegen_arena.codegen_all(&cfg, output_path);
+    */
 }

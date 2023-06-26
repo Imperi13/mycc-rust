@@ -12,9 +12,7 @@ use crate::ast::expr::ASTUnaryOpNode;
 use crate::ast::stmt::ASTStmt;
 use crate::ast::stmt::ASTStmtNode;
 use crate::ast::ASTBlockStmt;
-use crate::ast::ASTGlobal;
 use crate::obj::Obj;
-use crate::obj::ObjArena;
 use crate::types::Type;
 use crate::types::TypeNode;
 
