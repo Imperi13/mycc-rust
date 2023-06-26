@@ -25,6 +25,15 @@ pub struct Obj {
     head: Rc<RefCell<ObjNode>>,
 }
 
+impl fmt::Debug for Obj {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.borrow().id {
+            ObjID::Global(id) => write!(f, "{}_global_{}", self.borrow().name, id),
+            ObjID::Local(id) => write!(f, "{}_local_{}", self.borrow().name, id),
+        }
+    }
+}
+
 impl Obj {
     fn new(node: ObjNode) -> Obj {
         Obj {
@@ -34,12 +43,6 @@ impl Obj {
 
     pub fn borrow(&self) -> Ref<ObjNode> {
         (*self.head).borrow()
-    }
-}
-
-impl fmt::Debug for Obj {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Obj ")
     }
 }
 

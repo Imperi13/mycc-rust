@@ -1,5 +1,5 @@
 mod ast;
-//mod cfg;
+mod cfg;
 //mod codegen;
 mod error;
 mod obj;
@@ -11,7 +11,7 @@ mod types;
 use parse::parse_all;
 use tokenize::tokenize;
 
-//use cfg::gen_cfg_all;
+use cfg::gen_cfg_all;
 
 use inkwell::context::Context;
 use std::fs::read_to_string;
@@ -46,13 +46,10 @@ pub fn compile_to_llvm_ir<Pinput: AsRef<Path>, Poutput: AsRef<Path>>(
         }
     };
 
-    /*
     let cfg = gen_cfg_all(&ast);
+    eprintln!("{:?}", cfg);
 
-    for c in cfg.iter() {
-        eprintln!("{:?}", c);
-    }
-
+    /*
     let context = Context::create();
     let mut codegen_arena = CodegenArena::new(&context);
     codegen_arena.codegen_all(&cfg, output_path);

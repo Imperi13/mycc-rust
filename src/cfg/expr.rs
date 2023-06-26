@@ -107,7 +107,7 @@ impl CFGExpr {
 impl fmt::Debug for CFGExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.get_node() {
-            CFGExprNode::Var(ref obj) => write!(f, "{}_{}", obj.borrow().name, obj.borrow().id),
+            CFGExprNode::Var(ref obj) => write!(f, "{:?}", obj),
             CFGExprNode::Cast(ref ty, ref expr) => write!(f, "({:?})({:?})", ty, expr),
             CFGExprNode::Number(num) => write!(f, "{num}"),
             CFGExprNode::BinaryOp(ref node) => write!(f, "{:?}", node),

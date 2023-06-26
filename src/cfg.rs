@@ -12,6 +12,9 @@ use crate::ast::expr::ASTUnaryOpNode;
 use crate::ast::stmt::ASTStmt;
 use crate::ast::stmt::ASTStmtNode;
 use crate::ast::ASTBlockStmt;
+use crate::ast::AST;
+use crate::obj::GlobalObjArena;
+use crate::obj::LocalObjArena;
 use crate::obj::Obj;
 use crate::types::Type;
 use crate::types::TypeNode;
@@ -37,18 +40,12 @@ pub enum CFGStmt {
 impl fmt::Debug for CFGStmt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CFGStmt::Decl(ref obj) => write!(f, "Decl {}_{}", obj.borrow().name, obj.borrow().id),
+            CFGStmt::Decl(ref obj) => write!(f, "Decl {:?}", obj),
             CFGStmt::Assign(ref lhs, ref rhs) => write!(f, "{:?} = {:?}", lhs, rhs),
             CFGStmt::FuncCall(ref ret_obj, ref func_expr, ref args) => {
                 if ret_obj.is_some() {
                     let ret_obj = ret_obj.as_ref().unwrap();
-                    write!(
-                        f,
-                        "{}_{} = {:?}(",
-                        ret_obj.borrow().name,
-                        ret_obj.borrow().id,
-                        func_expr
-                    )?;
+                    write!(f, "{:?} = {:?}(", ret_obj, func_expr)?;
 
                     for arg in args.iter() {
                         write!(f, "{:?},", arg)?;
@@ -138,6 +135,8 @@ pub struct CFGFunction {
     pub entry_block: CFGBlock,
     pub return_block: CFGBlock,
     pub blocks: HashMap<usize, CFGBlock>,
+
+    pub obj_arena: LocalObjArena,
 }
 
 impl fmt::Debug for CFGFunction {
@@ -146,12 +145,12 @@ impl fmt::Debug for CFGFunction {
         writeln!(f, "Function {}:", self.func_obj.borrow().name)?;
         write!(f, "args: ")?;
         for arg in self.args.iter() {
-            write!(f, "{}_{},", arg.borrow().name, arg.borrow().id)?;
+            write!(f, "{:?},", arg)?;
         }
         writeln!(f, "")?;
         if self.retval.is_some() {
             let retval = self.retval.as_ref().unwrap();
-            writeln!(f, "return: {}_{}", retval.borrow().name, retval.borrow().id)?;
+            writeln!(f, "return: {:?}", retval)?;
         }
         writeln!(f, "")?;
 
@@ -165,41 +164,47 @@ impl fmt::Debug for CFGFunction {
 }
 
 #[derive(Clone)]
-pub enum CFGGlobal {
-    Function(CFGFunction),
-    Variable(Obj),
+pub struct CFG {
+    pub global_objs: Vec<Obj>,
+    pub variables: Vec<Obj>,
+    pub functions: Vec<CFGFunction>,
+
+    pub obj_arena: GlobalObjArena,
 }
 
-impl fmt::Debug for CFGGlobal {
+impl fmt::Debug for CFG {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            CFGGlobal::Function(ref func) => writeln!(f, "{:?}", func),
-            CFGGlobal::Variable(ref obj) => {
-                writeln!(f, "GlobalObj {}_{}:", obj.borrow().name, obj.borrow().id)
-            }
+        for func in self.functions.iter() {
+            writeln!(f, "{:?}", func)?;
         }
+        Ok(())
     }
 }
 
-pub fn gen_cfg_all(obj_arena: &mut ObjArena, ast_all: &Vec<ASTGlobal>) -> Vec<CFGGlobal> {
-    let mut cfg_globals = Vec::new();
-    for ast in ast_all.iter() {
-        let cfg_global = match ast {
-            ASTGlobal::Function(ref func_obj, ref args, ref stmts) => {
-                let mut arena = CFGArena::new(obj_arena);
-                CFGGlobal::Function(arena.gen_cfg_function(func_obj, args, stmts))
-            }
-            ASTGlobal::Variable(ref obj) => CFGGlobal::Variable(obj.clone()),
-        };
+pub fn gen_cfg_all(ast: &AST) -> CFG {
+    let global_objs = ast.global_objs.clone();
+    let variables = ast.variables.clone();
+    let obj_arena = ast.obj_arena.clone();
+    let mut functions = Vec::new();
+    for ast_func in ast.functions.iter() {
+        let func_obj = ast_func.func_obj.clone();
+        let args_obj = ast_func.args_obj.clone();
+        let obj_arena = ast_func.obj_arena.clone();
 
-        cfg_globals.push(cfg_global);
+        let mut arena = CFGArena::new(obj_arena);
+        functions.push(arena.gen_cfg_function(&func_obj, &args_obj, &ast_func.stmts));
     }
 
-    cfg_globals
+    CFG {
+        global_objs,
+        variables,
+        functions,
+        obj_arena,
+    }
 }
 
-struct CFGArena<'a> {
-    obj_arena: &'a mut ObjArena,
+struct CFGArena {
+    obj_arena: LocalObjArena,
     retval: Option<Obj>,
 
     entry_block: CFGBlock,
@@ -216,8 +221,8 @@ struct CFGArena<'a> {
     current_stmts: Vec<CFGStmt>,
 }
 
-impl<'a> CFGArena<'a> {
-    pub fn new(obj_arena: &'a mut ObjArena) -> Self {
+impl CFGArena {
+    pub fn new(obj_arena: LocalObjArena) -> Self {
         CFGArena {
             obj_arena,
             retval: None,
@@ -249,7 +254,6 @@ impl<'a> CFGArena<'a> {
         {
             let retval = self.obj_arena.publish_obj(
                 "retval",
-                false,
                 func_obj.borrow().obj_type.get_return_type().unwrap(),
             );
 
@@ -287,6 +291,7 @@ impl<'a> CFGArena<'a> {
             entry_block: self.entry_block.clone(),
             return_block: self.return_block.clone(),
             blocks: self.blocks.clone(),
+            obj_arena: self.obj_arena.clone(),
         };
 
         cfg_func.cleanup_unreachable_block();
@@ -325,9 +330,9 @@ impl<'a> CFGArena<'a> {
                 )
             }
             ASTExprNode::Conditional(ref cond, ref then_expr, ref else_expr) => {
-                let conditional_obj =
-                    self.obj_arena
-                        .publish_obj("conditional", false, expr.expr_type.clone());
+                let conditional_obj = self
+                    .obj_arena
+                    .publish_obj("conditional", expr.expr_type.clone());
                 let conditional_var = CFGExpr::new(
                     CFGExprNode::Var(conditional_obj.clone()),
                     expr.expr_type.clone(),
@@ -398,9 +403,9 @@ impl<'a> CFGArena<'a> {
                 conditional_var
             }
             ASTExprNode::PostIncrement(ref lhs) => {
-                let saved_obj =
-                    self.obj_arena
-                        .publish_obj("post_increment", false, expr.expr_type.clone());
+                let saved_obj = self
+                    .obj_arena
+                    .publish_obj("post_increment", expr.expr_type.clone());
                 let saved_var =
                     CFGExpr::new(CFGExprNode::Var(saved_obj.clone()), expr.expr_type.clone());
 
@@ -422,9 +427,9 @@ impl<'a> CFGArena<'a> {
                 saved_var
             }
             ASTExprNode::PostDecrement(ref lhs) => {
-                let saved_obj =
-                    self.obj_arena
-                        .publish_obj("post_decrement", false, expr.expr_type.clone());
+                let saved_obj = self
+                    .obj_arena
+                    .publish_obj("post_decrement", expr.expr_type.clone());
                 let saved_var =
                     CFGExpr::new(CFGExprNode::Var(saved_obj.clone()), expr.expr_type.clone());
 
@@ -460,9 +465,7 @@ impl<'a> CFGArena<'a> {
 
                     CFGExpr::new(CFGExprNode::Number(0), expr.expr_type.clone())
                 } else {
-                    let return_obj =
-                        self.obj_arena
-                            .publish_obj("func_call", false, return_type.clone());
+                    let return_obj = self.obj_arena.publish_obj("func_call", return_type.clone());
                     self.current_stmts.push(CFGStmt::Decl(return_obj.clone()));
 
                     self.current_stmts.push(CFGStmt::FuncCall(
@@ -499,9 +502,9 @@ impl<'a> CFGArena<'a> {
             | ASTAssignKind::ModAssign
             | ASTAssignKind::LeftShiftAssign
             | ASTAssignKind::RightShiftAssign => {
-                let compound_obj =
-                    self.obj_arena
-                        .publish_obj("compound_assign", false, expr_type.clone());
+                let compound_obj = self
+                    .obj_arena
+                    .publish_obj("compound_assign", expr_type.clone());
                 let compound_var =
                     CFGExpr::new(CFGExprNode::Var(compound_obj.clone()), expr_type.clone());
 
@@ -629,9 +632,7 @@ impl<'a> CFGArena<'a> {
                 self.push_expr(&node.rhs)
             }
             ASTBinaryOpKind::LogicalOr => {
-                let or_obj = self
-                    .obj_arena
-                    .publish_obj("logical_or", false, expr_type.clone());
+                let or_obj = self.obj_arena.publish_obj("logical_or", expr_type.clone());
                 let or_var = CFGExpr::new(CFGExprNode::Var(or_obj.clone()), expr_type.clone());
 
                 self.current_stmts.push(CFGStmt::Decl(or_obj.clone()));
@@ -714,9 +715,7 @@ impl<'a> CFGArena<'a> {
                 or_var
             }
             ASTBinaryOpKind::LogicalAnd => {
-                let and_obj = self
-                    .obj_arena
-                    .publish_obj("logical_and", false, expr_type.clone());
+                let and_obj = self.obj_arena.publish_obj("logical_and", expr_type.clone());
                 let and_var = CFGExpr::new(CFGExprNode::Var(and_obj.clone()), expr_type.clone());
 
                 self.current_stmts.push(CFGStmt::Decl(and_obj.clone()));
