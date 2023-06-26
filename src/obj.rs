@@ -7,11 +7,16 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Clone)]
+pub enum ObjID {
+    Global(usize),
+    Local(usize),
+}
+
+#[derive(Clone)]
 pub struct ObjNode {
-    pub id: usize,
+    pub id: ObjID,
     pub name: String,
 
-    pub is_global: bool,
     pub obj_type: Type,
 }
 
@@ -38,20 +43,40 @@ impl fmt::Debug for Obj {
     }
 }
 
-pub struct ObjArena {
+pub struct GlobalObjArena {
     current_id: usize,
 }
 
-impl ObjArena {
+impl GlobalObjArena {
     pub fn new() -> Self {
-        ObjArena { current_id: 0 }
+        GlobalObjArena { current_id: 0 }
     }
 
-    pub fn publish_obj(&mut self, obj_name: &str, is_global: bool, obj_type: Type) -> Obj {
+    pub fn publish_obj(&mut self, obj_name: &str, obj_type: Type) -> Obj {
         let node = ObjNode {
-            id: self.current_id,
+            id: ObjID::Global(self.current_id),
             name: String::from(obj_name),
-            is_global,
+            obj_type,
+        };
+
+        self.current_id += 1;
+        Obj::new(node)
+    }
+}
+
+pub struct LocalObjArena {
+    current_id: usize,
+}
+
+impl LocalObjArena {
+    pub fn new() -> Self {
+        LocalObjArena { current_id: 0 }
+    }
+
+    pub fn publish_obj(&mut self, obj_name: &str, obj_type: Type) -> Obj {
+        let node = ObjNode {
+            id: ObjID::Local(self.current_id),
+            name: String::from(obj_name),
             obj_type,
         };
 
