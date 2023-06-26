@@ -238,7 +238,7 @@ impl ParseArena {
         //
 
         let obj = self
-            .insert_global_obj(&obj_name, obj_type)
+            .insert_global_obj(&obj_name, obj_type.clone())
             .map_err(|()| ParseError::SemanticError(tok_seq.clone()))?;
 
         if tok_seq.equal_punct(PunctKind::OpenBrace) {
@@ -326,7 +326,9 @@ impl ParseArena {
         } else if tok_seq.equal_punct(PunctKind::SemiColon) {
             tok_seq = tok_seq.next();
 
-            self.variables.push(obj);
+            if !obj_type.is_function_type() {
+                self.variables.push(obj);
+            }
             Ok(tok_seq)
         } else if tok_seq.equal_punct(PunctKind::Equal) {
             todo!();

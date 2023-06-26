@@ -6,7 +6,7 @@ use std::cell::Ref;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum ObjID {
     Global(usize),
     Local(usize),
@@ -43,6 +43,10 @@ impl Obj {
 
     pub fn borrow(&self) -> Ref<ObjNode> {
         (*self.head).borrow()
+    }
+
+    pub fn is_global(&self) -> bool {
+        matches!(self.borrow().id, ObjID::Global(_))
     }
 }
 

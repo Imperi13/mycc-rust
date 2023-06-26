@@ -1,13 +1,13 @@
 mod ast;
 mod cfg;
-//mod codegen;
+mod codegen;
 mod error;
 mod obj;
 mod parse;
 mod tokenize;
 mod types;
 
-//use codegen::CodegenArena;
+use codegen::CodegenArena;
 use parse::parse_all;
 use tokenize::tokenize;
 
@@ -49,9 +49,7 @@ pub fn compile_to_llvm_ir<Pinput: AsRef<Path>, Poutput: AsRef<Path>>(
     let cfg = gen_cfg_all(&ast);
     eprintln!("{:?}", cfg);
 
-    /*
     let context = Context::create();
     let mut codegen_arena = CodegenArena::new(&context);
     codegen_arena.codegen_all(&cfg, output_path);
-    */
 }
