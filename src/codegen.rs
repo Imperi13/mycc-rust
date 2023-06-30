@@ -5,6 +5,7 @@ use crate::cfg::expr::CFGExprNode;
 use crate::cfg::expr::CFGUnaryOpKind;
 use crate::cfg::expr::CFGUnaryOpNode;
 use crate::cfg::BlockID;
+use crate::cfg::BlockKind;
 use crate::cfg::CFGBlock;
 use crate::cfg::CFGFunction;
 use crate::cfg::CFGJump;
@@ -45,9 +46,7 @@ pub struct CodegenArena<'ctx> {
 
     // for function
     current_func: Option<FunctionValue<'ctx>>,
-    entry_block: Option<BasicBlock<'ctx>>,
-    return_block: Option<BasicBlock<'ctx>>,
-    blocks: HashMap<usize, BasicBlock<'ctx>>,
+    blocks: HashMap<BlockID, BasicBlock<'ctx>>,
 }
 
 impl<'ctx> CodegenArena<'ctx> {
@@ -59,8 +58,6 @@ impl<'ctx> CodegenArena<'ctx> {
             module,
             builder,
             current_func: None,
-            entry_block: None,
-            return_block: None,
             blocks: HashMap::new(),
             global_objs_ptr: HashMap::new(),
             local_objs_ptr: HashMap::new(),
@@ -186,7 +183,7 @@ impl<'ctx> CodegenArena<'ctx> {
             self.global_objs_ptr.get(&obj.borrow().id).unwrap().clone()
         } else {
             if !self.local_objs_ptr.contains_key(&obj.borrow().id) {
-                panic!("not found obj")
+                panic!("not found obj: {}", obj.borrow().name)
             }
 
             self.local_objs_ptr.get(&obj.borrow().id).unwrap().clone()
@@ -237,73 +234,40 @@ impl<'ctx> CodegenArena<'ctx> {
         self.current_func = Some(main_fn);
         self.local_objs_ptr = HashMap::new();
 
+        // append entry_block
+
         let entry_block = self.context.append_basic_block(main_fn, "entry_block");
-        let return_block = self.context.append_basic_block(main_fn, "return_block");
+        self.blocks.insert(func.entry_id.clone(), entry_block);
 
-        for (index, _) in func.blocks.iter() {
-            let block = self
-                .context
-                .append_basic_block(main_fn, &format!("block_{}", index.to_string()));
-            self.blocks.insert(index.clone(), block);
+        // append other block
+        for (id, cfg_block) in func.blocks.iter() {
+            if cfg_block.kind != BlockKind::Entry {
+                let block = self
+                    .context
+                    .append_basic_block(main_fn, &format!("block_{:?}", id));
+                self.blocks.insert(id.clone(), block);
+            }
         }
 
-        self.entry_block = Some(entry_block);
-        self.return_block = Some(return_block);
+        // codegen entry
 
-        // codegen entry_block
-        self.builder.position_at_end(entry_block);
-        if func.retval.is_some() {
-            let retval = func.retval.as_ref().unwrap();
-            self.alloc_local_obj(retval);
-        }
-        for (i, arg) in main_fn.get_param_iter().enumerate() {
-            let ptr = self.alloc_local_obj(&func.args[i]);
-            self.builder.build_store(ptr, arg);
-        }
-
-        for stmt in func.entry_block.stmts.iter() {
-            self.codegen_stmt(stmt);
-        }
-
-        self.codegen_jump(&func.entry_block.jump_to);
-
-        // codegen return_block
-        self.builder.position_at_end(return_block);
-
-        for stmt in func.return_block.stmts.iter() {
-            self.codegen_stmt(stmt);
-        }
-
-        if func.retval.is_some() {
-            let retval = func.retval.as_ref().unwrap();
-
-            let ptr = self.get_obj_ptr(retval);
-            let ret_type = &retval.borrow().obj_type;
-            let llvm_type = self.convert_llvm_basictype(&ret_type);
-            let retval = self.builder.build_load(llvm_type, ptr, "retval");
-            self.builder.build_return(Some(&retval));
-        } else {
-            self.builder.build_return(None);
-        }
+        let cfg_entry = func.blocks.get(&func.entry_id).unwrap();
+        self.codegen_block(cfg_entry);
 
         // codegen other block
 
         for (_, cfg_block) in func.blocks.iter() {
-            self.codegen_block(cfg_block);
+            if cfg_block.kind != BlockKind::Entry {
+                self.codegen_block(cfg_block);
+            }
         }
 
         self.current_func = None;
-        self.entry_block = None;
-        self.return_block = None;
         self.blocks = HashMap::new();
     }
 
     fn codegen_block(&mut self, cfg_block: &CFGBlock) {
-        let block = match cfg_block.id {
-            BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-            BlockID::Entry => panic!(),
-            BlockID::Return => panic!(),
-        };
+        let block = self.blocks.get(&cfg_block.id).unwrap().clone();
 
         self.builder.position_at_end(block);
 
@@ -318,6 +282,12 @@ impl<'ctx> CodegenArena<'ctx> {
         match stmt {
             CFGStmt::Decl(ref obj) => {
                 self.alloc_local_obj(obj);
+            }
+            CFGStmt::Arg(ref arg_obj, arg_index) => {
+                let current_fn = self.current_func.as_ref().unwrap();
+                let ptr = self.get_obj_ptr(arg_obj);
+                let arg_val = current_fn.get_nth_param(arg_index.clone() as u32).unwrap();
+                self.builder.build_store(ptr, arg_val);
             }
             CFGStmt::Assign(ref var_expr, ref val) => {
                 let lhs_ptr = self.codegen_addr(var_expr);
@@ -352,26 +322,12 @@ impl<'ctx> CodegenArena<'ctx> {
     fn codegen_jump(&mut self, jump: &CFGJump) {
         match jump {
             CFGJump::Unconditional(ref block_id) => {
-                let block = match block_id {
-                    BlockID::Entry => self.entry_block.unwrap(),
-                    BlockID::Return => self.return_block.unwrap(),
-                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-                };
-
+                let block = self.blocks.get(block_id).unwrap().clone();
                 self.builder.build_unconditional_branch(block);
             }
             CFGJump::Conditional(ref cond, ref then_id, ref else_id) => {
-                let then_block = match then_id {
-                    BlockID::Entry => self.entry_block.unwrap(),
-                    BlockID::Return => self.return_block.unwrap(),
-                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-                };
-
-                let else_block = match else_id {
-                    BlockID::Entry => self.entry_block.unwrap(),
-                    BlockID::Return => self.return_block.unwrap(),
-                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-                };
+                let then_block = self.blocks.get(then_id).unwrap().clone();
+                let else_block = self.blocks.get(else_id).unwrap().clone();
 
                 let zero = self
                     .convert_llvm_basictype(&cond.expr_type)
@@ -394,27 +350,30 @@ impl<'ctx> CodegenArena<'ctx> {
 
                 for (case_expr, case_id) in cases.iter() {
                     let case_value = self.codegen_expr(case_expr).into_int_value();
-                    let block = match case_id {
-                        BlockID::Entry => self.entry_block.unwrap(),
-                        BlockID::Return => self.return_block.unwrap(),
-                        BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-                    };
+                    let block = self.blocks.get(case_id).unwrap().clone();
                     llvm_cases.push((case_value, block));
                 }
 
-                let default_block = match default_id {
-                    BlockID::Entry => self.entry_block.unwrap(),
-                    BlockID::Return => self.return_block.unwrap(),
-                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-                };
+                let default_block = self.blocks.get(default_id).unwrap().clone();
 
                 let cond_value = self.codegen_expr(cond).into_int_value();
 
                 self.builder
                     .build_switch(cond_value, default_block, &llvm_cases);
             }
-            CFGJump::Return => panic!(),
-            CFGJump::None => panic!(),
+            CFGJump::Return(ref ret_obj) => {
+                if ret_obj.is_some() {
+                    let ret_obj = ret_obj.as_ref().unwrap();
+
+                    let ptr = self.get_obj_ptr(ret_obj);
+                    let ret_type = &ret_obj.borrow().obj_type;
+                    let llvm_type = self.convert_llvm_basictype(&ret_type);
+                    let retval = self.builder.build_load(llvm_type, ptr, "retval");
+                    self.builder.build_return(Some(&retval));
+                } else {
+                    self.builder.build_return(None);
+                }
+            }
         }
     }
 
