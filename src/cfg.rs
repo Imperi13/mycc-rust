@@ -118,7 +118,7 @@ pub struct CFGBlock {
 
 impl fmt::Debug for CFGBlock {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "Block {:?}:", self.id)?;
+        writeln!(f, "Block {:?}:{:?}", self.id, self.kind)?;
         writeln!(f, "Stmts:")?;
         for stmt in self.stmts.iter() {
             writeln!(f, "\t{:?}", stmt)?;
@@ -156,11 +156,9 @@ impl fmt::Debug for CFGFunction {
         }
         writeln!(f, "")?;
 
-        writeln!(f, "{:?}", self.blocks.get(&self.entry_id).unwrap())?;
         for (_, block) in self.blocks.iter() {
             writeln!(f, "{:?}", block)?;
         }
-        writeln!(f, "{:?}", self.blocks.get(&self.return_id).unwrap())?;
         writeln!(f, "--------------")
     }
 }
