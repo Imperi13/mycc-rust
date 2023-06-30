@@ -74,7 +74,7 @@ impl BlockID {
     pub fn new(i: usize) -> Self {
         Self(i)
     }
-    pub fn to_usize(self) -> usize {
+    pub fn to_usize(&self) -> usize {
         self.0
     }
 }
@@ -320,7 +320,7 @@ impl CFGArena {
             obj_arena: self.obj_arena.clone(),
         };
 
-        //cfg_func.cleanup_unreachable_block();
+        cfg_func.cleanup_unreachable_block();
         cfg_func.move_declaration_to_entry();
 
         cfg_func
