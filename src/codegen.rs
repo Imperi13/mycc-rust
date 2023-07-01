@@ -357,15 +357,12 @@ impl<'ctx> CodegenArena<'ctx> {
                 self.builder
                     .build_switch(cond_value, default_block, &llvm_cases);
             }
-            CFGJump::Return(ref ret_obj) => {
-                if ret_obj.is_some() {
-                    let ret_obj = ret_obj.as_ref().unwrap();
+            CFGJump::Return(ref ret_expr) => {
+                if ret_expr.is_some() {
+                    let ret_expr = ret_expr.as_ref().unwrap();
+                    let ret_val = self.codegen_expr(ret_expr);
 
-                    let ptr = self.get_obj_ptr(ret_obj);
-                    let ret_type = &ret_obj.borrow().obj_type;
-                    let llvm_type = self.convert_llvm_basictype(&ret_type);
-                    let retval = self.builder.build_load(llvm_type, ptr, "retval");
-                    self.builder.build_return(Some(&retval));
+                    self.builder.build_return(Some(&ret_val));
                 } else {
                     self.builder.build_return(None);
                 }

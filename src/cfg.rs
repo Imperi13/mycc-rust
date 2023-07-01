@@ -81,7 +81,7 @@ impl BlockID {
 
 #[derive(Clone)]
 pub enum CFGJump {
-    Return(Option<Obj>),
+    Return(Option<CFGExpr>),
     Unconditional(BlockID),
     Conditional(CFGExpr, BlockID, BlockID),
     Switch(CFGExpr, Vec<(CFGExpr, BlockID)>, BlockID),
@@ -358,11 +358,21 @@ impl CFGArena {
 
         self.current_stmts = Vec::new();
 
+        let retvar_expr = if self.retval.is_some() {
+            let retval = self.retval.as_ref().unwrap();
+            Some(CFGExpr::new(
+                CFGExprNode::Var(retval.clone()),
+                retval.borrow().obj_type.clone(),
+            ))
+        } else {
+            None
+        };
+
         let return_block = CFGBlock {
             kind: BlockKind::Return,
             id: self.return_id.clone(),
             stmts: self.current_stmts.clone(),
-            jump_to: CFGJump::Return(self.retval.clone()),
+            jump_to: CFGJump::Return(retvar_expr),
         };
         self.blocks.insert(self.return_id.clone(), return_block);
 
