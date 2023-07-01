@@ -322,6 +322,7 @@ impl CFGArena {
 
         cfg_func.cleanup_unreachable_block();
         cfg_func.move_declaration_to_entry();
+        cfg_func.rename_dfs_order();
 
         cfg_func
     }
