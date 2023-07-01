@@ -22,6 +22,7 @@ use std::process;
 pub fn compile_to_llvm_ir<Pinput: AsRef<Path>, Poutput: AsRef<Path>>(
     input_path: Pinput,
     output_path: Poutput,
+    _optimize_level: u8,
 ) {
     let file_read = read_to_string(input_path);
 

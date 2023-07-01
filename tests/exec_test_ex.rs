@@ -6,7 +6,7 @@ macro_rules! test_function {
         fn $func_name() {
             println!("{}", $code);
             let filepath = format!("test_{}.ll", stringify!($func_name));
-            common::compile_code($code, &filepath);
+            common::compile_code($code, &filepath, 0);
             assert_eq!(common::exec_code(&filepath), $status);
             common::cleanup(&filepath).unwrap();
         }
