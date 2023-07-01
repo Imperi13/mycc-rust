@@ -655,7 +655,6 @@ impl CFGArena {
             ASTUnaryOpKind::Plus
             | ASTUnaryOpKind::Minus
             | ASTUnaryOpKind::Addr
-            | ASTUnaryOpKind::Deref
             | ASTUnaryOpKind::LogicalNot
             | ASTUnaryOpKind::BitNot => {
                 let expr = self.push_expr(&node.expr);
@@ -664,7 +663,6 @@ impl CFGArena {
                     ASTUnaryOpKind::Plus => CFGUnaryOpKind::Plus,
                     ASTUnaryOpKind::Minus => CFGUnaryOpKind::Minus,
                     ASTUnaryOpKind::Addr => CFGUnaryOpKind::Addr,
-                    ASTUnaryOpKind::Deref => CFGUnaryOpKind::Deref,
                     ASTUnaryOpKind::LogicalNot => CFGUnaryOpKind::LogicalNot,
                     ASTUnaryOpKind::BitNot => CFGUnaryOpKind::BitNot,
                     _ => panic!(),
@@ -674,6 +672,10 @@ impl CFGArena {
                     CFGExprNode::UnaryOp(CFGUnaryOpNode { expr, kind }),
                     expr_type.clone(),
                 )
+            }
+            ASTUnaryOpKind::Deref => {
+                let expr = self.push_expr(&node.expr);
+                CFGExpr::new(CFGExprNode::Deref(expr), expr_type.clone())
             }
             ASTUnaryOpKind::Sizeof => CFGExpr::new(
                 CFGExprNode::Sizeof(node.expr.expr_type.clone()),

@@ -60,7 +60,6 @@ pub enum CFGUnaryOpKind {
     Plus,
     Minus,
     Addr,
-    Deref,
     LogicalNot,
     BitNot,
 }
@@ -78,6 +77,8 @@ pub enum CFGExprNode {
     Cast(Type, CFGExpr),
     Dot(CFGExpr, usize),
     Arrow(CFGExpr, usize),
+    // Deref is a unary operator but it can be a left-hand side value, so it is separated
+    Deref(CFGExpr),
     Number(u64),
     StrLiteral(String),
     Var(Obj),

@@ -382,10 +382,7 @@ impl<'ctx> CodegenArena<'ctx> {
     fn codegen_addr<'a>(&'a self, ast: &CFGExpr) -> PointerValue<'ctx> {
         match ast.get_node() {
             CFGExprNode::Var(obj) => self.get_obj_ptr(&obj),
-            CFGExprNode::UnaryOp(unary_node) => match unary_node.kind {
-                CFGUnaryOpKind::Deref => self.codegen_expr(&unary_node.expr).into_pointer_value(),
-                _ => panic!(),
-            },
+            CFGExprNode::Deref(ref expr) => self.codegen_expr(expr).into_pointer_value(),
             CFGExprNode::Dot(ref st_expr, index) => {
                 let st_ptr = self.codegen_addr(st_expr);
                 let st_ty = self
@@ -450,6 +447,17 @@ impl<'ctx> CodegenArena<'ctx> {
                 } else {
                     let llvm_type = self.convert_llvm_basictype(expr_type);
                     self.builder.build_load(llvm_type, ptr, "dot")
+                }
+            }
+            CFGExprNode::Deref(ref expr) => {
+                let expr_type = &ast.expr_type;
+                assert!(expr.expr_type.is_ptr_type());
+                let llvm_type = self.convert_llvm_basictype(expr_type);
+                let ptr = self.codegen_expr(expr).into_pointer_value();
+                if expr_type.is_array_type() {
+                    ptr.into()
+                } else {
+                    self.builder.build_load(llvm_type, ptr, "var")
                 }
             }
             CFGExprNode::Sizeof(ref ty) => {
@@ -536,7 +544,7 @@ impl<'ctx> CodegenArena<'ctx> {
     fn codegen_unary_op<'a>(
         &'a self,
         unary_node: &CFGUnaryOpNode,
-        expr_type: &Type,
+        _expr_type: &Type,
     ) -> BasicValueEnum<'ctx> {
         match unary_node.kind {
             CFGUnaryOpKind::Plus => self.codegen_expr(&unary_node.expr),
@@ -546,16 +554,6 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             CFGUnaryOpKind::Addr => {
                 BasicValueEnum::PointerValue(self.codegen_addr(&unary_node.expr))
-            }
-            CFGUnaryOpKind::Deref => {
-                assert!(&unary_node.expr.expr_type.is_ptr_type());
-                let llvm_type = self.convert_llvm_basictype(expr_type);
-                let ptr = self.codegen_expr(&unary_node.expr).into_pointer_value();
-                if expr_type.is_array_type() {
-                    ptr.into()
-                } else {
-                    self.builder.build_load(llvm_type, ptr, "var")
-                }
             }
             CFGUnaryOpKind::LogicalNot => {
                 let expr = self.codegen_expr(&unary_node.expr);
