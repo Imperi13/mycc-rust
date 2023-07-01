@@ -223,6 +223,8 @@ impl<'ctx> CodegenArena<'ctx> {
     }
 
     fn codegen_func(&mut self, func: &CFGFunction) {
+        assert!(func.is_valid_blocks());
+
         let main_fn = self
             .func_val
             .get(&func.func_obj.borrow().id)
@@ -249,17 +251,11 @@ impl<'ctx> CodegenArena<'ctx> {
             }
         }
 
-        // codegen entry
-
-        let cfg_entry = func.blocks.get(&func.entry_id).unwrap();
-        self.codegen_block(cfg_entry);
-
-        // codegen other block
-
-        for (_, cfg_block) in func.blocks.iter() {
-            if cfg_block.kind != BlockKind::Entry {
-                self.codegen_block(cfg_block);
-            }
+        // codegen
+        let size = func.blocks.len();
+        for index in 0..size {
+            let block = func.blocks.get(&BlockID::new(index)).unwrap();
+            self.codegen_block(block);
         }
 
         self.current_func = None;

@@ -143,6 +143,8 @@ pub struct CFGFunction {
 
 impl fmt::Debug for CFGFunction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        assert!(self.is_valid_blocks());
+
         writeln!(f, "--------------")?;
         writeln!(f, "Function {}:", self.func_obj.borrow().name)?;
         write!(f, "args: ")?;
@@ -156,10 +158,83 @@ impl fmt::Debug for CFGFunction {
         }
         writeln!(f, "")?;
 
-        for (_, block) in self.blocks.iter() {
-            writeln!(f, "{:?}", block)?;
+        let size = self.blocks.len();
+        for index in 0..size {
+            writeln!(f, "{:?}", self.blocks.get(&BlockID::new(index)).unwrap())?;
         }
         writeln!(f, "--------------")
+    }
+}
+
+impl CFGFunction {
+    pub fn is_valid_blocks(&self) -> bool {
+        let size = self.blocks.len();
+
+        if (!self.blocks.contains_key(&self.entry_id))
+            || (!self.blocks.contains_key(&self.return_id))
+        {
+            return false;
+        }
+
+        for index in 0..size {
+            if !self.blocks.contains_key(&BlockID::new(index)) {
+                return false;
+            }
+        }
+
+        for (block_id, block) in self.blocks.iter() {
+            if block_id != &block.id {
+                return false;
+            }
+
+            if block_id == &self.entry_id {
+                if block.kind != BlockKind::Entry {
+                    return false;
+                }
+            } else if block_id == &self.return_id {
+                if block.kind != BlockKind::Return {
+                    return false;
+                }
+            } else {
+                if block.kind != BlockKind::Node {
+                    return false;
+                }
+            }
+
+            match block.jump_to {
+                CFGJump::Unconditional(ref id) => {
+                    let BlockID(ref id) = id;
+                    if id > &size {
+                        return false;
+                    }
+                }
+                CFGJump::Conditional(_, ref then_id, ref else_id) => {
+                    let BlockID(ref then_id) = then_id;
+                    if then_id > &size {
+                        return false;
+                    }
+                    let BlockID(ref else_id) = else_id;
+                    if else_id > &size {
+                        return false;
+                    }
+                }
+                CFGJump::Switch(_, ref cases, ref else_id) => {
+                    for (_, case_id) in cases.iter() {
+                        let BlockID(ref case_id) = case_id;
+                        if case_id > &size {
+                            return false;
+                        }
+                    }
+                    let BlockID(ref else_id) = else_id;
+                    if else_id > &size {
+                        return false;
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        true
     }
 }
 
