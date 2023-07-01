@@ -215,6 +215,8 @@ impl CFGFunction {
     }
 
     pub fn cleanup_unreachable_block(&mut self) {
+        assert!(self.is_valid_blocks());
+
         let size = self.blocks.len();
         let mut visit = vec![false; size];
         let mut queue = VecDeque::new();
@@ -270,9 +272,13 @@ impl CFGFunction {
                 next_id += 1;
             }
         }
+
+        assert!(self.is_valid_blocks());
     }
 
     pub fn move_declaration_to_entry(&mut self) {
+        assert!(self.is_valid_blocks());
+
         let mut decl = Vec::new();
         for (_, block) in self.blocks.iter_mut() {
             if block.kind != BlockKind::Entry {
@@ -296,5 +302,7 @@ impl CFGFunction {
 
         let entry_block = self.blocks.get_mut(&self.entry_id).unwrap();
         entry_block.stmts.extend(decl);
+
+        assert!(self.is_valid_blocks());
     }
 }
