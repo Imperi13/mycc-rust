@@ -977,7 +977,7 @@ impl ParseArena {
                 ),
             ))
         } else {
-            Ok((tok_seq, node))
+            Ok((tok_seq, node.eval_ast()))
         }
     }
 
@@ -1009,7 +1009,7 @@ impl ParseArena {
             }
         }
 
-        Ok((tok_seq, node))
+        Ok((tok_seq, node.eval_ast()))
     }
 
     fn parse_logical_and(
@@ -1043,7 +1043,7 @@ impl ParseArena {
             }
         }
 
-        Ok((tok_seq, node))
+        Ok((tok_seq, node.eval_ast()))
     }
 
     fn parse_bit_or(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -1078,7 +1078,7 @@ impl ParseArena {
             }
         }
 
-        Ok((tok_seq, lhs))
+        Ok((tok_seq, lhs.eval_ast()))
     }
     fn parse_bit_xor(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
         let mut lhs;
@@ -1112,7 +1112,7 @@ impl ParseArena {
             }
         }
 
-        Ok((tok_seq, lhs))
+        Ok((tok_seq, lhs.eval_ast()))
     }
 
     fn parse_bit_and(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -1147,7 +1147,7 @@ impl ParseArena {
             }
         }
 
-        Ok((tok_seq, lhs))
+        Ok((tok_seq, lhs.eval_ast()))
     }
 
     fn parse_equality(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -1183,7 +1183,7 @@ impl ParseArena {
             }
         }
 
-        Ok((tok_seq, lhs))
+        Ok((tok_seq, lhs.eval_ast()))
     }
 
     fn parse_relational(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -1221,7 +1221,7 @@ impl ParseArena {
             }
         }
 
-        Ok((tok_seq, lhs))
+        Ok((tok_seq, lhs.eval_ast()))
     }
 
     fn parse_shift(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -1257,7 +1257,7 @@ impl ParseArena {
             }
         }
 
-        Ok((tok_seq, lhs))
+        Ok((tok_seq, lhs.eval_ast()))
     }
 
     fn parse_add(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -1344,7 +1344,7 @@ impl ParseArena {
             }
         }
 
-        Ok((tok_seq, node))
+        Ok((tok_seq, node.eval_ast()))
     }
 
     fn parse_mul(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -1385,7 +1385,7 @@ impl ParseArena {
             }
         }
 
-        Ok((tok_seq, node))
+        Ok((tok_seq, node.eval_ast()))
     }
 
     fn parse_cast(&self, tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -1409,7 +1409,7 @@ impl ParseArena {
                 Type::new(TypeNode::Int),
             );
 
-            Ok((tok_seq, node))
+            Ok((tok_seq, node.eval_ast()))
         } else if tok_seq.expect_keyword(KeywordKind::Alignof).is_some() {
             tok_seq = tok_seq
                 .expect_keyword(KeywordKind::Alignof)
@@ -1426,7 +1426,7 @@ impl ParseArena {
                 Type::new(TypeNode::Int),
             );
 
-            Ok((tok_seq, node))
+            Ok((tok_seq, node.eval_ast()))
         } else if tok_seq.expect_punct(PunctKind::Plus).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Plus)
@@ -1446,7 +1446,7 @@ impl ParseArena {
                 expr_type,
             );
 
-            Ok((tok_seq, node))
+            Ok((tok_seq, node.eval_ast()))
         } else if tok_seq.expect_punct(PunctKind::Minus).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Minus)
@@ -1466,7 +1466,7 @@ impl ParseArena {
                 expr_type,
             );
 
-            Ok((tok_seq, node))
+            Ok((tok_seq, node.eval_ast()))
         } else if tok_seq.expect_punct(PunctKind::Increment).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Increment)
@@ -1530,7 +1530,7 @@ impl ParseArena {
                 Type::new_ptr_type(expr_type),
             );
 
-            Ok((tok_seq, node))
+            Ok((tok_seq, node.eval_ast()))
         } else if tok_seq.expect_punct(PunctKind::Asterisk).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Asterisk)
@@ -1571,7 +1571,7 @@ impl ParseArena {
                 Type::new(TypeNode::Int),
             );
 
-            Ok((tok_seq, node))
+            Ok((tok_seq, node.eval_ast()))
         } else if tok_seq.expect_punct(PunctKind::Tilde).is_some() {
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Tilde)
@@ -1589,7 +1589,7 @@ impl ParseArena {
                 expr_type,
             );
 
-            Ok((tok_seq, node))
+            Ok((tok_seq, node.eval_ast()))
         } else {
             self.parse_postfix(tok_seq)
         }
@@ -1745,7 +1745,7 @@ impl ParseArena {
                 break;
             }
         }
-        Ok((tok_seq, node))
+        Ok((tok_seq, node.eval_ast()))
     }
 
     fn parse_primary(&self, mut tok_seq: TokenList) -> Result<(TokenList, ASTExpr), ParseError> {
@@ -1756,7 +1756,7 @@ impl ParseArena {
         if let TokenKind::Number(num) = tok_seq.get_token() {
             Ok((
                 tok_seq.next(),
-                ASTExpr::new(ASTExprNode::Number(num), Type::new(TypeNode::Int)),
+                ASTExpr::new(ASTExprNode::Number(num), Type::new(TypeNode::Int)).eval_ast(),
             ))
         } else if tok_seq.expect_punct(PunctKind::OpenParenthesis).is_some() {
             tok_seq = tok_seq
@@ -1769,7 +1769,7 @@ impl ParseArena {
                 .expect_punct(PunctKind::CloseParenthesis)
                 .ok_or(ParseError::SyntaxError(tok_seq))?;
 
-            Ok((tok_seq, ret))
+            Ok((tok_seq, ret.eval_ast()))
         } else if let TokenKind::Ident(ref var_name) = tok_seq.get_token() {
             let obj = self
                 .search_obj(var_name)
@@ -1785,7 +1785,8 @@ impl ParseArena {
                 ASTExpr::new(
                     ASTExprNode::StrLiteral(text.clone()),
                     Type::new_ptr_type(Type::new(TypeNode::Char)),
-                ),
+                )
+                .eval_ast(),
             ))
         } else {
             Err(ParseError::SyntaxError(tok_seq))

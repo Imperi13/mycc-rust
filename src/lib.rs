@@ -1,6 +1,7 @@
 mod ast;
 mod cfg;
 mod codegen;
+mod const_value;
 mod error;
 mod obj;
 mod parse;

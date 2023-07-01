@@ -1,3 +1,4 @@
+use crate::const_value::ConstValue;
 use crate::obj::Obj;
 use crate::types::Type;
 
@@ -143,11 +144,6 @@ impl ASTExpr {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
-pub enum ConstValue {
-    Integer(i64),
-}
-
 impl ASTExpr {
     pub fn is_consteval(&self) -> bool {
         match *self.head {
@@ -166,6 +162,15 @@ impl ASTExpr {
 
     pub fn is_const_zero(&self) -> bool {
         self.is_consteval() && (self.eval_const() == ConstValue::Integer(0))
+    }
+
+    pub fn eval_ast(&self) -> ASTExpr {
+        if self.is_consteval() {
+            let const_val = self.eval_const();
+            const_val.to_ast()
+        } else {
+            self.clone()
+        }
     }
 }
 
