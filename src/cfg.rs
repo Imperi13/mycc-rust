@@ -114,11 +114,17 @@ pub struct CFGBlock {
     pub id: BlockID,
     pub stmts: Vec<CFGStmt>,
     pub jump_to: CFGJump,
+
+    pub pred_blocks: Vec<BlockID>,
 }
 
 impl fmt::Debug for CFGBlock {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "Block {:?}:{:?}", self.id, self.kind)?;
+        writeln!(
+            f,
+            "Block {:?}:{:?} ;pred {:?}",
+            self.id, self.kind, self.pred_blocks
+        )?;
         writeln!(f, "Stmts:")?;
         for stmt in self.stmts.iter() {
             writeln!(f, "\t{:?}", stmt)?;
@@ -235,6 +241,35 @@ impl CFGFunction {
         }
 
         true
+    }
+
+    // calculate CFGBlock.pred_blocks from other information in CFGBlock
+    pub fn calc_pred_blocks(&mut self) {
+        let block_cnt = self.blocks.len();
+        let mut pred_blocks = vec![Vec::new(); block_cnt];
+
+        for (block_id, block) in self.blocks.iter() {
+            match block.jump_to {
+                CFGJump::Unconditional(ref id) => {
+                    pred_blocks[id.to_usize()].push(block_id.clone());
+                }
+                CFGJump::Conditional(_, ref then_id, ref else_id) => {
+                    pred_blocks[then_id.to_usize()].push(block_id.clone());
+                    pred_blocks[else_id.to_usize()].push(block_id.clone());
+                }
+                CFGJump::Switch(_, ref cases, ref else_id) => {
+                    for (_, case_id) in cases.iter() {
+                        pred_blocks[case_id.to_usize()].push(block_id.clone());
+                    }
+                    pred_blocks[else_id.to_usize()].push(block_id.clone());
+                }
+                _ => (),
+            }
+        }
+
+        for (block_id, block) in self.blocks.iter_mut() {
+            block.pred_blocks = pred_blocks[block_id.to_usize()].clone();
+        }
     }
 }
 
@@ -353,6 +388,7 @@ impl CFGArena {
             id: self.entry_id.clone(),
             stmts: self.current_stmts.clone(),
             jump_to: CFGJump::Unconditional(BlockID(self.current_id)),
+            pred_blocks: Vec::new(), // calc pred_blocks later
         };
         self.blocks.insert(self.entry_id.clone(), entry_block);
 
@@ -373,6 +409,7 @@ impl CFGArena {
             id: self.return_id.clone(),
             stmts: self.current_stmts.clone(),
             jump_to: CFGJump::Return(retvar_expr),
+            pred_blocks: Vec::new(),
         };
         self.blocks.insert(self.return_id.clone(), return_block);
 
@@ -390,6 +427,7 @@ impl CFGArena {
             id: BlockID::new(self.current_id),
             stmts: self.current_stmts.clone(),
             jump_to: CFGJump::Unconditional(self.return_id.clone()),
+            pred_blocks: Vec::new(),
         };
 
         self.blocks
@@ -408,6 +446,7 @@ impl CFGArena {
         cfg_func.cleanup_unreachable_block();
         cfg_func.move_declaration_to_entry();
         cfg_func.rename_dfs_order();
+        cfg_func.calc_pred_blocks();
 
         cfg_func
     }
@@ -469,6 +508,7 @@ impl CFGArena {
                         BlockID::new(then_id),
                         BlockID::new(else_id),
                     ),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -488,6 +528,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(after_id)),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -507,6 +548,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(after_id)),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -767,6 +809,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Conditional(lhs, BlockID::new(then_id), BlockID::new(rhs_id)),
+                    pred_blocks: Vec::new(),
                 };
                 self.blocks.insert(BlockID(self.current_id), block);
 
@@ -785,6 +828,7 @@ impl CFGArena {
                         BlockID::new(then_id),
                         BlockID::new(else_id),
                     ),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -803,6 +847,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(after_id)),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -821,6 +866,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(after_id)),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -850,6 +896,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Conditional(lhs, BlockID::new(rhs_id), BlockID::new(else_id)),
+                    pred_blocks: Vec::new(),
                 };
                 self.blocks.insert(BlockID::new(self.current_id), block);
 
@@ -868,6 +915,7 @@ impl CFGArena {
                         BlockID::new(then_id),
                         BlockID::new(else_id),
                     ),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -886,6 +934,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(after_id)),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -904,6 +953,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(after_id)),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -931,6 +981,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(block_id)),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -953,6 +1004,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(block_id)),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -998,6 +1050,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(self.return_id.clone()),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1025,6 +1078,7 @@ impl CFGArena {
                             BlockID::new(then_id),
                             BlockID::new(else_id),
                         ),
+                        pred_blocks: Vec::new(),
                     };
 
                     self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1040,6 +1094,7 @@ impl CFGArena {
                         id: BlockID::new(self.current_id),
                         stmts: self.current_stmts.clone(),
                         jump_to: CFGJump::Unconditional(BlockID::new(after_id)),
+                        pred_blocks: Vec::new(),
                     };
 
                     self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1055,6 +1110,7 @@ impl CFGArena {
                         id: BlockID::new(self.current_id),
                         stmts: self.current_stmts.clone(),
                         jump_to: CFGJump::Unconditional(BlockID::new(after_id)),
+                        pred_blocks: Vec::new(),
                     };
 
                     self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1076,6 +1132,7 @@ impl CFGArena {
                             BlockID::new(then_id),
                             BlockID::new(after_id),
                         ),
+                        pred_blocks: Vec::new(),
                     };
 
                     self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1091,6 +1148,7 @@ impl CFGArena {
                         id: BlockID::new(self.current_id),
                         stmts: self.current_stmts.clone(),
                         jump_to: CFGJump::Unconditional(BlockID::new(after_id)),
+                        pred_blocks: Vec::new(),
                     };
 
                     self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1125,6 +1183,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(after_id)),
+                    pred_blocks: Vec::new(),
                 };
                 self.blocks.insert(BlockID::new(self.current_id), block);
 
@@ -1141,6 +1200,7 @@ impl CFGArena {
                     id: BlockID::new(previous_id),
                     stmts: previous_stmts,
                     jump_to: CFGJump::Switch(evaluated_cond, cases, default_block),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(previous_id), block);
@@ -1167,6 +1227,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(cond_id)),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1184,6 +1245,7 @@ impl CFGArena {
                         BlockID::new(loop_id),
                         BlockID::new(after_id),
                     ),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1199,6 +1261,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(cond_id)),
+                    pred_blocks: Vec::new(),
                 };
                 self.blocks.insert(BlockID::new(self.current_id), block);
 
@@ -1222,6 +1285,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(loop_id)),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1237,6 +1301,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(cond_id)),
+                    pred_blocks: Vec::new(),
                 };
                 self.blocks.insert(BlockID::new(self.current_id), block);
 
@@ -1255,6 +1320,7 @@ impl CFGArena {
                         BlockID::new(loop_id),
                         BlockID::new(after_id),
                     ),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1285,6 +1351,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(cond_id)),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1310,6 +1377,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to,
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1325,6 +1393,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(step_id)),
+                    pred_blocks: Vec::new(),
                 };
                 self.blocks.insert(BlockID::new(self.current_id), block);
 
@@ -1342,6 +1411,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(BlockID::new(cond_id)),
+                    pred_blocks: Vec::new(),
                 };
                 self.blocks.insert(BlockID::new(self.current_id), block);
 
@@ -1356,6 +1426,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(break_block),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);
@@ -1371,6 +1442,7 @@ impl CFGArena {
                     id: BlockID::new(self.current_id),
                     stmts: self.current_stmts.clone(),
                     jump_to: CFGJump::Unconditional(continue_block),
+                    pred_blocks: Vec::new(),
                 };
 
                 self.blocks.insert(BlockID::new(self.current_id), block);

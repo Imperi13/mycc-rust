@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 
 impl CFGFunction {
-
     // entry..1,2,3,..,return
     pub fn rename_dfs_order(&mut self) {
         assert!(self.is_valid_blocks());
@@ -20,49 +19,40 @@ impl CFGFunction {
         let mut stack = VecDeque::new();
 
         visit[self.entry_id.to_usize()] = true;
-        rename_to[self.entry_id.to_usize()] = current_id;
-        current_id += 1;
         stack.push_back(self.entry_id.clone());
 
         while !stack.is_empty() {
             let now = stack.pop_back().unwrap();
             let now_block = self.blocks.get(&now).unwrap();
 
+            rename_to[now.to_usize()] = current_id;
+            current_id += 1;
+
             match now_block.jump_to {
                 CFGJump::Unconditional(ref id) => {
                     if !visit[id.to_usize()] {
                         visit[id.to_usize()] = true;
-                        rename_to[id.to_usize()] = current_id;
-                        current_id += 1;
                         stack.push_back(id.clone());
                     }
                 }
                 CFGJump::Conditional(_, ref then_id, ref else_id) => {
                     if !visit[else_id.to_usize()] {
                         visit[else_id.to_usize()] = true;
-                        rename_to[else_id.to_usize()] = current_id;
-                        current_id += 1;
                         stack.push_back(else_id.clone());
                     }
                     if !visit[then_id.to_usize()] {
                         visit[then_id.to_usize()] = true;
-                        rename_to[then_id.to_usize()] = current_id;
-                        current_id += 1;
                         stack.push_back(then_id.clone());
                     }
                 }
                 CFGJump::Switch(_, ref cases, ref default_id) => {
                     if !visit[default_id.to_usize()] {
                         visit[default_id.to_usize()] = true;
-                        rename_to[default_id.to_usize()] = current_id;
-                        current_id += 1;
                         stack.push_back(default_id.clone());
                     }
                     for (_, case_id) in cases.iter().rev() {
                         if !visit[case_id.to_usize()] {
                             visit[case_id.to_usize()] = true;
-                            rename_to[case_id.to_usize()] = current_id;
-                            current_id += 1;
                             stack.push_back(case_id.clone());
                         }
                     }
