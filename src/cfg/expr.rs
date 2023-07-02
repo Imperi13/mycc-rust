@@ -70,6 +70,20 @@ pub struct CFGUnaryOpNode {
     pub kind: CFGUnaryOpKind,
 }
 
+impl fmt::Debug for CFGUnaryOpNode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let op = match self.kind {
+            CFGUnaryOpKind::Plus => "+",
+            CFGUnaryOpKind::Minus => "-",
+            CFGUnaryOpKind::Addr => "&",
+            CFGUnaryOpKind::BitNot => "~",
+            CFGUnaryOpKind::LogicalNot => "!",
+        };
+
+        write!(f, "{}{:?}", op, self.expr)
+    }
+}
+
 #[derive(Clone)]
 pub enum CFGExprNode {
     BinaryOp(CFGBinaryOpNode),
@@ -111,8 +125,14 @@ impl fmt::Debug for CFGExpr {
             CFGExprNode::Var(ref obj) => write!(f, "{:?}", obj),
             CFGExprNode::Cast(ref ty, ref expr) => write!(f, "({:?})({:?})", ty, expr),
             CFGExprNode::Number(num) => write!(f, "{num}"),
+            CFGExprNode::Dot(ref expr, index) => write!(f, "{:?}.{index}", expr),
+            CFGExprNode::Arrow(ref expr, index) => write!(f, "{:?}->{index}", expr),
+            CFGExprNode::Deref(ref expr) => write!(f, "*({:?})", expr),
+            CFGExprNode::Sizeof(ref ty) => write!(f, "sizeof({:?})", ty),
+            CFGExprNode::Alignof(ref ty) => write!(f, "alignof({:?})", ty),
+            CFGExprNode::StrLiteral(ref text) => write!(f, "\"{text}\""),
+            CFGExprNode::UnaryOp(ref node) => write!(f, "{:?}", node),
             CFGExprNode::BinaryOp(ref node) => write!(f, "{:?}", node),
-            _ => write!(f, ""),
         }
     }
 }
