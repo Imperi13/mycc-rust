@@ -155,13 +155,13 @@ impl ASTExpr {
     pub fn eval_const(&self) -> ConstValue {
         assert!(self.is_consteval());
         match *self.head {
-            ASTExprNode::Number(num) => ConstValue::Integer(num as i64),
+            ASTExprNode::Number(num) => ConstValue::Integer(self.expr_type.clone(), num as i64),
             _ => panic!(),
         }
     }
 
     pub fn is_const_zero(&self) -> bool {
-        self.is_consteval() && (self.eval_const() == ConstValue::Integer(0))
+        self.is_consteval() && self.eval_const().is_constzero()
     }
 
     pub fn eval_ast(&self) -> ASTExpr {

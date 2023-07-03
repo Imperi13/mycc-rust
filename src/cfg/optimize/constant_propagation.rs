@@ -124,7 +124,7 @@ impl CFGExpr {
     fn eval_const_with_arena(&self, arena: &ConstArena) -> ConstValue {
         assert!(self.is_consteval_with_arena(arena));
         match self.get_node() {
-            CFGExprNode::Number(num) => ConstValue::Integer(num as i64),
+            CFGExprNode::Number(num) => ConstValue::Integer(self.expr_type.clone(), num as i64),
             CFGExprNode::Var(ref obj) => arena.const_objs.get(&obj.borrow().id).unwrap().clone(),
             CFGExprNode::BinaryOp(ref node) => node.eval_const_with_arena(arena),
             CFGExprNode::UnaryOp(ref node) => node.eval_const_with_arena(arena),
