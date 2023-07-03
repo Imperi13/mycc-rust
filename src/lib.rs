@@ -49,11 +49,12 @@ pub fn compile_to_llvm_ir<Pinput: AsRef<Path>, Poutput: AsRef<Path>>(
     };
 
     let mut cfg = gen_cfg_all(&ast);
-    eprintln!("{:?}", cfg);
 
     if optimize_level == 1 {
         cfg.eval_constant_propagation();
     }
+
+    eprintln!("{:?}", cfg);
 
     let context = Context::create();
     let mut codegen_arena = CodegenArena::new(&context);
