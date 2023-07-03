@@ -226,4 +226,125 @@ impl CFGFunction {
 
         assert!(self.is_valid_blocks());
     }
+
+    pub fn extended_basic_block(&self) -> Vec<Vec<BlockID>> {
+        let size = self.blocks.len();
+        let mut arena = DfsArena::new(size);
+        let mut ret = Vec::new();
+
+        for index in 0..size {
+            if !arena.visit[index] {
+                arena.visit[index] = true;
+                ret.extend(arena.dfs(self, &BlockID::new(index)));
+            }
+        }
+
+        ret
+    }
+}
+
+struct DfsArena {
+    visit: Vec<bool>,
+}
+
+impl DfsArena {
+    pub fn new(size: usize) -> Self {
+        DfsArena {
+            visit: vec![false; size],
+        }
+    }
+
+    pub fn dfs(&mut self, func: &CFGFunction, block_id: &BlockID) -> Vec<Vec<BlockID>> {
+        let block = func.blocks.get(block_id).unwrap();
+        let mut ret = Vec::new();
+
+        match block.jump_to {
+            CFGJump::Unconditional(ref id) => {
+                let block = func.blocks.get(id).unwrap();
+                if block.pred_blocks.len() == 1 {
+                    self.visit[id.to_usize()] = true;
+                    ret.extend(
+                        self.dfs(func, id)
+                            .into_iter()
+                            .map(|e| {
+                                let mut tmp = vec![block_id.clone(); 1];
+                                tmp.extend(e);
+                                tmp
+                            })
+                            .collect::<Vec<Vec<BlockID>>>(),
+                    );
+                }
+            }
+            CFGJump::Conditional(_, ref then_id, ref else_id) => {
+                let block = func.blocks.get(then_id).unwrap();
+                if block.pred_blocks.len() == 1 {
+                    self.visit[then_id.to_usize()] = true;
+                    ret.extend(
+                        self.dfs(func, then_id)
+                            .into_iter()
+                            .map(|e| {
+                                let mut tmp = vec![block_id.clone(); 1];
+                                tmp.extend(e);
+                                tmp
+                            })
+                            .collect::<Vec<Vec<BlockID>>>(),
+                    );
+                }
+
+                let block = func.blocks.get(else_id).unwrap();
+                if block.pred_blocks.len() == 1 {
+                    self.visit[else_id.to_usize()] = true;
+                    ret.extend(
+                        self.dfs(func, else_id)
+                            .into_iter()
+                            .map(|e| {
+                                let mut tmp = vec![block_id.clone(); 1];
+                                tmp.extend(e);
+                                tmp
+                            })
+                            .collect::<Vec<Vec<BlockID>>>(),
+                    );
+                }
+            }
+            CFGJump::Switch(_, ref cases, ref default_id) => {
+                let block = func.blocks.get(default_id).unwrap();
+                if block.pred_blocks.len() == 1 {
+                    self.visit[default_id.to_usize()] = true;
+                    ret.extend(
+                        self.dfs(func, default_id)
+                            .into_iter()
+                            .map(|e| {
+                                let mut tmp = vec![block_id.clone(); 1];
+                                tmp.extend(e);
+                                tmp
+                            })
+                            .collect::<Vec<Vec<BlockID>>>(),
+                    );
+                }
+                for (_, case_id) in cases.iter().rev() {
+                    let block = func.blocks.get(case_id).unwrap();
+                    if block.pred_blocks.len() == 1 {
+                        self.visit[case_id.to_usize()] = true;
+                        ret.extend(
+                            self.dfs(func, case_id)
+                                .into_iter()
+                                .map(|e| {
+                                    let mut tmp = vec![block_id.clone(); 1];
+                                    tmp.extend(e);
+                                    tmp
+                                })
+                                .collect::<Vec<Vec<BlockID>>>(),
+                        );
+                    }
+                }
+            }
+            CFGJump::Return(_) => (),
+        }
+
+        if ret.len() == 0 {
+            vec![vec![block_id.clone(); 1]; 1]
+        } else {
+            ret
+        }
+    }
 }
