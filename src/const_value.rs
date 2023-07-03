@@ -27,6 +27,11 @@ impl ConstValue {
         }
     }
 
+    pub fn is_constzero(&self) -> bool {
+        let ConstValue::Integer(val) = *self;
+        val == 0
+    }
+
     // const_value binary op
 
     pub fn const_value_add(lhs: ConstValue, rhs: ConstValue) -> ConstValue {
@@ -69,8 +74,7 @@ impl ConstValue {
     }
 
     pub fn const_value_logical_not(val: ConstValue) -> ConstValue {
-        let ConstValue::Integer(val) = val;
-        if val == 0 {
+        if val.is_constzero() {
             ConstValue::Integer(0)
         } else {
             ConstValue::Integer(1)
