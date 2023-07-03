@@ -22,3 +22,15 @@ test_function!(
     "int main(){int a;a = 10+20; return a;}",
     30
 );
+
+test_function!(
+    constant_propagation_2,
+    "int main(){int a;int b;a = 10+20;b = a; return b;}",
+    30
+);
+
+test_function!(
+    constant_propagation_3,
+    "int main(){int a;int b;int c;b = 0;c=0;a = 10+20;if (1) b = a; else c = a;   return b+c;}",
+    30
+);
