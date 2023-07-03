@@ -3,6 +3,7 @@ use crate::cfg::expr::CFGBinaryOpNode;
 use crate::cfg::expr::CFGExpr;
 use crate::cfg::expr::CFGExprNode;
 use crate::cfg::CFGFunction;
+use crate::cfg::CFGJump;
 use crate::cfg::CFGStmt;
 use crate::cfg::CFG;
 use crate::const_value::ConstValue;
@@ -57,6 +58,20 @@ impl CFGFunction {
                             arena.reset();
                         }
                     }
+                }
+
+                match block.jump_to.clone() {
+                    CFGJump::Return(ret_expr) => {
+                        if ret_expr.is_some() {
+                            let ret_expr = ret_expr.unwrap();
+                            if ret_expr.is_consteval_with_arena(&arena) {
+                                block.jump_to = CFGJump::Return(Some(
+                                    ret_expr.eval_const_with_arena(&arena).to_cfg(),
+                                ));
+                            }
+                        }
+                    }
+                    _ => (),
                 }
             }
         }
