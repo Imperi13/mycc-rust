@@ -27,6 +27,8 @@ impl ConstValue {
         }
     }
 
+    // const_value binary op
+
     pub fn const_value_add(lhs: ConstValue, rhs: ConstValue) -> ConstValue {
         let ConstValue::Integer(lhs) = lhs;
         let ConstValue::Integer(rhs) = rhs;
@@ -53,5 +55,25 @@ impl ConstValue {
         let ConstValue::Integer(rhs) = rhs;
 
         ConstValue::Integer(lhs / rhs)
+    }
+
+    // cons_value unary op
+
+    pub fn const_value_plus(val: ConstValue) -> ConstValue {
+        val
+    }
+
+    pub fn const_value_minus(val: ConstValue) -> ConstValue {
+        let ConstValue::Integer(val) = val;
+        ConstValue::Integer(-val)
+    }
+
+    pub fn const_value_logical_not(val: ConstValue) -> ConstValue {
+        let ConstValue::Integer(val) = val;
+        if val == 0 {
+            ConstValue::Integer(0)
+        } else {
+            ConstValue::Integer(1)
+        }
     }
 }
