@@ -84,4 +84,19 @@ impl ConstValue {
             ConstValue::Integer(Type::new(TypeNode::Int), 1)
         }
     }
+
+    // const_value cast
+
+    pub fn const_value_cast(val: ConstValue, cast_to: Type) -> ConstValue {
+        if cast_to.is_bool_type() {
+            if val.is_constzero() {
+                ConstValue::Integer(Type::new(TypeNode::Bool), 0)
+            } else {
+                ConstValue::Integer(Type::new(TypeNode::Bool), 0)
+            }
+        } else {
+            let ConstValue::Integer(_, val) = val;
+            ConstValue::Integer(cast_to, val)
+        }
+    }
 }

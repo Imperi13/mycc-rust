@@ -101,6 +101,13 @@ impl CFGExpr {
         match self.get_node() {
             CFGExprNode::Number(_) => true,
             CFGExprNode::Var(ref obj) => arena.const_objs.contains_key(&obj.borrow().id),
+            CFGExprNode::Cast(_, ref expr) => expr.is_consteval_with_arena(arena),
+            CFGExprNode::UnaryOp(ref node) => match node.kind {
+                CFGUnaryOpKind::Plus | CFGUnaryOpKind::Minus | CFGUnaryOpKind::LogicalNot => {
+                    node.expr.is_consteval_with_arena(arena)
+                }
+                _ => false,
+            },
             CFGExprNode::BinaryOp(ref node) => match node.kind {
                 CFGBinaryOpKind::Add
                 | CFGBinaryOpKind::Sub
@@ -108,12 +115,6 @@ impl CFGExpr {
                 | CFGBinaryOpKind::Div => {
                     node.lhs.is_consteval_with_arena(arena)
                         && node.rhs.is_consteval_with_arena(arena)
-                }
-                _ => false,
-            },
-            CFGExprNode::UnaryOp(ref node) => match node.kind {
-                CFGUnaryOpKind::Plus | CFGUnaryOpKind::Minus | CFGUnaryOpKind::LogicalNot => {
-                    node.expr.is_consteval_with_arena(arena)
                 }
                 _ => false,
             },
@@ -126,8 +127,11 @@ impl CFGExpr {
         match self.get_node() {
             CFGExprNode::Number(num) => ConstValue::Integer(self.expr_type.clone(), num as i64),
             CFGExprNode::Var(ref obj) => arena.const_objs.get(&obj.borrow().id).unwrap().clone(),
-            CFGExprNode::BinaryOp(ref node) => node.eval_const_with_arena(arena),
+            CFGExprNode::Cast(ref cast_to, ref expr) => {
+                ConstValue::const_value_cast(expr.eval_const_with_arena(arena), cast_to.clone())
+            }
             CFGExprNode::UnaryOp(ref node) => node.eval_const_with_arena(arena),
+            CFGExprNode::BinaryOp(ref node) => node.eval_const_with_arena(arena),
             _ => panic!(),
         }
     }
