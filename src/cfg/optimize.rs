@@ -1,3 +1,5 @@
+mod constant_propagation;
+
 use super::BlockID;
 use super::BlockKind;
 use super::CFGBlock;

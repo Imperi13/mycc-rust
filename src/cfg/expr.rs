@@ -1,3 +1,4 @@
+use crate::const_value::ConstValue;
 use crate::obj::Obj;
 use crate::types::Type;
 
@@ -135,11 +136,6 @@ impl fmt::Debug for CFGExpr {
             CFGExprNode::BinaryOp(ref node) => write!(f, "{:?}", node),
         }
     }
-}
-
-#[derive(Clone, PartialEq, Eq)]
-pub enum ConstValue {
-    Integer(i64),
 }
 
 impl CFGExpr {
