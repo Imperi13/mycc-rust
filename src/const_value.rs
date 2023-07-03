@@ -26,4 +26,32 @@ impl ConstValue {
             }
         }
     }
+
+    pub fn const_value_add(lhs: ConstValue, rhs: ConstValue) -> ConstValue {
+        let ConstValue::Integer(lhs) = lhs;
+        let ConstValue::Integer(rhs) = rhs;
+
+        ConstValue::Integer(lhs + rhs)
+    }
+
+    pub fn const_value_sub(lhs: ConstValue, rhs: ConstValue) -> ConstValue {
+        let ConstValue::Integer(lhs) = lhs;
+        let ConstValue::Integer(rhs) = rhs;
+
+        ConstValue::Integer(lhs - rhs)
+    }
+
+    pub fn const_value_mul(lhs: ConstValue, rhs: ConstValue) -> ConstValue {
+        let ConstValue::Integer(lhs) = lhs;
+        let ConstValue::Integer(rhs) = rhs;
+
+        ConstValue::Integer(lhs * rhs)
+    }
+
+    pub fn const_value_div(lhs: ConstValue, rhs: ConstValue) -> ConstValue {
+        let ConstValue::Integer(lhs) = lhs;
+        let ConstValue::Integer(rhs) = rhs;
+
+        ConstValue::Integer(lhs / rhs)
+    }
 }

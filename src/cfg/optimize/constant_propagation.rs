@@ -1,3 +1,5 @@
+use crate::cfg::expr::CFGBinaryOpKind;
+use crate::cfg::expr::CFGBinaryOpNode;
 use crate::cfg::expr::CFGExpr;
 use crate::cfg::expr::CFGExprNode;
 use crate::cfg::CFGFunction;
@@ -51,7 +53,7 @@ impl CFGFunction {
                                 _ => panic!(),
                             }
                         }
-                        CFGStmt::FuncCall(ref obj, ref mut func_expr, ref mut args) => {
+                        CFGStmt::FuncCall(_, _, _) => {
                             arena.reset();
                         }
                     }
@@ -82,6 +84,9 @@ impl CFGExpr {
         match self.get_node() {
             CFGExprNode::Number(_) => true,
             CFGExprNode::Var(ref obj) => arena.const_objs.contains_key(&obj.borrow().id),
+            CFGExprNode::BinaryOp(ref node) => {
+                node.lhs.is_consteval_with_arena(arena) && node.rhs.is_consteval_with_arena(arena)
+            }
             _ => false,
         }
     }
@@ -91,6 +96,7 @@ impl CFGExpr {
         match self.get_node() {
             CFGExprNode::Number(num) => ConstValue::Integer(num as i64),
             CFGExprNode::Var(ref obj) => arena.const_objs.get(&obj.borrow().id).unwrap().clone(),
+            CFGExprNode::BinaryOp(ref node) => node.eval_const_with_arena(arena),
             _ => panic!(),
         }
     }
@@ -106,6 +112,20 @@ impl CFGExpr {
             const_val.to_cfg()
         } else {
             todo!()
+        }
+    }
+}
+
+impl CFGBinaryOpNode {
+    fn eval_const_with_arena(&self, arena: &ConstArena) -> ConstValue {
+        let lhs = self.lhs.eval_const_with_arena(arena);
+        let rhs = self.rhs.eval_const_with_arena(arena);
+        match self.kind {
+            CFGBinaryOpKind::Add => ConstValue::const_value_add(lhs, rhs),
+            CFGBinaryOpKind::Sub => ConstValue::const_value_sub(lhs, rhs),
+            CFGBinaryOpKind::Mul => ConstValue::const_value_mul(lhs, rhs),
+            CFGBinaryOpKind::Div => ConstValue::const_value_div(lhs, rhs),
+            _ => todo!(),
         }
     }
 }
