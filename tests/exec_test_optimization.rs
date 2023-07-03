@@ -34,3 +34,7 @@ test_function!(
     "int main(){int a;int b;int c;b = 0;c=0;a = 10+20;if (1) b = a; else c = a;   return b+c;}",
     30
 );
+
+test_function!(constant_propagation_4,
+"int main() {int a;int b;a = 10;switch (a) {case 10:b = 23;break;case 5:b = 10;break;default:b = 5;break;}return b;}"
+,23);
