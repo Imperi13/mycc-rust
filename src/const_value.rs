@@ -92,7 +92,7 @@ impl ConstValue {
             if val.is_constzero() {
                 ConstValue::Integer(Type::new(TypeNode::Bool), 0)
             } else {
-                ConstValue::Integer(Type::new(TypeNode::Bool), 0)
+                ConstValue::Integer(Type::new(TypeNode::Bool), 1)
             }
         } else {
             let ConstValue::Integer(_, val) = val;

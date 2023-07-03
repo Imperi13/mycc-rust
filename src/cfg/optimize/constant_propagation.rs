@@ -63,6 +63,15 @@ impl CFGFunction {
                 }
 
                 match block.jump_to.clone() {
+                    CFGJump::Conditional(cond_expr, then_id, else_id) => {
+                        if cond_expr.is_consteval_with_arena(&arena) {
+                            if cond_expr.eval_const_with_arena(&arena).is_constzero() {
+                                block.jump_to = CFGJump::Unconditional(else_id);
+                            } else {
+                                block.jump_to = CFGJump::Unconditional(then_id);
+                            }
+                        }
+                    }
                     CFGJump::Return(ret_expr) => {
                         if ret_expr.is_some() {
                             let ret_expr = ret_expr.unwrap();
@@ -77,6 +86,10 @@ impl CFGFunction {
                 }
             }
         }
+
+        self.cleanup_unreachable_block();
+        self.rename_dfs_order();
+        self.calc_pred_blocks();
     }
 }
 
