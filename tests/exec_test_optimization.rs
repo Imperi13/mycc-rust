@@ -35,6 +35,12 @@ test_function!(
     30
 );
 
-test_function!(constant_propagation_4,
+test_function!(
+    constant_propagation_4,
+    "int main(){int a;a=10;if(a)return 34;else return 10;}",
+    34
+);
+
+test_function!(constant_propagation_5,
 "int main() {int a;int b;a = 10;switch (a) {case 10:b = 23;break;case 5:b = 10;break;default:b = 5;break;}return b;}"
 ,23);
