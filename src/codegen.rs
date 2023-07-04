@@ -344,8 +344,8 @@ impl<'ctx> CodegenArena<'ctx> {
             CFGJump::Switch(ref cond, ref cases, ref default_id) => {
                 let mut llvm_cases = Vec::new();
 
-                for (case_expr, case_id) in cases.iter() {
-                    let case_value = self.codegen_expr(case_expr).into_int_value();
+                for (case_val, case_id) in cases.iter() {
+                    let case_value = self.codegen_expr(&case_val.to_cfg()).into_int_value();
                     let block = self.blocks.get(case_id).unwrap().clone();
                     llvm_cases.push((case_value, block));
                 }

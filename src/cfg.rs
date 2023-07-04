@@ -13,6 +13,7 @@ use crate::ast::stmt::ASTStmt;
 use crate::ast::stmt::ASTStmtNode;
 use crate::ast::ASTBlockStmt;
 use crate::ast::AST;
+use crate::const_value::ConstValue;
 use crate::obj::GlobalObjArena;
 use crate::obj::LocalObjArena;
 use crate::obj::Obj;
@@ -84,7 +85,7 @@ pub enum CFGJump {
     Return(Option<CFGExpr>),
     Unconditional(BlockID),
     Conditional(CFGExpr, BlockID, BlockID),
-    Switch(CFGExpr, Vec<(CFGExpr, BlockID)>, BlockID),
+    Switch(CFGExpr, Vec<(ConstValue, BlockID)>, BlockID),
 }
 
 impl fmt::Debug for CFGJump {
@@ -324,7 +325,7 @@ struct CFGArena {
     break_map: HashMap<usize, BlockID>,
     continue_map: HashMap<usize, BlockID>,
     default_map: HashMap<usize, BlockID>,
-    case_map: HashMap<usize, Vec<(CFGExpr, BlockID)>>,
+    case_map: HashMap<usize, Vec<(ConstValue, BlockID)>>,
 
     current_id: usize,
     next_id: usize,
@@ -993,9 +994,7 @@ impl CFGArena {
 
                 self.push_stmt(stmt);
             }
-            ASTStmtNode::Case(ref expr, ref stmt, switch_id) => {
-                let evaluated_expr = self.push_expr(expr);
-
+            ASTStmtNode::Case(ref case_val, ref stmt, switch_id) => {
                 let block_id = self.next_id;
                 self.next_id += 1;
 
@@ -1011,7 +1010,7 @@ impl CFGArena {
                 self.case_map
                     .get_mut(&switch_id)
                     .unwrap()
-                    .push((evaluated_expr, BlockID::new(block_id)));
+                    .push((case_val.clone(), BlockID::new(block_id)));
 
                 // stmt
                 self.current_id = block_id;

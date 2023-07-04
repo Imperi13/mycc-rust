@@ -18,6 +18,7 @@ use crate::ast::stmt::WhileStmt;
 use crate::ast::ASTBlockStmt;
 use crate::ast::ASTFunction;
 use crate::ast::AST;
+use crate::const_value::ConstValue;
 use crate::error::ParseError;
 use crate::obj::GlobalObjArena;
 use crate::obj::LocalObjArena;
@@ -383,8 +384,8 @@ impl ParseArena {
         } else if tok_seq.equal_keyword(KeywordKind::Case) {
             tok_seq = tok_seq.next();
 
-            let expr;
-            (tok_seq, expr) = self.parse_expr(tok_seq)?;
+            let case_val;
+            (tok_seq, case_val) = self.parse_constant_integer(tok_seq)?;
 
             tok_seq = tok_seq
                 .expect_punct(PunctKind::Colon)
@@ -397,7 +398,7 @@ impl ParseArena {
 
             Ok((
                 tok_seq,
-                ASTStmt::new(ASTStmtNode::Case(expr, stmt, switch_id)),
+                ASTStmt::new(ASTStmtNode::Case(case_val, stmt, switch_id)),
             ))
         } else if tok_seq.expect_keyword(KeywordKind::Break).is_some() {
             tok_seq = tok_seq
@@ -941,6 +942,34 @@ impl ParseArena {
         } else {
             Ok((tok_seq, lhs))
         }
+    }
+
+    fn parse_constant_integer(
+        &self,
+        mut tok_seq: TokenList,
+    ) -> Result<(TokenList, ConstValue), ParseError> {
+        let val;
+        (tok_seq, val) = self.parse_constant_expr(tok_seq)?;
+
+        if !matches!(val, ConstValue::Integer(_, _)) {
+            return Err(ParseError::SemanticError(tok_seq));
+        }
+
+        Ok((tok_seq, val))
+    }
+
+    fn parse_constant_expr(
+        &self,
+        mut tok_seq: TokenList,
+    ) -> Result<(TokenList, ConstValue), ParseError> {
+        let expr;
+        (tok_seq, expr) = self.parse_conditional(tok_seq)?;
+
+        if !expr.is_consteval() {
+            return Err(ParseError::SemanticError(tok_seq));
+        }
+
+        Ok((tok_seq, expr.eval_const()))
     }
 
     fn parse_conditional(

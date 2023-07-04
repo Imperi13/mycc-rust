@@ -1,5 +1,6 @@
 use crate::ast::ASTBlockStmt;
 use crate::ast::ASTExpr;
+use crate::const_value::ConstValue;
 
 use std::fmt;
 
@@ -43,7 +44,7 @@ pub enum ASTStmtNode {
     ExprStmt(ASTExpr),
     Return(Option<ASTExpr>),
     Default(ASTStmt, usize),
-    Case(ASTExpr, ASTStmt, usize),
+    Case(ConstValue, ASTStmt, usize),
     Break(usize),
     Continue(usize),
     Block(Vec<ASTBlockStmt>),
@@ -86,10 +87,8 @@ impl ASTStmt {
                 writeln!(f, "{}stmt:", indent)?;
                 stmt.fmt_with_indent(f, &format!("{}\t", indent))
             }
-            ASTStmtNode::Case(ref expr, ref stmt, ref stmt_id) => {
-                writeln!(f, "{}Default: id{}", indent, stmt_id)?;
-                writeln!(f, "{}expr:", indent)?;
-                expr.fmt_with_indent(f, &format!("{}\t", indent))?;
+            ASTStmtNode::Case(ref const_val, ref stmt, ref stmt_id) => {
+                writeln!(f, "{}Case {:?}: id{}", indent, const_val, stmt_id)?;
                 writeln!(f, "{}stmt:", indent)?;
                 stmt.fmt_with_indent(f, &format!("{}\t", indent))
             }

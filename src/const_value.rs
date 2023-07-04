@@ -5,7 +5,7 @@ use crate::cfg::expr::CFGExprNode;
 use crate::types::Type;
 use crate::types::TypeNode;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ConstValue {
     Integer(Type, i64),
 }
