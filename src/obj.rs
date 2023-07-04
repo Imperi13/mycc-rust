@@ -1,6 +1,7 @@
 use crate::types::Type;
 
 use std::fmt;
+use std::marker::PhantomData;
 
 use std::cell::Ref;
 use std::cell::RefCell;
@@ -18,6 +19,8 @@ pub struct ObjNode {
     pub name: String,
 
     pub obj_type: Type,
+    // prevent creating instances expect ObjNode::new
+    _marker: PhantomData<i64>,
 }
 
 #[derive(Clone)]
@@ -65,6 +68,7 @@ impl GlobalObjArena {
             id: ObjID::Global(self.current_id),
             name: String::from(obj_name),
             obj_type,
+            _marker: PhantomData,
         };
 
         self.current_id += 1;
@@ -87,6 +91,7 @@ impl LocalObjArena {
             id: ObjID::Local(self.current_id),
             name: String::from(obj_name),
             obj_type,
+            _marker: PhantomData,
         };
 
         self.current_id += 1;
