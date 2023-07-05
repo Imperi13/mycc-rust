@@ -49,6 +49,8 @@ impl PartialEq<Type> for Type {
     }
 }
 
+impl Eq for Type {}
+
 impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self.head.borrow() {

@@ -5,12 +5,14 @@ use crate::cfg::expr::CFGExprNode;
 use crate::cfg::expr::CFGUnaryOpKind;
 use crate::cfg::expr::CFGUnaryOpNode;
 use crate::cfg::BlockID;
+use crate::cfg::BlockKind;
 use crate::cfg::CFGBlock;
 use crate::cfg::CFGFunction;
-use crate::cfg::CFGGlobal;
 use crate::cfg::CFGJump;
 use crate::cfg::CFGStmt;
+use crate::cfg::CFG;
 use crate::obj::Obj;
+use crate::obj::ObjID;
 use crate::types::Type;
 use crate::types::TypeNode;
 
@@ -19,6 +21,8 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
+use inkwell::passes::PassBuilderOptions;
+use inkwell::targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetTriple};
 use inkwell::types::AnyTypeEnum;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::types::BasicType;
@@ -26,8 +30,10 @@ use inkwell::types::BasicTypeEnum;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
 use inkwell::values::FunctionValue;
+use inkwell::values::GlobalValue;
 use inkwell::values::PointerValue;
 use inkwell::AddressSpace;
+use inkwell::OptimizationLevel;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -36,13 +42,14 @@ pub struct CodegenArena<'ctx> {
     module: Module<'ctx>,
     builder: Builder<'ctx>,
 
-    objs_ptr: HashMap<usize, PointerValue<'ctx>>,
+    global_objs_ptr: HashMap<ObjID, PointerValue<'ctx>>,
+    local_objs_ptr: HashMap<ObjID, PointerValue<'ctx>>,
+    func_val: HashMap<ObjID, FunctionValue<'ctx>>,
+    global_val: HashMap<ObjID, GlobalValue<'ctx>>,
 
     // for function
     current_func: Option<FunctionValue<'ctx>>,
-    entry_block: Option<BasicBlock<'ctx>>,
-    return_block: Option<BasicBlock<'ctx>>,
-    blocks: HashMap<usize, BasicBlock<'ctx>>,
+    blocks: HashMap<BlockID, BasicBlock<'ctx>>,
 }
 
 impl<'ctx> CodegenArena<'ctx> {
@@ -54,19 +61,53 @@ impl<'ctx> CodegenArena<'ctx> {
             module,
             builder,
             current_func: None,
-            entry_block: None,
-            return_block: None,
             blocks: HashMap::new(),
-            objs_ptr: HashMap::new(),
+            global_objs_ptr: HashMap::new(),
+            local_objs_ptr: HashMap::new(),
+            func_val: HashMap::new(),
+            global_val: HashMap::new(),
         }
     }
 
-    pub fn codegen_all<P: AsRef<Path>>(&mut self, globals: &Vec<CFGGlobal>, output_path: P) {
-        for global in globals.iter() {
-            match global {
-                CFGGlobal::Function(ref func) => self.codegen_func(func),
-                CFGGlobal::Variable(ref obj) => self.codegen_global_variable(obj),
-            };
+    pub fn codegen_all<P: AsRef<Path>>(
+        &mut self,
+        globals: &CFG,
+        output_path: P,
+        llvm_optimize_level: u8,
+    ) {
+        for obj in globals.global_objs.iter() {
+            self.declarate_global_obj(obj);
+        }
+
+        for var in globals.variables.iter() {
+            self.codegen_global_variable(var);
+        }
+
+        for func in globals.functions.iter() {
+            self.codegen_func(func);
+        }
+
+        if llvm_optimize_level == 1 {
+            Target::initialize_x86(&InitializationConfig::default());
+
+            let opt = OptimizationLevel::Default;
+            let reloc = RelocMode::Default;
+            let model = CodeModel::Default;
+            let target = Target::from_name("x86-64").unwrap();
+            let target_machine = target
+                .create_target_machine(
+                    &TargetTriple::create("x86_64-pc-linux-gnu"),
+                    "x86-64",
+                    "+avx2",
+                    opt,
+                    reloc,
+                    model,
+                )
+                .unwrap();
+            let pass_builer_options = PassBuilderOptions::create();
+            self.module
+                .run_passes("mem2reg", &target_machine, pass_builer_options)
+                .unwrap();
         }
 
         self.module.print_to_file(output_path).unwrap();
@@ -141,25 +182,14 @@ impl<'ctx> CodegenArena<'ctx> {
     }
 
     fn alloc_local_obj<'a>(&'a mut self, obj: &Obj) -> PointerValue<'ctx> {
-        if self.objs_ptr.contains_key(&obj.borrow().id) {
+        if self.local_objs_ptr.contains_key(&obj.borrow().id) {
             panic!("already exists obj");
-        }
-
-        let builder = self.context.create_builder();
-
-        let func = self.current_func.unwrap();
-
-        let entry = func.get_first_basic_block().unwrap();
-
-        match entry.get_first_instruction() {
-            Some(first_instr) => builder.position_before(&first_instr),
-            None => builder.position_at_end(entry),
         }
 
         let ptr = match *obj.borrow().obj_type.borrow() {
             TypeNode::Array(ref array_to, len) => {
                 let asm_type = self.convert_llvm_basictype(array_to);
-                builder.build_array_alloca(
+                self.builder.build_array_alloca(
                     asm_type,
                     self.context.i32_type().const_int(len as u64, false),
                     &obj.borrow().name,
@@ -167,106 +197,104 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             _ => {
                 let asm_type = self.convert_llvm_basictype(&obj.borrow().obj_type);
-                builder.build_alloca(asm_type, &obj.borrow().name)
+                self.builder.build_alloca(asm_type, &obj.borrow().name)
             }
         };
 
-        self.objs_ptr.insert(obj.borrow().id, ptr);
+        self.local_objs_ptr.insert(obj.borrow().id.clone(), ptr);
         ptr
     }
 
-    fn get_local_obj<'a>(&'a self, obj: &Obj) -> PointerValue<'ctx> {
-        if !self.objs_ptr.contains_key(&obj.borrow().id) {
-            panic!("not found obj")
-        }
+    fn get_obj_ptr<'a>(&'a self, obj: &Obj) -> PointerValue<'ctx> {
+        if obj.is_global() {
+            if !self.global_objs_ptr.contains_key(&obj.borrow().id) {
+                panic!("not found obj")
+            }
 
-        self.objs_ptr.get(&obj.borrow().id).unwrap().clone()
+            self.global_objs_ptr.get(&obj.borrow().id).unwrap().clone()
+        } else {
+            if !self.local_objs_ptr.contains_key(&obj.borrow().id) {
+                panic!("not found obj: {}", obj.borrow().name)
+            }
+
+            self.local_objs_ptr.get(&obj.borrow().id).unwrap().clone()
+        }
+    }
+
+    fn declarate_global_obj(&mut self, obj: &Obj) {
+        if obj.borrow().obj_type.is_function_type() {
+            let main_fn_type = self
+                .convert_llvm_anytype(&obj.borrow().obj_type)
+                .try_into()
+                .unwrap();
+            let main_fn = self
+                .module
+                .add_function(&obj.borrow().name, main_fn_type, None);
+
+            self.func_val
+                .insert(obj.borrow().id.clone(), main_fn.clone());
+
+            self.global_objs_ptr.insert(
+                obj.borrow().id.clone(),
+                main_fn.as_global_value().as_pointer_value(),
+            );
+        } else {
+            let llvm_type = self.convert_llvm_basictype(&obj.borrow().obj_type);
+            let global_obj = self.module.add_global(
+                llvm_type,
+                Some(AddressSpace::default()),
+                &obj.borrow().name,
+            );
+
+            self.global_val
+                .insert(obj.borrow().id.clone(), global_obj.clone());
+            self.global_objs_ptr
+                .insert(obj.borrow().id.clone(), global_obj.as_pointer_value());
+        }
     }
 
     fn codegen_func(&mut self, func: &CFGFunction) {
-        let main_fn_type = self
-            .convert_llvm_anytype(&func.func_obj.borrow().obj_type)
-            .try_into()
-            .unwrap();
+        assert!(func.is_valid_blocks());
+
         let main_fn = self
-            .module
-            .add_function(&func.func_obj.borrow().name, main_fn_type, None);
+            .func_val
+            .get(&func.func_obj.borrow().id)
+            .unwrap()
+            .clone();
         let frame_pointer_attribute = self.context.create_string_attribute("frame-pointer", "all");
         main_fn.add_attribute(AttributeLoc::Function, frame_pointer_attribute);
 
         self.current_func = Some(main_fn);
-        self.objs_ptr.insert(
-            func.func_obj.borrow().id,
-            main_fn.as_global_value().as_pointer_value(),
-        );
+        self.local_objs_ptr = HashMap::new();
+
+        // append entry_block
 
         let entry_block = self.context.append_basic_block(main_fn, "entry_block");
-        let return_block = self.context.append_basic_block(main_fn, "return_block");
+        self.blocks.insert(func.entry_id.clone(), entry_block);
 
-        for (index, _) in func.blocks.iter() {
-            let block = self
-                .context
-                .append_basic_block(main_fn, &format!("block_{}", index.to_string()));
-            self.blocks.insert(index.clone(), block);
+        // append other block
+        for (id, cfg_block) in func.blocks.iter() {
+            if cfg_block.kind != BlockKind::Entry {
+                let block = self
+                    .context
+                    .append_basic_block(main_fn, &format!("block_{:?}", id));
+                self.blocks.insert(id.clone(), block);
+            }
         }
 
-        self.entry_block = Some(entry_block);
-        self.return_block = Some(return_block);
-
-        // codegen entry_block
-        self.builder.position_at_end(entry_block);
-        if func.retval.is_some() {
-            let retval = func.retval.as_ref().unwrap();
-            self.alloc_local_obj(retval);
-        }
-        for (i, arg) in main_fn.get_param_iter().enumerate() {
-            let ptr = self.alloc_local_obj(&func.args[i]);
-            self.builder.build_store(ptr, arg);
-        }
-
-        for stmt in func.entry_block.stmts.iter() {
-            self.codegen_stmt(stmt);
-        }
-
-        self.codegen_jump(&func.entry_block.jump_to);
-
-        // codegen return_block
-        self.builder.position_at_end(return_block);
-
-        for stmt in func.return_block.stmts.iter() {
-            self.codegen_stmt(stmt);
-        }
-
-        if func.retval.is_some() {
-            let retval = func.retval.as_ref().unwrap();
-
-            let ptr = self.get_local_obj(retval);
-            let ret_type = &retval.borrow().obj_type;
-            let llvm_type = self.convert_llvm_basictype(&ret_type);
-            let retval = self.builder.build_load(llvm_type, ptr, "retval");
-            self.builder.build_return(Some(&retval));
-        } else {
-            self.builder.build_return(None);
-        }
-
-        // codegen other block
-
-        for (_, cfg_block) in func.blocks.iter() {
-            self.codegen_block(cfg_block);
+        // codegen
+        let size = func.blocks.len();
+        for index in 0..size {
+            let block = func.blocks.get(&BlockID::new(index)).unwrap();
+            self.codegen_block(block);
         }
 
         self.current_func = None;
-        self.entry_block = None;
-        self.return_block = None;
         self.blocks = HashMap::new();
     }
 
     fn codegen_block(&mut self, cfg_block: &CFGBlock) {
-        let block = match cfg_block.id {
-            BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-            BlockID::Entry => panic!(),
-            BlockID::Return => panic!(),
-        };
+        let block = self.blocks.get(&cfg_block.id).unwrap().clone();
 
         self.builder.position_at_end(block);
 
@@ -281,6 +309,12 @@ impl<'ctx> CodegenArena<'ctx> {
         match stmt {
             CFGStmt::Decl(ref obj) => {
                 self.alloc_local_obj(obj);
+            }
+            CFGStmt::Arg(ref arg_obj, arg_index) => {
+                let current_fn = self.current_func.as_ref().unwrap();
+                let ptr = self.get_obj_ptr(arg_obj);
+                let arg_val = current_fn.get_nth_param(arg_index.clone() as u32).unwrap();
+                self.builder.build_store(ptr, arg_val);
             }
             CFGStmt::Assign(ref var_expr, ref val) => {
                 let lhs_ptr = self.codegen_addr(var_expr);
@@ -303,7 +337,7 @@ impl<'ctx> CodegenArena<'ctx> {
                         .build_indirect_call(fn_type, func_ptr, &arg_val, "func_call");
 
                 if ret_obj.is_some() {
-                    let ret_ptr = self.get_local_obj(ret_obj.as_ref().unwrap());
+                    let ret_ptr = self.get_obj_ptr(ret_obj.as_ref().unwrap());
 
                     self.builder
                         .build_store(ret_ptr, return_val.try_as_basic_value().left().unwrap());
@@ -315,26 +349,12 @@ impl<'ctx> CodegenArena<'ctx> {
     fn codegen_jump(&mut self, jump: &CFGJump) {
         match jump {
             CFGJump::Unconditional(ref block_id) => {
-                let block = match block_id {
-                    BlockID::Entry => self.entry_block.unwrap(),
-                    BlockID::Return => self.return_block.unwrap(),
-                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-                };
-
+                let block = self.blocks.get(block_id).unwrap().clone();
                 self.builder.build_unconditional_branch(block);
             }
             CFGJump::Conditional(ref cond, ref then_id, ref else_id) => {
-                let then_block = match then_id {
-                    BlockID::Entry => self.entry_block.unwrap(),
-                    BlockID::Return => self.return_block.unwrap(),
-                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-                };
-
-                let else_block = match else_id {
-                    BlockID::Entry => self.entry_block.unwrap(),
-                    BlockID::Return => self.return_block.unwrap(),
-                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-                };
+                let then_block = self.blocks.get(then_id).unwrap().clone();
+                let else_block = self.blocks.get(else_id).unwrap().clone();
 
                 let zero = self
                     .convert_llvm_basictype(&cond.expr_type)
@@ -355,68 +375,42 @@ impl<'ctx> CodegenArena<'ctx> {
             CFGJump::Switch(ref cond, ref cases, ref default_id) => {
                 let mut llvm_cases = Vec::new();
 
-                for (case_expr, case_id) in cases.iter() {
-                    let case_value = self.codegen_expr(case_expr).into_int_value();
-                    let block = match case_id {
-                        BlockID::Entry => self.entry_block.unwrap(),
-                        BlockID::Return => self.return_block.unwrap(),
-                        BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-                    };
+                for (case_val, case_id) in cases.iter() {
+                    let case_value = self.codegen_expr(&case_val.to_cfg()).into_int_value();
+                    let block = self.blocks.get(case_id).unwrap().clone();
                     llvm_cases.push((case_value, block));
                 }
 
-                let default_block = match default_id {
-                    BlockID::Entry => self.entry_block.unwrap(),
-                    BlockID::Return => self.return_block.unwrap(),
-                    BlockID::Block(ref id) => self.blocks.get(id).unwrap().clone(),
-                };
+                let default_block = self.blocks.get(default_id).unwrap().clone();
 
                 let cond_value = self.codegen_expr(cond).into_int_value();
 
                 self.builder
                     .build_switch(cond_value, default_block, &llvm_cases);
             }
-            CFGJump::Return => panic!(),
-            CFGJump::None => panic!(),
+            CFGJump::Return(ref ret_expr) => {
+                if ret_expr.is_some() {
+                    let ret_expr = ret_expr.as_ref().unwrap();
+                    let ret_val = self.codegen_expr(ret_expr);
+
+                    self.builder.build_return(Some(&ret_val));
+                } else {
+                    self.builder.build_return(None);
+                }
+            }
         }
     }
 
     fn codegen_global_variable(&mut self, obj: &Obj) {
-        if obj.borrow().obj_type.is_function_type() {
-            let main_fn_type = self
-                .convert_llvm_anytype(&obj.borrow().obj_type)
-                .try_into()
-                .unwrap();
-            let main_fn = self
-                .module
-                .add_function(&obj.borrow().name, main_fn_type, None);
-
-            self.objs_ptr.insert(
-                obj.borrow().id,
-                main_fn.as_global_value().as_pointer_value(),
-            );
-        } else {
-            let llvm_type = self.convert_llvm_basictype(&obj.borrow().obj_type);
-            let global_obj = self.module.add_global(
-                llvm_type,
-                Some(AddressSpace::default()),
-                &obj.borrow().name,
-            );
-
-            global_obj.set_initializer(&llvm_type.const_zero());
-
-            self.objs_ptr
-                .insert(obj.borrow().id, global_obj.as_pointer_value());
-        }
+        let llvm_type = self.convert_llvm_basictype(&obj.borrow().obj_type);
+        let global_val = self.global_val.get(&obj.borrow().id).unwrap().clone();
+        global_val.set_initializer(&llvm_type.const_zero());
     }
 
     fn codegen_addr<'a>(&'a self, ast: &CFGExpr) -> PointerValue<'ctx> {
         match ast.get_node() {
-            CFGExprNode::Var(obj) => self.get_local_obj(&obj),
-            CFGExprNode::UnaryOp(unary_node) => match unary_node.kind {
-                CFGUnaryOpKind::Deref => self.codegen_expr(&unary_node.expr).into_pointer_value(),
-                _ => panic!(),
-            },
+            CFGExprNode::Var(obj) => self.get_obj_ptr(&obj),
+            CFGExprNode::Deref(ref expr) => self.codegen_expr(expr).into_pointer_value(),
             CFGExprNode::Dot(ref st_expr, index) => {
                 let st_ptr = self.codegen_addr(st_expr);
                 let st_ty = self
@@ -481,6 +475,17 @@ impl<'ctx> CodegenArena<'ctx> {
                 } else {
                     let llvm_type = self.convert_llvm_basictype(expr_type);
                     self.builder.build_load(llvm_type, ptr, "dot")
+                }
+            }
+            CFGExprNode::Deref(ref expr) => {
+                let expr_type = &ast.expr_type;
+                assert!(expr.expr_type.is_ptr_type());
+                let llvm_type = self.convert_llvm_basictype(expr_type);
+                let ptr = self.codegen_expr(expr).into_pointer_value();
+                if expr_type.is_array_type() {
+                    ptr.into()
+                } else {
+                    self.builder.build_load(llvm_type, ptr, "var")
                 }
             }
             CFGExprNode::Sizeof(ref ty) => {
@@ -567,7 +572,7 @@ impl<'ctx> CodegenArena<'ctx> {
     fn codegen_unary_op<'a>(
         &'a self,
         unary_node: &CFGUnaryOpNode,
-        expr_type: &Type,
+        _expr_type: &Type,
     ) -> BasicValueEnum<'ctx> {
         match unary_node.kind {
             CFGUnaryOpKind::Plus => self.codegen_expr(&unary_node.expr),
@@ -577,16 +582,6 @@ impl<'ctx> CodegenArena<'ctx> {
             }
             CFGUnaryOpKind::Addr => {
                 BasicValueEnum::PointerValue(self.codegen_addr(&unary_node.expr))
-            }
-            CFGUnaryOpKind::Deref => {
-                assert!(&unary_node.expr.expr_type.is_ptr_type());
-                let llvm_type = self.convert_llvm_basictype(expr_type);
-                let ptr = self.codegen_expr(&unary_node.expr).into_pointer_value();
-                if expr_type.is_array_type() {
-                    ptr.into()
-                } else {
-                    self.builder.build_load(llvm_type, ptr, "var")
-                }
             }
             CFGUnaryOpKind::LogicalNot => {
                 let expr = self.codegen_expr(&unary_node.expr);

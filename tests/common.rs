@@ -3,11 +3,11 @@ use std::io::Write;
 use std::process::Command;
 use tempfile::NamedTempFile;
 
-pub fn compile_code(code_str: &str, path: &str) {
+pub fn compile_code(code_str: &str, path: &str, mycc_optimize_level: u8) {
     let mut tmpfile = NamedTempFile::new().unwrap();
     write!(tmpfile, "{}", code_str).unwrap();
 
-    mycc_rust::compile_to_llvm_ir(tmpfile.path(), path);
+    mycc_rust::compile_to_llvm_ir(tmpfile.path(), path, mycc_optimize_level, 0);
 }
 
 pub fn exec_code(path: &str) -> i32 {

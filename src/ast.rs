@@ -4,6 +4,8 @@ pub mod stmt;
 use expr::ASTExpr;
 use stmt::ASTStmt;
 
+use crate::obj::GlobalObjArena;
+use crate::obj::LocalObjArena;
 use crate::obj::Obj;
 use std::fmt;
 
@@ -28,32 +30,18 @@ impl fmt::Debug for ASTBlockStmt {
     }
 }
 
-#[derive(Clone)]
-pub enum ASTGlobal {
-    Function(Obj, Vec<Obj>, Vec<ASTBlockStmt>),
-    Variable(Obj),
+pub struct ASTFunction {
+    pub func_obj: Obj,
+    pub args_obj: Vec<Obj>,
+    pub stmts: Vec<ASTBlockStmt>,
+
+    pub obj_arena: LocalObjArena,
 }
 
-impl ASTGlobal {
-    pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str) -> fmt::Result {
-        match self {
-            ASTGlobal::Function(ref func_obj, ref _args, ref stmts) => {
-                writeln!(f, "{}Function {}", indent, func_obj.borrow().name)?;
-                for (i, stmt) in stmts.iter().enumerate() {
-                    writeln!(f, "{} {}th stmt:", indent, i)?;
-                    stmt.fmt_with_indent(f, &format!("{}\t", indent))?;
-                }
-                Ok(())
-            }
-            ASTGlobal::Variable(ref obj) => {
-                writeln!(f, "{}Variable {}", indent, obj.borrow().name)
-            }
-        }
-    }
-}
+pub struct AST {
+    pub global_objs: Vec<Obj>,
+    pub variables: Vec<Obj>,
+    pub functions: Vec<ASTFunction>,
 
-impl fmt::Debug for ASTGlobal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fmt_with_indent(f, "")
-    }
+    pub obj_arena: GlobalObjArena,
 }

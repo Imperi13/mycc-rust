@@ -1,23 +1,40 @@
 use crate::types::Type;
 
 use std::fmt;
+use std::marker::PhantomData;
 
 use std::cell::Ref;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub enum ObjID {
+    Global(usize),
+    Local(usize),
+}
+
 #[derive(Clone)]
 pub struct ObjNode {
-    pub id: usize,
+    pub id: ObjID,
     pub name: String,
 
-    pub is_global: bool,
     pub obj_type: Type,
+    // prevent creating instances expect ObjNode::new
+    _marker: PhantomData<i64>,
 }
 
 #[derive(Clone)]
 pub struct Obj {
     head: Rc<RefCell<ObjNode>>,
+}
+
+impl fmt::Debug for Obj {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.borrow().id {
+            ObjID::Global(id) => write!(f, "{}_global_{}", self.borrow().name, id),
+            ObjID::Local(id) => write!(f, "{}_local_{}", self.borrow().name, id),
+        }
+    }
 }
 
 impl Obj {
@@ -30,29 +47,51 @@ impl Obj {
     pub fn borrow(&self) -> Ref<ObjNode> {
         (*self.head).borrow()
     }
-}
 
-impl fmt::Debug for Obj {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Obj ")
+    pub fn is_global(&self) -> bool {
+        matches!(self.borrow().id, ObjID::Global(_))
     }
 }
 
-pub struct ObjArena {
+#[derive(Clone)]
+pub struct GlobalObjArena {
     current_id: usize,
 }
 
-impl ObjArena {
+impl GlobalObjArena {
     pub fn new() -> Self {
-        ObjArena { current_id: 0 }
+        GlobalObjArena { current_id: 0 }
     }
 
-    pub fn publish_obj(&mut self, obj_name: &str, is_global: bool, obj_type: Type) -> Obj {
+    pub fn publish_obj(&mut self, obj_name: &str, obj_type: Type) -> Obj {
         let node = ObjNode {
-            id: self.current_id,
+            id: ObjID::Global(self.current_id),
             name: String::from(obj_name),
-            is_global,
             obj_type,
+            _marker: PhantomData,
+        };
+
+        self.current_id += 1;
+        Obj::new(node)
+    }
+}
+
+#[derive(Clone)]
+pub struct LocalObjArena {
+    current_id: usize,
+}
+
+impl LocalObjArena {
+    pub fn new() -> Self {
+        LocalObjArena { current_id: 0 }
+    }
+
+    pub fn publish_obj(&mut self, obj_name: &str, obj_type: Type) -> Obj {
+        let node = ObjNode {
+            id: ObjID::Local(self.current_id),
+            name: String::from(obj_name),
+            obj_type,
+            _marker: PhantomData,
         };
 
         self.current_id += 1;
