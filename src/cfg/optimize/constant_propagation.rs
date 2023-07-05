@@ -76,6 +76,21 @@ impl CFGFunction {
                             }
                         }
                     }
+                    CFGJump::Switch(expr, cases, default_id) => {
+                        if expr.is_consteval_with_arena(&arena) {
+                            let mut is_matched = false;
+                            for (case_val, case_id) in cases.into_iter() {
+                                if expr.eval_const_with_arena(&arena, &mut is_changed) == case_val {
+                                    block.jump_to = CFGJump::Unconditional(case_id);
+                                    is_matched = true;
+                                }
+                            }
+
+                            if !is_matched {
+                                block.jump_to = CFGJump::Unconditional(default_id);
+                            }
+                        }
+                    }
                     CFGJump::Return(ret_expr) => {
                         if ret_expr.is_some() {
                             let ret_expr = ret_expr.unwrap();
