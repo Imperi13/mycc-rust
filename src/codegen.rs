@@ -21,6 +21,8 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
+use inkwell::passes::PassBuilderOptions;
+use inkwell::targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetTriple};
 use inkwell::types::AnyTypeEnum;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::types::BasicType;
@@ -31,6 +33,7 @@ use inkwell::values::FunctionValue;
 use inkwell::values::GlobalValue;
 use inkwell::values::PointerValue;
 use inkwell::AddressSpace;
+use inkwell::OptimizationLevel;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -66,7 +69,12 @@ impl<'ctx> CodegenArena<'ctx> {
         }
     }
 
-    pub fn codegen_all<P: AsRef<Path>>(&mut self, globals: &CFG, output_path: P) {
+    pub fn codegen_all<P: AsRef<Path>>(
+        &mut self,
+        globals: &CFG,
+        output_path: P,
+        llvm_optimize_level: u8,
+    ) {
         for obj in globals.global_objs.iter() {
             self.declarate_global_obj(obj);
         }
@@ -77,6 +85,29 @@ impl<'ctx> CodegenArena<'ctx> {
 
         for func in globals.functions.iter() {
             self.codegen_func(func);
+        }
+
+        if llvm_optimize_level == 1 {
+            Target::initialize_x86(&InitializationConfig::default());
+
+            let opt = OptimizationLevel::Default;
+            let reloc = RelocMode::Default;
+            let model = CodeModel::Default;
+            let target = Target::from_name("x86-64").unwrap();
+            let target_machine = target
+                .create_target_machine(
+                    &TargetTriple::create("x86_64-pc-linux-gnu"),
+                    "x86-64",
+                    "+avx2",
+                    opt,
+                    reloc,
+                    model,
+                )
+                .unwrap();
+            let pass_builer_options = PassBuilderOptions::create();
+            self.module
+                .run_passes("mem2reg", &target_machine, pass_builer_options)
+                .unwrap();
         }
 
         self.module.print_to_file(output_path).unwrap();

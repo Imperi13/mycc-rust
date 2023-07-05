@@ -23,6 +23,7 @@ pub fn compile_to_llvm_ir<Pinput: AsRef<Path>, Poutput: AsRef<Path>>(
     input_path: Pinput,
     output_path: Poutput,
     mycc_optimize_level: u8,
+    llvm_optimize_level: u8,
 ) {
     let file_read = read_to_string(input_path);
 
@@ -58,5 +59,5 @@ pub fn compile_to_llvm_ir<Pinput: AsRef<Path>, Poutput: AsRef<Path>>(
 
     let context = Context::create();
     let mut codegen_arena = CodegenArena::new(&context);
-    codegen_arena.codegen_all(&cfg, output_path);
+    codegen_arena.codegen_all(&cfg, output_path, llvm_optimize_level);
 }
